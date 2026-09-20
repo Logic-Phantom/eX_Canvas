@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, user-scalable=no">
+		<script type="text/javascript" src="runtime/cleopatra.js"></script>
+		<script type="text/javascript" src="./cpr-lib/user-modules.js"></script>
+		<script type="text/javascript" src="./cpr-lib/udc.js"></script>
+		<script type="text/javascript" src="canvas/Prototyper.clx.js"></script>
+		<link rel="stylesheet" type="text/css" href="runtime/css/cleopatra.css">
+		<link rel="stylesheet" href="./theme/cleopatra-theme.css" type="text/css">
+		<link rel="stylesheet" href="./theme/custom/prototyper.css" type="text/css">
+		<style>
+			/* for HTML5 */
+			html, body {
+				margin: 0px;
+				padding: 0px;
+				height: 100%;
+			}
+			body{
+				box-sizing: content-box;
+				min-height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<script type="text/javascript">
+			var app = cpr.core.Platform.INSTANCE.lookup("canvas/Prototyper");
+			app.createNewInstance().run();
+		</script>
+	</body>
+</html>

@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:std="http://tomatosystem.co.kr/cleopatra/studio" std:sid="html-e0c00001" version="1.0.6190">
+  <head std:sid="head-e0c00002">
+    <screen std:sid="screen-e0c00003" id="L" name="L" minwidth="1280px" width="1440px" height="860px"/>
+    <screen std:sid="screen-e0c00004" id="M" name="M" minwidth="768px" maxwidth="1279px" width="1024px" height="768px"/>
+    <screen std:sid="screen-e0c00005" id="S" name="S" maxwidth="767px" width="0px" height="768px" useCustomWidth="true" customWidth="360"/>
+    <cl:model std:sid="model-e0c00006"/>
+    <cl:appspec title="eXBuilder6 Web Prototyper"/>
+  </head>
+  <body std:sid="body-e0c00007" class="pt-root">
+    <cl:listener std:sid="listener-e0c00008" name="load" handler="onBodyLoad"/>
+    <cl:group std:sid="group-e0c00010" id="grpToolbar" class="pt-toolbar">
+      <cl:formdata std:sid="f-data-e0c00011" row="0" col="0" colspan="3"/>
+      <cl:output std:sid="output-e0c00012" id="optTitle" class="pt-title" value="eXBuilder6 Web Prototyper">
+        <cl:formdata std:sid="f-data-e0c00013" row="0" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00014" id="optStatus" class="pt-status" value="">
+        <cl:formdata std:sid="f-data-e0c00015" row="0" col="1"/>
+      </cl:output>
+      <cl:group std:sid="group-e0c00016" id="grpToolbarActions">
+        <cl:formdata std:sid="f-data-e0c00017" row="0" col="2"/>
+        <cl:output std:sid="output-e0c00018" class="pt-label" value="화면명">
+          <cl:flowlayoutdata std:sid="f-data-e0c00019" width="46px" height="28px" autosize="none"/>
+        </cl:output>
+        <cl:inputbox std:sid="i-box-e0c0001a" id="ipbAppName" value="prototype">
+          <cl:flowlayoutdata std:sid="f-data-e0c0001b" width="110px" height="28px" autosize="none"/>
+        </cl:inputbox>
+        <cl:output std:sid="output-e0c0001c" class="pt-label" value="변환">
+          <cl:flowlayoutdata std:sid="f-data-e0c0001d" width="34px" height="28px" autosize="none"/>
+        </cl:output>
+        <cl:combobox std:sid="c-box-e0c0001e" id="cmbMode" value="rule" preventinput="true">
+          <cl:flowlayoutdata std:sid="f-data-e0c0001f" width="150px" height="28px" autosize="none"/>
+          <cl:item std:sid="item-e0c00020" label="템플릿(규칙 기반)" value="rule"/>
+          <cl:item std:sid="item-e0c00021" label="템플릿(Gemini AI)" value="gemini"/>
+          <cl:item std:sid="item-e0c00022" label="XY 좌표 그대로" value="xy"/>
+        </cl:combobox>
+        <cl:output std:sid="output-e0c00023" class="pt-label" value="패턴">
+          <cl:flowlayoutdata std:sid="f-data-e0c00024" width="34px" height="28px" autosize="none"/>
+        </cl:output>
+        <cl:combobox std:sid="c-box-e0c00025" id="cmbPattern" value="auto" preventinput="true">
+          <cl:flowlayoutdata std:sid="f-data-e0c00026" width="170px" height="28px" autosize="none"/>
+        </cl:combobox>
+        <cl:checkbox std:sid="c-box-e0c00027" id="cbxPopup" text="팝업" value="" truevalue="Y" falsevalue="">
+          <cl:flowlayoutdata std:sid="f-data-e0c00028" width="58px" height="28px" autosize="none"/>
+        </cl:checkbox>
+        <cl:button std:sid="button-e0c00029" id="btnPreview" value="미리보기">
+          <cl:listener std:sid="listener-e0c0002a" name="click" handler="onBtnPreviewClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c0002b" width="70px" height="28px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c0002c" id="btnJson" value="AST(JSON)">
+          <cl:listener std:sid="listener-e0c0002d" name="click" handler="onBtnJsonClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c0002e" width="84px" height="28px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c000d0" id="btnSaveResult" class="pt-btn-primary" value="result 저장">
+          <cl:listener std:sid="listener-e0c000d1" name="click" handler="onBtnSaveResultClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c000d2" width="92px" height="28px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c0002f" id="btnDownload" value="CLX 다운로드">
+          <cl:listener std:sid="listener-e0c00030" name="click" handler="onBtnDownloadClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00031" width="104px" height="28px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c00032" id="btnClear" value="전체 삭제">
+          <cl:listener std:sid="listener-e0c00033" name="click" handler="onBtnClearClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00034" width="74px" height="28px" autosize="none"/>
+        </cl:button>
+        <cl:flowlayout std:sid="f-layout-e0c00035" scrollable="false" hspacing="6" vspacing="0" halign="right" valign="middle" linewrap="false"/>
+      </cl:group>
+      <cl:formlayout std:sid="f-layout-e0c00036" scrollable="false" hspace="8px" vspace="0px" top-margin="8px" right-margin="12px" bottom-margin="8px" left-margin="12px">
+        <cl:rows length="1" unit="FRACTION"/>
+        <cl:columns length="230" unit="PIXEL"/>
+        <cl:columns length="1" unit="FRACTION"/>
+        <cl:columns length="1110" unit="PIXEL"/>
+      </cl:formlayout>
+    </cl:group>
+    <cl:group std:sid="group-e0c00040" id="grpPalette" class="pt-panel">
+      <cl:formdata std:sid="f-data-e0c00041" row="1" col="0" rowspan="2"/>
+      <cl:output std:sid="output-e0c00042" id="optPaletteTitle" class="pt-panel-title" value="팔레트 (Palette)">
+        <cl:verticaldata std:sid="v-data-e0c00043" width="100%" height="32px" autosize="none"/>
+      </cl:output>
+      <cl:group std:sid="group-e0c00044" id="grpPaletteItems">
+        <cl:verticaldata std:sid="v-data-e0c00045" width="100%" height="560px" autosize="height"/>
+        <cl:verticallayout std:sid="v-layout-e0c00046" scrollable="false" spacing="6" leftmargin="8" rightmargin="8" topmargin="8" bottommargin="8"/>
+      </cl:group>
+      <cl:verticallayout std:sid="v-layout-e0c00047" scrollable="true" spacing="0"/>
+    </cl:group>
+    <cl:group std:sid="group-e0c00050" id="canvasGroup" class="pt-canvas">
+      <cl:listener std:sid="listener-e0c00051" name="click" handler="onCanvasGroupClick"/>
+      <cl:formdata std:sid="f-data-e0c00052" row="1" col="1"/>
+      <cl:xylayout std:sid="xylayout-e0c00053" scrollable="true"/>
+    </cl:group>
+    <cl:group std:sid="group-e0c00060" id="grpPreview" class="pt-panel">
+      <cl:formdata std:sid="f-data-e0c00061" row="2" col="1"/>
+      <cl:output std:sid="output-e0c00062" id="optPreviewTitle" class="pt-panel-title" value="출력 미리보기">
+        <cl:formdata std:sid="f-data-e0c00063" row="0" col="0"/>
+      </cl:output>
+      <cl:textarea std:sid="t-area-e0c00064" id="txaPreview" class="pt-preview" readonly="true">
+        <cl:formdata std:sid="f-data-e0c00065" row="1" col="0"/>
+      </cl:textarea>
+      <cl:formlayout std:sid="f-layout-e0c00066" scrollable="false" hspace="0px" vspace="0px" top-margin="0px" right-margin="0px" bottom-margin="0px" left-margin="0px">
+        <cl:rows length="28" unit="PIXEL"/>
+        <cl:rows length="1" unit="FRACTION"/>
+        <cl:columns length="1" unit="FRACTION"/>
+      </cl:formlayout>
+    </cl:group>
+    <cl:group std:sid="group-e0c00070" id="grpProperty" class="pt-panel">
+      <cl:formdata std:sid="f-data-e0c00071" row="1" col="2" rowspan="2"/>
+      <cl:output std:sid="output-e0c00072" id="optPropTitle" class="pt-panel-title" value="속성 (Property)">
+        <cl:formdata std:sid="f-data-e0c00073" row="0" col="0" colspan="2"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00074" class="pt-label" value="Type">
+        <cl:formdata std:sid="f-data-e0c00075" row="1" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00076" id="optPropType" value="(선택 없음)">
+        <cl:formdata std:sid="f-data-e0c00077" row="1" col="1"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00078" class="pt-label" value="ID">
+        <cl:formdata std:sid="f-data-e0c00079" row="2" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c0007a" id="ipbPropId">
+        <cl:listener std:sid="listener-e0c0007b" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c0007c" row="2" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c0007d" class="pt-label" value="Text">
+        <cl:formdata std:sid="f-data-e0c0007e" row="3" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c0007f" id="ipbPropText">
+        <cl:listener std:sid="listener-e0c00080" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c00081" row="3" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c00082" id="optPropHint" class="pt-status" value="">
+        <cl:formdata std:sid="f-data-e0c00083" row="4" col="0" colspan="2"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00084" class="pt-label" value="Left">
+        <cl:formdata std:sid="f-data-e0c00085" row="5" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c00086" id="ipbPropLeft" inputfilter="[0-9]" maxlength="4">
+        <cl:listener std:sid="listener-e0c00087" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c00088" row="5" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c00089" class="pt-label" value="Top">
+        <cl:formdata std:sid="f-data-e0c0008a" row="6" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c0008b" id="ipbPropTop" inputfilter="[0-9]" maxlength="4">
+        <cl:listener std:sid="listener-e0c0008c" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c0008d" row="6" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c0008e" class="pt-label" value="Width">
+        <cl:formdata std:sid="f-data-e0c0008f" row="7" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c00090" id="ipbPropWidth" inputfilter="[0-9]" maxlength="4">
+        <cl:listener std:sid="listener-e0c00091" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c00092" row="7" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c00093" class="pt-label" value="Height">
+        <cl:formdata std:sid="f-data-e0c00094" row="8" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c00095" id="ipbPropHeight" inputfilter="[0-9]" maxlength="4">
+        <cl:listener std:sid="listener-e0c00096" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c00097" row="8" col="1"/>
+      </cl:inputbox>
+      <cl:group std:sid="group-e0c00098" id="grpPropButtons">
+        <cl:formdata std:sid="f-data-e0c00099" row="9" col="0" colspan="2"/>
+        <cl:button std:sid="button-e0c0009a" id="btnPropDelete" value="선택 삭제">
+          <cl:listener std:sid="listener-e0c0009b" name="click" handler="onBtnPropDeleteClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c0009c" width="80px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:flowlayout std:sid="f-layout-e0c0009d" scrollable="false" hspacing="6" vspacing="0" halign="right"/>
+      </cl:group>
+      <cl:output std:sid="output-e0c000a0" id="optAiTitle" class="pt-panel-title" value="Gemini 설정 (무료 API 키)">
+        <cl:formdata std:sid="f-data-e0c000a1" row="10" col="0" colspan="2"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c000a2" class="pt-label" value="API Key">
+        <cl:formdata std:sid="f-data-e0c000a3" row="11" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c000a4" id="ipbApiKey" secret="true" placeholder="AI Studio에서 발급한 키">
+        <cl:formdata std:sid="f-data-e0c000a5" row="11" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c000a6" class="pt-label" value="Model">
+        <cl:formdata std:sid="f-data-e0c000a7" row="12" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c000a8" id="ipbModel" value="gemini-2.5-flash">
+        <cl:formdata std:sid="f-data-e0c000a9" row="12" col="1"/>
+      </cl:inputbox>
+      <cl:output std:sid="output-e0c000aa" class="pt-label" value="호출">
+        <cl:formdata std:sid="f-data-e0c000ab" row="13" col="0"/>
+      </cl:output>
+      <cl:combobox std:sid="c-box-e0c000ac" id="cmbAiRoute" value="direct" preventinput="true">
+        <cl:formdata std:sid="f-data-e0c000ad" row="13" col="1"/>
+        <cl:item std:sid="item-e0c000ae" label="브라우저 직접 호출(테스트)" value="direct"/>
+        <cl:item std:sid="item-e0c000af" label="서버 프록시(/ai/gemini.do)" value="proxy"/>
+      </cl:combobox>
+      <cl:checkbox std:sid="c-box-e0c000b0" id="cbxRememberKey" text="이 브라우저에 키 저장(localStorage)" value="" truevalue="Y" falsevalue="">
+        <cl:formdata std:sid="f-data-e0c000b1" row="14" col="0" colspan="2"/>
+      </cl:checkbox>
+      <cl:output std:sid="output-e0c000b2" class="pt-label" value="화면 요구사항 메모 (AI 프롬프트에 포함)">
+        <cl:formdata std:sid="f-data-e0c000b3" row="15" col="0" colspan="2"/>
+      </cl:output>
+      <cl:textarea std:sid="t-area-e0c000b4" id="txaMemo" placeholder="예) 사원 목록 조회 화면. 부서·입사일로 검색하고 그리드에서 선택하면 하단에서 수정한다.">
+        <cl:formdata std:sid="f-data-e0c000b5" row="16" col="0" colspan="2"/>
+      </cl:textarea>
+      <cl:formlayout std:sid="f-layout-e0c000b6" scrollable="true" hspace="6px" vspace="6px" top-margin="0px" right-margin="8px" bottom-margin="8px" left-margin="0px">
+        <cl:rows length="32" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="20" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="28" unit="PIXEL"/>
+        <cl:rows length="32" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="1" unit="FRACTION" minlength="80"/>
+        <cl:columns length="64" unit="PIXEL"/>
+        <cl:columns length="1" unit="FRACTION"/>
+      </cl:formlayout>
+    </cl:group>
+    <cl:formlayout std:sid="f-layout-e0c000c0" scrollable="false" hspace="8px" vspace="8px" top-margin="0px" right-margin="8px" bottom-margin="8px" left-margin="8px">
+      <cl:rows length="46" unit="PIXEL"/>
+      <cl:rows length="1" unit="FRACTION"/>
+      <cl:rows length="190" unit="PIXEL"/>
+      <cl:columns length="190" unit="PIXEL"/>
+      <cl:columns length="1" unit="FRACTION"/>
+      <cl:columns length="300" unit="PIXEL"/>
+    </cl:formlayout>
+  </body>
+  <std:studiosetting>
+    <std:hruler/>
+    <std:vruler/>
+  </std:studiosetting>
+</html>
