@@ -12,6 +12,9 @@ React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.
 끌어다 놓으면 사내 테마 클래스가 붙은 채로 그려지므로 **브라우저에서 실제 모양 그대로** 보이고, 그대로 `.clx` 로 나갑니다.
 빈 화면부터 그리기 싫으면 툴바의 **[미리 배치]** 로 고른 패턴의 뼈대를 캔버스에 깔고 고쳐 쓰면 됩니다.
 
+툴바의 **[공유]** 를 켜면 같은 화면명을 쓰는 사람과 **한 캔버스를 실시간으로 함께** 고칩니다(CRDT · [4.11](#411-공유-crdt-실시간-협업)).
+끄면 지금까지처럼 혼자 씁니다 — 공유는 체크박스를 켠 동안에만 동작합니다.
+
 ---
 
 ## 1. 빠른 시작
@@ -25,6 +28,7 @@ tools\dev.cmd
 ```
 
 ① 카탈로그 갱신(`SyncCatalog`) → ② 빌드(`BuildOnce` → `e6-compiler.jar`) → ③ 개발 서버가 뜹니다 → 브라우저에서 **http://127.0.0.1:8090/**
+공유(CRDT) 릴레이도 함께 뜹니다 — **ws://127.0.0.1:8091/ws/crdt-sync.do** (HTTP 포트 + 1).
 
 | 하고 싶은 것 | 방법 |
 |---|---|
@@ -33,6 +37,8 @@ tools\dev.cmd
 | 카탈로그만 갱신(변경점 보기) | `java -Dfile.encoding=UTF-8 tools\SyncCatalog.java` |
 | 빌드만 하기 | `java -Dfile.encoding=UTF-8 tools\BuildOnce.java target\clx-dev canvas/Prototyper` |
 | 서버만 띄우기 | `java tools\DevServer.java target\clx-dev 8090` |
+| 공유 릴레이 포트 바꾸기 / 끄기 | `java -Dexcanvas.collab.port=9001 …` / `-Dexcanvas.collab.port=0` |
+| 다른 PC 와 공유하기(사내망 실습) | 릴레이를 `-Dexcanvas.collab.host=0.0.0.0` 로 열고, 상대는 **자기 PC 에서 화면을 띄운 뒤** 속성창 **서버** 칸에 `ws://<내 IP>:8091/ws/crdt-sync.do` 를 넣습니다. (개발 서버의 HTTP 는 127.0.0.1 전용이라 화면 자체는 각자 띄웁니다. 한 번에 여럿이 쓰려면 Tomcat 배포가 낫습니다) |
 
 ### eXBuilder6 스튜디오 / Tomcat 에서 실행
 
@@ -48,25 +54,26 @@ tools\dev.cmd
 3. 캔버스에서 항목을 끌어 **이동**, 오른쪽 아래 파란 핸들로 **크기 조절**, 클릭해 **선택**합니다.
 4. 우측 **속성창**에서 ID · Text · Left · Top · Width · Height 를 고칩니다. (Text 의 뜻은 유형마다 다릅니다 — 아래 표)
 5. 상단 툴바에서 **화면명 · 변환 방식 · 패턴 · 팝업 여부**를 정합니다.
-6. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
+6. (선택) 같이 고칠 사람이 있으면 **화면명을 맞추고** 각자 **[공유]** 를 켭니다 — 서로의 커서 · 선택 · 편집이 그대로 보입니다([4.11](#411-공유-crdt-실시간-협업)).
+7. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
 
 ---
 
 ## 2. 화면 구성
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 툴바  화면명 | 변환 | 패턴 | 미리 배치 | 팝업 | [미리보기] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
-├────────────┬─────────────────────────────────────────────────┬───────────────────────────────────┤
-│ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                   │ 속성창                             │
-│  [찾기]     │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로      │  Type / ID / Text                 │
-│  기본       │   그려진다                                       │  Left / Top / Width / Height      │
-│  입력       │                                                 │  [선택 삭제]                       │
-│  데이터·컨테이너├─────────────────────────────────────────────────┤ 저장 위치 / [폴더 지정]             │
-│  UDC        │ 출력 미리보기 (생성된 XML / AST JSON)              │ Gemini 설정                       │
-│  UI 템플릿 · 버튼 │                                             │  API Key / Model / 호출 경로 / 메모 │
-│  UI 템플릿 · 폼 …│                                             │                                   │
-└────────────┴─────────────────────────────────────────────────┴───────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 툴바  화면명 | 변환 | 패턴 | 미리 배치 | 팝업 | 공유 | [미리보기] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
+├────────────┬─────────────────────────────────────────────────┬───────────────────────────────────────┤
+│ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                   │ 속성창                                 │
+│  [찾기]     │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로      │  Type / ID / Text                     │
+│  기본       │   그려진다                                       │  Left / Top / Width / Height          │
+│  입력       │   (공유 중이면 남의 커서·선택이 함께 보인다)         │  [선택 삭제]                           │
+│  데이터·컨테이너├─────────────────────────────────────────────────┤ 공유 : 내 이름 / 서버 / 상태 / 접속자     │
+│  UDC        │ 출력 미리보기 (생성된 XML / AST JSON)              │ 저장 위치 / [폴더 지정]                 │
+│  UI 템플릿 · 버튼 │                                             │ Gemini 설정                           │
+│  UI 템플릿 · 폼 …│                                             │  API Key / Model / 호출 경로 / 메모     │
+└────────────┴─────────────────────────────────────────────────┴───────────────────────────────────────┘
 ```
 
 팔레트 맨 위 **찾기 상자**에 글자를 넣으면 이름·설명이 맞는 항목만 남고, 남은 것이 없는 묶음 머리글도 함께 숨습니다.
@@ -81,6 +88,7 @@ tools\dev.cmd
 | 패턴 | 자동 선택 / P1-1 … P8-3 | 직접 고르면 그 패턴의 배치(위아래/좌우)를 강제 |
 | 미리 배치 | 체크 | 패턴을 고르는 순간 그 패턴의 뼈대(조회 조건 · 그리드/폼 · 하단 버튼)를 캔버스에 깔아 준다 |
 | 팝업 | 체크 | `_P` 템플릿 형태(`pop-content-wrapper`, EXB-POP 활성, 앱 헤더 숨김) |
+| 공유 | 체크 | **화면명과 같은 이름의 "방"** 에 붙어 캔버스를 실시간으로 함께 고친다. 끄면 연결을 끊고 그때까지의 캔버스를 혼자 이어서 쓴다([4.11](#411-공유-crdt-실시간-협업)) |
 
 ### 팔레트 (기본 29종 + UDC + UI 템플릿 116종 = 149항목)
 
@@ -124,7 +132,7 @@ eX-Canvas/
 │  │  ├ Prototyper.clx               ← Web Prototyper 화면(툴바 · 팔레트 · 캔버스 · 속성창 · 미리보기)
 │  │  ├ Prototyper.js                ← 화면 스크립트: 드래그 앤 드롭 · 선택/이동/크기 · 속성 반영 · 내보내기
 │  │  └ 확인필요.md                   ← 검증한 것 / 아직 확인이 필요한 것
-│  ├ module/canvas/                  ← 공통 모듈 8종 (cpr.core.Module.require("module/canvas/<이름>"))
+│  ├ module/canvas/                  ← 공통 모듈 10종 (cpr.core.Module.require("module/canvas/<이름>"))
 │  │  ├ controlRegistry.module.js    ← 컨트롤 유형 표 + UDC 자동 탐색 + UI 템플릿 등록
 │  │  ├ canvasAst.module.js          ← 캔버스 → JSON AST
 │  │  ├ templatePlanner.module.js    ← 템플릿 카탈로그 · 규칙 기반 계획 · 계획 검증/정규화 · 패턴 뼈대(skeleton)
@@ -132,20 +140,23 @@ eX-Canvas/
 │  │  ├ clxSerializer.module.js      ← JSON → .clx XML (XY / 템플릿 뼈대 / UI 템플릿 트리)
 │  │  ├ fileDownload.module.js       ← Blob 다운로드 · 저장 서버 요청 · 지정 폴더에 직접 쓰기
 │  │  ├ templateBuilder.module.js    ← UI 템플릿 노드 → 실제 cpr.controls.* 트리(캔버스 미리보기)
-│  │  └ uiTemplateCatalog.module.js  ← **자동 생성** : 상용구 116종의 컨트롤 트리 (SyncCatalog 가 만든다)
+│  │  ├ uiTemplateCatalog.module.js  ← **자동 생성** : 상용구 116종의 컨트롤 트리 (SyncCatalog 가 만든다)
+│  │  ├ collabSession.module.js      ← 공유 세션 : Y.Doc(항목) · awareness(커서/선택) · 웹소켓 · 서버 주소 찾기
+│  │  └ yjsLoader.module.js          ← 공유를 켤 때만 Yjs·y-protocols 를 내려받는다(동적 import)
 │  ├ style/prototyper.less           ← Prototyper 전용 스타일(env.json 의 runtime-css 에 등록)
 │  ├ theme/                          ← eXCFrame 테마 LESS 원본(이클립스 빌더가 컴파일한다 — [6](#6-검증-현황과-알려진-제약) 참고)
 │  ├ udc/com/                        ← 프로젝트 UDC (팔레트 UDC 묶음의 원천)
 │  └ result/<yyyyMMdd>/              ← [result 저장] 결과물(.clx + .js). 실행한 날짜별 폴더
 ├ src/main/java/com/tomatosystem/canvas/web/
 │  ├ GeminiProxyController.java      ← POST /ai/gemini.do       (Tomcat 용 Gemini 프록시)
-│  └ CanvasResultController.java     ← /canvas/saveResult.do (Tomcat 용 result 저장 · GET 은 가능 여부 확인)
+│  ├ CanvasResultController.java     ← /canvas/saveResult.do (Tomcat 용 result 저장 · GET 은 가능 여부 확인)
+│  └ CrdtRelayEndpoint.java          ← /ws/crdt-sync.do      (Tomcat 용 공유 릴레이 · javax.websocket)
 ├ tools/
 │  ├ dev.cmd                         ← 카탈로그 갱신 + 빌드 + 개발 서버 실행
 │  ├ SyncCatalog.java                ← 상용구 XMI·UDC·화면 템플릿 훑기 → 카탈로그 모듈 · docs/catalog.md · 변경 보고
 │  ├ catalog-index.txt               ← 자동 생성: 변경 감지용 지문(항목별 해시)
 │  ├ BuildOnce.java                  ← e6-compiler 실행 + eXCFrame 테마(clx-build/theme) 반영
-│  └ DevServer.java                  ← Tomcat 없이 쓰는 개발 서버(정적 파일 + 위 두 엔드포인트), 127.0.0.1 전용
+│  └ DevServer.java                  ← Tomcat 없이 쓰는 개발 서버(정적 파일 + 위 엔드포인트 + 공유 릴레이), 127.0.0.1 전용
 ├ ci-lib/clx/e6-compiler.jar         ← eXBuilder6 컴파일러(빌드 · 생성물 유효성 검증에 사용)
 ├ exbuilder/runtime/                 ← 런타임(cleopatra.js · 기본 테마)
 ├ clx-build/                         ← 이클립스 eXBuilder6 빌더 산출물. BuildOnce 가 여기서 테마를 가져온다
@@ -317,6 +328,78 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 - 스크린은 템플릿과 같은 `EXB-FULL / EXB-DIV / EXB-PART / EXB-POP`.
 - 데이터셋 · 서브미션 · 이벤트 핸들러는 만들지 않습니다(화면 초안 도구). `.js` 는 템플릿과 같은 머리 주석뿐입니다.
 
+### 4.11 공유 (CRDT 실시간 협업)
+
+툴바 **[공유]** 를 켠 사람들끼리 **한 캔버스**를 같이 고칩니다. 끄면 웹소켓을 닫고 그때까지의 캔버스를 각자 혼자 이어서 씁니다(내용은 지우지 않습니다).
+끈 상태에서는 라이브러리도 받지 않고 서버에 붙지도 않습니다 — 기존 사용 방식이 그대로입니다.
+
+#### 방(room) = 화면명
+
+접속 주소에 `?room=<화면명>` 을 붙입니다. **같이 고치려면 툴바 화면명을 서로 맞추면 됩니다.**
+켠 뒤에 화면명을 바꿔도 방은 그대로입니다(껐다 켜면 새 이름의 방으로 갑니다).
+
+#### 무엇이 오가는가
+
+```
+ 내 캔버스                                     ┌──────────────┐                                   남의 캔버스
+ ────────                                     │  릴레이 서버   │                                   ────────
+ 항목 추가/이동/크기/ID/Text/삭제                 │ (내용을 해석 │
+   → collabSession.publishXxx()               │  하지 않는다) │
+   → Y.Doc(items)  ─ update ─▶ [0]+update ──▶ │ 방마다 모아 둠 │ ──▶ [0]+update ─▶ Y.Doc ─ observe ─▶ 캔버스에 반영
+                                              │              │
+ 마우스 커서 · 선택                             │              │
+   → awareness ────────────▶ [1]+update ────▶ │ 그냥 넘김     │ ──▶ awareness ──▶ 커서·선택 상자 그리기
+                                              └──────────────┘
+```
+
+- **문서(누가 무엇을 어디에 놓았는지)** 는 CRDT(Yjs)가 합칩니다. 동시에 고쳐도 충돌·되돌림이 없습니다.
+  항목 하나 = `Y.Map { uid, type, id, text, x, y, w, h }`, 전체 = `Y.Map<uid, 항목>`.
+  **필드 단위로 합치므로** A 가 옮기는 동안 B 가 Text 를 고쳐도 서로를 덮어쓰지 않습니다(같은 필드를 동시에 고치면 나중 값).
+- **`uid`** 는 항목을 만들 때 붙는 전역 고유 키(시각+일련번호+난수)입니다. 래퍼의 사용자 속성 `pt-uid` 에 들어가며, 공유를 켜지 않아도 늘 붙습니다.
+  CLX 의 `id` 는 사람이 읽는 이름이라 바뀔 수 있어서, 누가 어느 컨트롤을 고쳤는지는 `uid` 로 맞춥니다.
+- **커서·선택(awareness)** 은 문서가 아니라 "지금 상태"라 저장하지 않습니다. 접속이 끊기면 그 사람의 커서도 함께 사라집니다.
+- 전선 규약은 `Crdt_WebSoket` 프로젝트(`CrdtRelayHandler`)와 같습니다 — 첫 바이트 `0` = 문서, `1` = 커서. 서버를 서로 바꿔 써도 됩니다.
+
+#### 켤 때 내 캔버스는 어떻게 되나
+
+붙자마자 방에 있던 내용이 먼저 내 캔버스에 들어옵니다. 그다음 **켜기 직전에 내가 갖고 있던 항목**만 놓고 정합니다.
+
+| 상황 | 결과 |
+|---|---|
+| 방이 비어 있음 | 내 캔버스를 그대로 올린다(내가 첫 사람) |
+| 방에 있고 내 캔버스는 비었음 | 받은 것만 쓴다(묻지 않는다) |
+| 둘 다 있음 | 물어본다 — **[확인]** 내 것도 올려 합친다 / **[취소]** 내가 그린 것은 지우고 공유본만 쓴다 |
+| 껐다 다시 켬 | 이미 공유본에 있는 내 항목은 "내 것" 으로 치지 않으므로 묻지 않고 그대로 이어 간다 |
+
+#### 남이 어디를 보고 있는지
+
+- **커서** — 남의 마우스가 캔버스 안에 있으면 그 자리에 **화살표 + 이름표**가 뜹니다(60ms 간격 · 캔버스 기준 좌표, `left/top` 전이로 부드럽게 움직입니다).
+  캔버스 밖으로 나가면 커서는 사라지고, 이름표는 그 사람이 고른 항목 위로 붙습니다.
+- **선택** — 남이 고른 항목에 그 사람 색의 테두리 상자가 생깁니다. 그 항목이 움직이면 상자도 따라갑니다.
+- 색은 사람마다 8가지 중 하나(`pt-peer-0` ~ `pt-peer-7`, clientID 로 정함)입니다.
+  **인라인 스타일을 쓰지 않으려고** 색을 클래스로 나눴습니다 — 캔버스 항목과 같은 원칙(위치는 레이아웃, 모양은 클래스)입니다.
+- 커서·선택 표시는 캔버스 안에 만든 아웃풋 2개(상자 · 이름표)이고 `pointer-events:none` 이라 내 조작을 가로채지 않습니다.
+  AST 추출·저장에서는 `pt-type` 이 없어 자동으로 빠집니다.
+
+#### 서버 (둘 중 하나면 됩니다)
+
+| 실행 방법 | 담당 | 주소 |
+|---|---|---|
+| 개발 서버 | `tools/DevServer.java` 의 `CollabRelay`(RFC 6455 직접 구현) | `ws://127.0.0.1:<HTTP 포트+1>/ws/crdt-sync.do` |
+| Tomcat 배포 | `CrdtRelayEndpoint`(`javax.websocket` · `@ServerEndpoint`) | `ws://<서버>/<컨텍스트>/ws/crdt-sync.do` |
+
+- 화면은 뜰 때 `GET /canvas/collabInfo.do` 로 주소를 묻고(개발 서버만 답합니다), 답이 없으면 **이 화면을 내려준 서버의 같은 포트**로 봅니다(Tomcat 배포가 이 경우).
+  속성창 **서버** 칸에 직접 적으면 그 주소를 씁니다(빈 칸 = 자동).
+- 릴레이는 **내용을 해석하지 않습니다.** 방마다 문서 변경을 모아 두었다가 새로 들어온 사람에게 다시 들려줄 뿐입니다.
+  **마지막 사람이 나가면 방과 기록을 버립니다** — 다음 사람이 자기 캔버스로 새로 엽니다(서버는 파일을 저장하지 않습니다).
+- `com.sun.net.httpserver` 는 프로토콜 업그레이드를 지원하지 않아 개발 서버는 릴레이를 **다른 포트**에서 엽니다.
+- 끊기면 2초 간격으로 3번까지 다시 붙고, 그래도 안 되면 체크가 자동으로 꺼지며 이유를 알려 줍니다.
+
+#### 라이브러리
+
+`yjsLoader` 가 **공유를 처음 켤 때** `https://esm.sh` 에서 `yjs@13.6.8` 과 `y-protocols@1.0.6/awareness` 를 동적 `import` 합니다(두 패키지를 같은 yjs 버전으로 받는 것이 중요합니다 — 인스턴스가 갈리면 awareness 가 동작하지 않습니다).
+사내망처럼 esm.sh 를 못 여는 곳이면 사본을 두고 화면보다 먼저 `window.EXCANVAS_YJS_URL` · `window.EXCANVAS_YAWARENESS_URL` 에 주소를 넣으면 됩니다.
+
 ---
 
 ## 5. 확장하는 법
@@ -330,6 +413,10 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 | 템플릿 패턴 추가 | `templatePlanner.module.js` 의 `CATALOG` + `decidePattern()` + `skeleton()` 의 `switch` |
 | 뼈대(클래스·행 높이·스크린) 변경 | `clxSerializer.module.js` (`headEl` · `searchHeaderEl` · `sectionEl` · `footerEl`) |
 | AI 프롬프트·응답 스키마 | `geminiPlanner.module.js` (`SYSTEM_TEXT` · `buildResponseSchema`) |
+| 공유 항목에 필드 추가(예: 잠금·색) | `collabSession.module.js` 의 `FIELDS` 에 이름 추가 + `Prototyper.js` 의 `itemRecord()`·`applyRemoteUpdate()` |
+| 공유 표시(커서·선택 상자) 모양 | `style/prototyper.less` 의 `.pt-remote-sel` · `.pt-remote-chip` · `.pt-peer-0~7` |
+| 공유 서버를 따로 운영 | 릴레이 주소만 속성창 **서버** 칸(또는 `collabInfo.do` 응답)에 넣으면 됩니다. 전선 규약은 `[0]`=문서 · `[1]`=커서 두 가지뿐입니다 |
+| CRDT 라이브러리 위치(폐쇄망) | 화면보다 먼저 `window.EXCANVAS_YJS_URL` · `window.EXCANVAS_YAWARENESS_URL` 설정 |
 
 ---
 
@@ -337,12 +424,18 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 
 **검증한 것**
 
-- `Prototyper.clx` 와 모듈 8종: `e6-compiler.jar` 컴파일 문제 0건.
+- `Prototyper.clx` 와 모듈 10종: `e6-compiler.jar` 컴파일 문제 0건. `DevServer.java` · `CrdtRelayEndpoint.java` `javac` 통과.
 - 브라우저에서 드롭 · 더블클릭 추가 · 이동 · 팔레트 찾기 · 미리보기 · result 저장 동작.
 - 생성 CLX: 컨트롤 29종 + UDC 4종을 XY·템플릿 두 방식으로 내보내 컴파일 문제 0건. 일반/팝업/셔틀/탭/트리 시나리오의 실행 화면 구조 확인.
 - **UI 템플릿 116종 전부** — 캔버스 컨트롤 트리 생성 오류 0건, 한 화면에 모두 담아 내보낸 `.clx` 컴파일 오류 0건(`std:sid`·`id` 충돌 없음). `[폼] 조회 (1행)` 은 브라우저에서 사내 테마(`search-box` · `label required` · `btn-search`)가 그대로 나오는 것을 눈으로 확인.
 - **패턴 미리 배치 21개** — `skeleton() → planByRule() → resolve()` 왕복에서 고른 패턴 그대로 나오는 것 확인(자동 선택일 때 18/21은 그대로, 나머지 3개는 아래 5번). 900×580 과 1600×900 두 크기에서 21개 모두 사방 여백이 정확히 20px(넘침·빈 공간 0) 인 것 확인.
 - Gemini: 서버 프록시 경로로 실호출 성공(`gemini-2.5-flash`, 응답 스키마 통과).
+- **공유(CRDT)** — 브라우저 탭 2개를 개발 서버 릴레이(`ws://127.0.0.1:8091`)에 실제로 붙여 확인했습니다.
+  ① 방 열기(첫 사람) · ② 나중 사람이 기존 항목을 그대로 받기 · ③ 항목 추가 · **드래그 이동** · 크기 · `ID`/`Text` 변경 · 삭제가 양쪽에 같은 값으로 반영 ·
+  ④ 남의 **커서**(캔버스 좌표)와 **선택 상자**가 따라 움직임 · 사람마다 다른 색 · 이름 바꾸면 즉시 반영 ·
+  ⑤ 공유를 끄면 상대 화면에서 접속자·표시가 바로 사라지고 내 캔버스는 그대로 남음 ·
+  ⑥ 껐다 다시 켜도(다른 사람이 방에 남아 있을 때) 내 항목이 사라지지 않음 ·
+  ⑦ 마지막 사람이 나가면 릴레이가 방·기록을 버림(서버 로그로 확인).
 
 **알려진 제약 · 확인이 필요한 것** (상세: [clx-src/canvas/확인필요.md](clx-src/canvas/확인필요.md))
 
@@ -356,11 +449,30 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 6. UI 템플릿의 폼 셀 세부(`halign` · 셀 `width` · `ignore-layout-spacing`)는 캔버스 미리보기에서는 생략하고 `.clx` 에만 넣습니다. 탭 아이콘용 `userAttributes`/표현식 바인딩은 옮기지 않습니다.
 7. 브라우저 직접 호출 방식은 API 키가 브라우저에 남습니다. 팀에 공개할 때는 서버 프록시를 쓰세요.
 8. P0(이너) 패턴은 지원하지 않습니다. 아코디언·임베디드·쉘 안의 자식 컨트롤은 비워서 내보냅니다.
-9. 툴바가 길어 창 폭이 1440px 보다 좁으면 상태 메시지 칸이 좁아집니다(전체 내용은 툴팁).
+9. 툴바가 길어 창 폭이 1500px 보다 좁으면 상태 메시지 칸이 좁아집니다(전체 내용은 툴팁).
+10. **공유는 개발·협업 도구입니다.** 인증이 없어 같은 방 이름을 아는 사람은 누구나 들어옵니다. 릴레이 기본 바인딩은 `127.0.0.1` 이며, 사내망에 열 때만 `-Dexcanvas.collab.host` 를 쓰세요. 운영 서버에는 배포하지 않습니다.
+11. **공유 서버는 캔버스를 저장하지 않습니다.** 방에 아무도 없으면 내용이 사라집니다 — 결과는 평소대로 **[result 저장]** 으로 남기세요.
+12. Tomcat 배포에서 공유를 쓰려면 **JSR-356(javax.websocket)을 지원하는 컨테이너**가 필요합니다(Tomcat 8/9 확인 대상). Tomcat 10+ 는 `CrdtRelayEndpoint` 의 `javax.websocket` → `jakarta.websocket` 으로 바꿔야 합니다. **이 PC 에서는 Tomcat 을 띄우지 못해 개발 서버 릴레이로만 확인했습니다.**
+13. 공유 중에 두 사람이 **동시에 같은 유형을 추가하면** 둘 다 `btn1` 같은 같은 `id` 를 가질 수 있습니다(모두의 화면에 똑같이 보입니다). 내보낼 때 직렬화기가 번호를 붙여 유일하게 만들지만, 원하는 이름이면 속성창에서 고치세요.
+14. 화면명·팝업·변환 방식 같은 **툴바 설정은 공유하지 않습니다**(각자 값). 공유되는 것은 캔버스 항목뿐입니다.
+15. CRDT 라이브러리를 인터넷(esm.sh)에서 받습니다. 막힌 망에서는 [5](#5-확장하는-법) 의 주소 설정으로 사본을 쓰세요.
 
 ---
 
 ## 7. 변경 이력
+
+### 2026-09-20 · 공유 (CRDT 실시간 협업)
+
+툴바 **[공유]** 체크박스로 **켠 동안에만** 같은 화면명(방)의 사람들과 캔버스를 실시간으로 함께 고칩니다([4.11](#411-공유-crdt-실시간-협업)).
+
+- **문서는 CRDT(Yjs)** — 항목 하나가 `Y.Map { uid, type, id, text, x, y, w, h }`, 전체가 `Y.Map<uid, 항목>`. 필드 단위로 합쳐져 동시에 고쳐도 충돌하지 않습니다.
+  항목마다 전역 고유 키(`pt-uid`)를 붙여 `id` 가 바뀌어도 서로를 알아봅니다.
+- **커서·선택은 awareness** — 남의 마우스 자리에 화살표+이름표, 남이 고른 항목에 색 테두리. 문서에 남기지 않습니다.
+  색은 인라인 스타일 대신 클래스(`pt-peer-0~7`)로 주고, 표시는 캔버스 안 아웃풋 2개로 그려 컨트롤 DOM 을 건드리지 않습니다.
+- **서버** — 개발 서버는 HTTP 포트+1 에 웹소켓 릴레이(RFC 6455 직접 구현)를 함께 띄우고 `/canvas/collabInfo.do` 로 주소를 알려 줍니다.
+  Tomcat 배포는 `CrdtRelayEndpoint`(`javax.websocket`)가 같은 일을 합니다. 전선 규약(`[0]`=문서 · `[1]`=커서)은 `Crdt_WebSoket` 프로젝트와 같아 서버를 바꿔 써도 됩니다.
+- **라이브러리는 켤 때만** — `yjsLoader` 가 `yjs` · `y-protocols/awareness` 를 동적 `import` 로 받습니다(끈 상태에서는 네트워크를 타지 않습니다).
+- 켤 때 내 캔버스와 공유본이 둘 다 있으면 **합칠지 버릴지 물어봅니다**. 껐다 켠 경우는 묻지 않고 그대로 이어 갑니다.
 
 ### 2026-09-20 · result 저장 경로 3단
 

@@ -59,6 +59,8 @@ body(.pt-root)  formlayout  rows 46px / 1fr / 190px   cols 190px / 1fr / 300px
 | `fileDownload` | Blob 다운로드 · 저장 서버 요청(`probeServer`/`saveToProject`) · 지정 폴더에 직접 쓰기(`saveToDirectory`) |
 | `templateBuilder` | UI 템플릿 카탈로그 노드 → 실제 `cpr.controls.*` 트리(캔버스 미리보기) |
 | `uiTemplateCatalog` | **자동 생성** — 상용구 116종의 컨트롤 트리. `tools/SyncCatalog.java` 가 만든다 |
+| `collabSession` | 공유 세션 — `Y.Doc`(항목 맵) · awareness(커서·선택) · 웹소켓 · 서버 주소 찾기. 화면은 `publishXxx()` 로 알리고 핸들러로 돌려받는다 |
+| `yjsLoader` | 공유를 처음 켤 때만 `yjs` · `y-protocols/awareness` 를 동적 `import` |
 
 ## 3. 템플릿 매칭
 
@@ -103,8 +105,8 @@ body.content-wrapper (팝업: pop-content-wrapper, EXB-POP active, 앱 헤더 hi
 
 | 방법 | 절차 |
 |---|---|
-| 개발 서버(Tomcat 불필요) | `tools\dev.cmd` → ① `SyncCatalog`(카탈로그 갱신·변경 보고) ② `BuildOnce`(빌드+테마) ③ `DevServer` → http://127.0.0.1:8090/ |
-| eXBuilder6 스튜디오/Tomcat | 프로젝트 빌드 후 `…/eX-Canvas/ui/canvas/Prototyper.clx` |
+| 개발 서버(Tomcat 불필요) | `tools\dev.cmd` → ① `SyncCatalog`(카탈로그 갱신·변경 보고) ② `BuildOnce`(빌드+테마) ③ `DevServer` → http://127.0.0.1:8090/ (+ 공유 릴레이 ws://127.0.0.1:8091) |
+| eXBuilder6 스튜디오/Tomcat | 프로젝트 빌드 후 `…/eX-Canvas/ui/canvas/Prototyper.clx` (공유는 같은 서버의 `/ws/crdt-sync.do`) |
 
 `BuildOnce` 는 `e6-compiler` 를 `--exclude theme/**` 로 돌리고 eXCFrame 테마는 이클립스 산출물(`clx-build/theme`)에서 가져온다.
 CLI 컴파일러가 `theme/custom-theme.less` 에서 끝나지 않기 때문이다(원인 미상 — `clx-src/canvas/확인필요.md` 0-3 참고).
@@ -156,3 +158,61 @@ CLI 컴파일러가 `theme/custom-theme.less` 에서 끝나지 않기 때문이�
 - **XMI → CLX 이름 변환은 생성 시점에 한 번** 끝낸다(`rowIndex`→`row`, `horizontalSpacing`→`hspace`/`hspacing`, `ignoreLayoutSpacing`→`ignore-layout-spacing` …). 브라우저 쪽 모듈은 이미 CLX 속성명인 값을 그대로 쓴다.
 - **변경 감지**는 항목별 지문(`tools/catalog-index.txt`)을 비교한다. 이름뿐 아니라 컨트롤 트리·클래스·레이아웃이 바뀐 것도 "수정"으로 잡는다.
 - **패턴 뼈대**(`templatePlanner.skeleton()`)는 캔버스 크기를 받아 사방 20px 여백만 남기고 폭·높이를 나눠 쓴다. 좌표는 `planByRule()` 이 같은 패턴으로 되읽도록 맞춰 두었다.
+
+## 10. 공유 (CRDT 실시간 협업)
+
+사용법과 전체 그림은 [README](../README.md) 4.11 에 있다. 설계상의 요점만 적는다.
+
+### 왜 CRDT 인가
+
+캔버스 편집은 "누가 먼저 눌렀나" 로 줄 세우기 어렵다(동시에 다른 항목을 옮기는 것이 정상이다).
+CRDT 는 **순서를 맞추지 않고도 같은 결과로 수렴**하므로 서버가 중재하지 않아도 된다 → 릴레이는 내용을 해석하지 않는 단순 중계로 끝난다.
+
+### 문서 모양
+
+```
+Y.Doc
+ └ items : Y.Map< uid, Y.Map{ uid, type, id, text, x, y, w, h } >
+```
+
+- **필드 단위 병합** — A 가 `x/y` 를, B 가 `text` 를 동시에 고쳐도 서로를 덮지 않는다. 같은 필드가 겹치면 나중 값(LWW).
+- **`uid`** = 만든 시각(36진) + 일련번호 + 난수. 래퍼의 사용자 속성 `pt-uid` 에 넣는다.
+  CLX `id` 는 사람이 바꾸는 이름이라 식별자로 쓸 수 없다.
+- 항목 배열이 아니라 **맵**인 이유: 캔버스는 XY 배치라 순서가 의미를 갖지 않고, 맵이면 같은 항목의 동시 수정이 자연스럽게 합쳐진다.
+
+### 되울림(echo) 막기 — 두 겹
+
+| 겹 | 방법 |
+|---|---|
+| 웹소켓 | 원격 업데이트는 `Y.applyUpdate(doc, u, "collab-remote")` 로 적용하고, `doc.on("update")` 에서 그 origin 이면 보내지 않는다 |
+| 화면 | 원격 변경을 캔버스에 반영하는 동안 `mbApplying` 을 세운다 → 그 사이에 불린 `publishXxx()` 는 모두 무시된다 |
+
+덕분에 화면 쪽(`Prototyper.js`)은 **조건 없이** `publishAdd/Update/Delete` 를 부르면 된다(꺼져 있으면 그냥 무시된다).
+초기 내려받기처럼 "화면만 고치고 문서는 건드리지 않을 때" 는 `collabSession.withRemote(fn)` 로 감싼다.
+
+### 좌표 전송량
+
+드래그 중에는 `setItemRect()` 가 1초에 수십 번 불린다. `publishRect()` 가 60ms 예약(trailing)으로 묶어 **그 시점의 최종 좌표**만 보낸다.
+마우스 커서도 같은 방식으로 60ms 간격이며, `left/top` CSS 전이로 받는 쪽에서 부드럽게 이어 그린다.
+
+### awareness (지금 상태)
+
+`{ name, c(색 번호), sel(고른 uid), cursor{x,y} }`. 릴레이가 모아 두지 않으므로 두 가지 보완을 넣었다.
+
+1. 소켓이 열리면 내 상태를 바로 한 번 보낸다(소켓보다 먼저 만든 첫 상태는 나가지 못했다).
+2. `update` 에 **새 사람(added)** 이 있으면 내 clientID 도 함께 실어 보낸다 → 늦게 들어온 사람이 이미 있던 사람을 본다(두 번 오가면 수렴).
+
+색은 `clientID % 1000003 % 8` 로 정한다(clientID 를 그대로 8로 나누면 값이 한쪽으로 몰리는 것을 확인했다).
+
+### 접속 직후 합치기
+
+공유본은 붙자마자 캔버스에 들어온다. 그래서 정할 것은 **켜기 직전에 내가 갖고 있던 항목**뿐이다(`maPreShareUids`).
+이미 공유본에 있는 uid 는 "내 것" 에서 뺀다 → 껐다 켠 경우에 내 항목을 지우는 사고가 나지 않는다.
+
+### 릴레이 두 벌, 같은 규약
+
+`[0] + Yjs update`(모아 둔다) · `[1] + awareness update`(그냥 넘긴다). `Crdt_WebSoket` 프로젝트의 `CrdtRelayHandler` 와 같다.
+
+- `tools/DevServer.java` 의 `CollabRelay` — `com.sun.net.httpserver` 가 업그레이드를 지원하지 않아 **HTTP 포트+1** 에 소켓을 따로 열고 RFC 6455(핸드셰이크·마스킹·조각 프레임·ping/pong)를 직접 구현했다.
+- `CrdtRelayEndpoint` — Tomcat 의 JSR-356 이 `@ServerEndpoint` 를 스스로 찾는다(스프링 설정·추가 jar 불필요). 바이너리 버퍼 기본값 8KB 로는 캔버스 전체 전송이 잘려 `onOpen` 에서 1MB 로 올린다.
+- 방은 `?room=<화면명>`, 기록은 방당 16MB 까지. **마지막 사람이 나가면 방을 버린다**(서버는 저장소가 아니다).

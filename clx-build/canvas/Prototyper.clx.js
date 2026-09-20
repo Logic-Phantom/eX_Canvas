@@ -20,12 +20,16 @@
 			 *  → getChildren() 순회로 JSON AST 추출 → 템플릿 뼈대 계획(규칙 또는 Gemini) → .clx 직렬화 → Blob 다운로드
 			 *
 			 * 모듈: module/canvas/controlRegistry · canvasAst · templatePlanner · geminiPlanner · clxSerializer · fileDownload
+			 *       module/canvas/collabSession · yjsLoader (공유 체크박스를 켰을 때만 쓴다)
 			 ************************************************/
 
 			var PALETTE_DATA_TYPE = "pt-palette";
 			var SNAP = 10; // 캔버스 격자(px)
 			var MIN_SIZE = 20;
 			var STORAGE_KEY = "eXCanvas.gemini";
+			var COLLAB_STORAGE_KEY = "eXCanvas.collab";
+			/** 래퍼의 사용자 속성 : 공유 문서에서 이 항목을 가리키는 전역 고유 키 */
+			var ATTR_UID = "pt-uid";
 
 			/** 선택된 캔버스 항목(래퍼 그룹) */
 			var mcSelected = null;
@@ -41,6 +45,20 @@
 			var mbServerSave = false;
 			/** 저장 서버가 알려준 경로(상태 표시용) */
 			var msServerSaveDir = "";
+			/** 항목 uid 일련번호(만든 시각·난수와 합쳐 전역 고유 키를 만든다) */
+			var mnUidSeq = 0;
+			/** 공유 체크박스를 코드가 바꾸는 동안 value-change 를 무시한다. */
+			var mbShareSyncing = false;
+			/** 화면이 뜰 때 찾아 둔 공유 서버 주소 */
+			var msCollabBaseUrl = "";
+			/** 접속자 표시용 컨트롤 : clientId → { box : 선택 상자, chip : 이름표 } */
+			var moPeerMarkers = {};
+			/** 드래그 중 좌표 전송을 묶는 예약 : uid → timeout id */
+			var moRectTimer = {};
+			/** 마우스 좌표 전송 간격 제한 */
+			var mbCursorBusy = false;
+			/** 공유를 켠 순간 내 캔버스에 있던 항목의 uid(공유본과 합칠지 정할 때 쓴다) */
+			var maPreShareUids = [];
 
 			function mod(psName) {
 				return cpr.core.Module.require("module/canvas/" + psName);
@@ -67,6 +85,7 @@
 				restoreSettings();
 				refreshPropertyPanel();
 				initSaveTarget();
+				initCollab();
 				setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요.");
 			}
 
@@ -125,7 +144,7 @@
 				});
 				// 더블클릭으로도 추가(터치패드 등 드래그가 불편한 환경)
 				vcItem.addEventListener("dblclick", function() {
-					var vnCount = app.lookup("canvasGroup").getChildrenCount();
+					var vnCount = countItems();
 					select(addCanvasItem(poDef.type, 20 + vnCount * SNAP, 20 + vnCount * SNAP));
 				});
 				createPaletteDragSource(vcItem, poDef);
@@ -265,6 +284,48 @@
 			}
 
 			/**
+			 * 사용자 속성을 읽는다. 붙인 적이 없으면 빈 문자열이 오므로 null 로 통일한다
+			 * (접속자 표시용 컨트롤과 캔버스 항목을 가르는 기준이다).
+			 * @return {String} 값 또는 null
+			 */
+			function attrOf(pcControl, psName) {
+				var vsValue = pcControl.userAttr(psName);
+				return vsValue == null || vsValue === "" ? null : vsValue;
+			}
+
+			/** 캔버스에 놓인 "항목"(접속자 표시용 컨트롤 제외) */
+			function canvasItems() {
+				var ast = mod("canvasAst");
+				return app.lookup("canvasGroup").getChildren().filter(function(pcChild) {
+					return attrOf(pcChild, ast.ATTR_TYPE) != null;
+				});
+			}
+
+			/** 공유 문서의 키(uid)로 캔버스 항목을 찾는다. */
+			function findItemByUid(psUid) {
+				if (psUid == null || psUid === "") {
+					return null;
+				}
+				var vaItems = canvasItems();
+				for (var i = 0; i < vaItems.length; i++) {
+					if (attrOf(vaItems[i], ATTR_UID) == psUid) {
+						return vaItems[i];
+					}
+				}
+				return null;
+			}
+
+			/** 캔버스에 놓인 "항목" 의 수(접속자 표시용 컨트롤은 세지 않는다). */
+			function countItems() {
+				return canvasItems().length;
+			}
+
+			/** 다른 사람 것과 겹치지 않는 항목 키(만든 시각 + 일련번호 + 난수). */
+			function nextUid() {
+				return "i" + Date.now().toString(36) + "_" + (++mnUidSeq).toString(36) + "_" + Math.floor(Math.random() * 1679616).toString(36);
+			}
+
+			/**
 			 * 캔버스에 항목을 추가한다.
 			 * 항목 = 래퍼 그룹(XY) [ 실제 컨트롤 | 투명 덮개(선택·이동) | 크기 조절 핸들 ]
 			 * 실제 컨트롤 위를 덮개가 덮으므로 디자인 중에는 콤보가 열리거나 입력 포커스가 가지 않는다.
@@ -275,6 +336,11 @@
 				var registry = mod("controlRegistry");
 				var ast = mod("canvasAst");
 				var voDef = registry.getType(psType);
+				if (voDef == null) {
+					// 이 프로젝트에 없는 유형(다른 워크스페이스의 UDC·UI 템플릿을 공유받은 경우)
+					setStatus("이 프로젝트에 없는 컨트롤 유형이라 놓을 수 없습니다 : " + psType);
+					return null;
+				}
 				var vcCanvas = app.lookup("canvasGroup");
 				var vsRuntimeId = "ptItem" + (++mnRuntimeSeq);
 				var vsText = poOpt.text == null ? voDef.defaultText : poOpt.text;
@@ -283,7 +349,9 @@
 				vcWrapper.setLayout(new cpr.controls.layouts.XYLayout());
 				vcWrapper.style.setClasses(["pt-item"]);
 				vcWrapper.userAttr(ast.ATTR_TYPE, psType);
-				vcWrapper.userAttr(ast.ATTR_ID, nextControlId(voDef.idPrefix));
+				// 공유할 때 "어느 컨트롤이 어느 컨트롤인지" 를 맞추는 키. 공유를 켜지 않아도 늘 붙여 둔다.
+				vcWrapper.userAttr(ATTR_UID, poOpt.uid || nextUid());
+				vcWrapper.userAttr(ast.ATTR_ID, poOpt.id || nextControlId(voDef.idPrefix));
 				vcWrapper.userAttr(ast.ATTR_TEXT, vsText);
 
 				// ① 실제 eXBuilder6 컨트롤(UDC 포함). 만들다 실패하면 이름표 아웃풋으로 대신한다(배치·내보내기는 그대로 된다).
@@ -333,7 +401,30 @@
 				if (!poOpt.quiet) {
 					setStatus(voDef.label + " 추가 : " + vcWrapper.userAttr(ast.ATTR_ID));
 				}
+				// 공유 중이면 같은 방 사람들에게도 새 항목을 알린다(원격에서 받아 만드는 중이면 무시된다).
+				mod("collabSession").publishAdd(itemRecord(vcWrapper));
 				return vcWrapper;
+			}
+
+			/**
+			 * 캔버스 항목 하나를 공유 문서에 넣을 형태로 만든다.
+			 * @param {cpr.controls.Container} pcWrapper
+			 * @return {Object} {uid, type, id, text, x, y, w, h}
+			 */
+			function itemRecord(pcWrapper) {
+				var ast = mod("canvasAst");
+				var voRect = getItemRect(pcWrapper);
+				var vsText = pcWrapper.userAttr(ast.ATTR_TEXT);
+				return {
+					uid : attrOf(pcWrapper, ATTR_UID),
+					type : pcWrapper.userAttr(ast.ATTR_TYPE),
+					id : pcWrapper.userAttr(ast.ATTR_ID),
+					text : vsText == null ? "" : vsText,
+					x : voRect.left,
+					y : voRect.top,
+					w : voRect.width,
+					h : voRect.height
+				};
 			}
 
 			function fillConstraint() {
@@ -362,6 +453,36 @@
 					"width" : Math.max(MIN_SIZE, poRect.width) + "px",
 					"height" : Math.max(MIN_SIZE, poRect.height) + "px"
 				});
+				publishRect(pcWrapper);
+			}
+
+			/**
+			 * 옮기거나 크기를 바꾼 결과를 공유한다.
+			 * 드래그 중에는 1초에 수십 번 불리므로 60ms 에 한 번만, 그 시점의 최종 좌표를 보낸다.
+			 * @param {cpr.controls.Container} pcWrapper
+			 */
+			function publishRect(pcWrapper) {
+				var collab = mod("collabSession");
+				if (!collab.isConnected() || collab.isApplyingRemote()) {
+					return;
+				}
+				var vsUid = attrOf(pcWrapper, ATTR_UID);
+				if (vsUid == null || moRectTimer[vsUid]) {
+					return; // 이미 예약돼 있으면 그 때 한 번에 나간다.
+				}
+				moRectTimer[vsUid] = window.setTimeout(function() {
+					delete moRectTimer[vsUid];
+					if (pcWrapper.disposed) {
+						return;
+					}
+					var voRect = getItemRect(pcWrapper);
+					mod("collabSession").publishUpdate(vsUid, {
+						x : voRect.left,
+						y : voRect.top,
+						w : voRect.width,
+						h : voRect.height
+					});
+				}, 60);
 			}
 
 			/** 항목 이동 : 드래그 시작 시점의 위치 + 총 이동량. 드롭 타겟과 무관한 독립 드래그다. */
@@ -445,6 +566,8 @@
 				if (mcSelected != null) {
 					mcSelected.style.addClass("pt-selected");
 				}
+				// 내가 무엇을 보고 있는지 같은 방 사람들에게 알린다(문서가 아니라 "지금 상태").
+				mod("collabSession").setSelection(mcSelected == null ? null : attrOf(mcSelected, ATTR_UID));
 				refreshPropertyPanel();
 			}
 
@@ -504,6 +627,9 @@
 					case "ipbPropText":
 						mcSelected.userAttr(ast.ATTR_TEXT, vsValue);
 						rebuildInnerControl(mcSelected);
+						mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
+							text : vsValue
+						});
 						break;
 					default:
 						var voRect = getItemRect(mcSelected);
@@ -536,6 +662,9 @@
 					return;
 				}
 				mcSelected.userAttr(ast.ATTR_ID, psNewId);
+				mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
+					id : psNewId
+				});
 				setStatus("ID 변경 : " + psNewId);
 			}
 
@@ -572,9 +701,10 @@
 				if (mcSelected == null) {
 					return;
 				}
-				app.lookup("canvasGroup").removeChild(mcSelected, true);
-				mcSelected = null;
-				refreshPropertyPanel();
+				var vcTarget = mcSelected;
+				mod("collabSession").publishDelete(attrOf(vcTarget, ATTR_UID));
+				select(null); // 남들 화면에서 내 선택 표시도 함께 걷는다.
+				app.lookup("canvasGroup").removeChild(vcTarget, true);
 				setStatus("선택한 항목을 삭제했습니다.");
 			}
 
@@ -592,10 +722,14 @@
 
 			/** 캔버스를 비우고 선택·id 일련번호를 초기화한다. */
 			function clearCanvas() {
+				mod("collabSession").publishClear();
 				app.lookup("canvasGroup").removeAllChildren(true);
 				mcSelected = null;
 				moIdSeq = {};
+				// 접속자 표시 컨트롤도 함께 사라졌다 — 다음 awareness 알림에서 다시 만든다.
+				moPeerMarkers = {};
 				refreshPropertyPanel();
+				renderPresence(mod("collabSession").getPeers());
 			}
 
 			/* ================================================================ 내보내기 : AST → 계획 → CLX */
@@ -655,20 +789,22 @@
 			 * @param {String} psPattern "P1-1" …
 			 */
 			function prefillPattern(psPattern) {
-				var vcCanvas = app.lookup("canvasGroup");
-				if (vcCanvas.getChildrenCount() > 0) {
+				if (countItems() > 0) {
 					if (!confirm(psPattern + " 뼈대를 깔기 위해 캔버스의 기존 항목을 지웁니다. 계속할까요?")) {
 						return;
 					}
 					clearCanvas();
 				}
 				var vaItems = mod("templatePlanner").skeleton(psPattern, canvasRect());
-				vaItems.forEach(function(poItem) {
-					addCanvasItem(poItem.type, poItem.x, poItem.y, {
-						text : poItem.text,
-						width : poItem.width,
-						height : poItem.height,
-						quiet : true
+				// 공유 중이면 뼈대 전체를 한 번의 변경으로 묶어 보낸다(항목마다 따로 보내지 않는다).
+				mod("collabSession").transact(function() {
+					vaItems.forEach(function(poItem) {
+						addCanvasItem(poItem.type, poItem.x, poItem.y, {
+							text : poItem.text,
+							width : poItem.width,
+							height : poItem.height,
+							quiet : true
+						});
 					});
 				});
 				select(null);
@@ -937,6 +1073,414 @@
 				} catch (ex) {
 					// 무시
 				}
+			}
+
+			/* ================================================================ 공유 (CRDT 실시간 협업)
+			 *
+			 * 툴바 [공유] 를 켜면 같은 "방"(= 화면명)에 접속한 사람과 캔버스를 함께 고친다.
+			 *  - 문서(누가 무엇을 어디에 놓았는지)는 CRDT(Yjs)가 합친다 → 동시에 고쳐도 충돌 나지 않는다.
+			 *  - 커서·선택 같은 "지금 상태"는 awareness 로 주고받고 문서에는 남기지 않는다.
+			 *  - 끄면 웹소켓을 닫고 그때까지의 캔버스를 각자 자기 것으로 이어서 쓴다(내용은 지우지 않는다).
+			 * 자세한 구조는 module/canvas/collabSession.module.js 머리말 참고.
+			 */
+
+			function collab() {
+				return mod("collabSession");
+			}
+
+			/** 화면이 뜰 때 : 지난 설정을 되살리고 공유 서버 주소를 찾아 둔다(접속은 하지 않는다). */
+			function initCollab() {
+				restoreCollabSettings();
+				if (!app.lookup("ipbShareName").value) {
+					app.lookup("ipbShareName").value = "사용자_" + (100 + Math.floor(Math.random() * 900));
+				}
+				setShareState("공유 꺼짐 — 켜면 같은 화면명(방)에 접속한 사람과 함께 고칩니다.");
+				updateSharePeerText([]);
+				initCursorTracking();
+				collab().probeServerUrl(function(psUrl, pbFromServer) {
+					msCollabBaseUrl = psUrl;
+					var vcUrl = app.lookup("ipbShareUrl");
+					vcUrl.placeholder = psUrl;
+					vcUrl.tooltip = (pbFromServer ? "개발 서버가 알려 준 공유 서버 주소입니다 : " : "이 화면을 내려준 서버를 그대로 씁니다 : ") + psUrl;
+				});
+			}
+
+			/*
+			 * 툴바 "공유" 체크박스에서 value-change 이벤트 발생 시 호출.
+			 */
+			function onCbxShareValueChange(e) {
+				if (mbShareSyncing) {
+					return;
+				}
+				if (app.lookup("cbxShare").value == "Y") {
+					startShare();
+				} else {
+					stopShare();
+				}
+			}
+
+			/*
+			 * 속성창 "내 이름" 에서 value-change 이벤트 발생 시 호출. 접속 중이면 바로 반영된다.
+			 */
+			function onIpbShareNameValueChange(e) {
+				collab().setName(app.lookup("ipbShareName").value);
+				saveCollabSettings();
+			}
+
+			function startShare() {
+				var vsRoom = getAppName();
+				saveCollabSettings();
+				// 붙는 사이에 공유본이 먼저 들어오므로, "켜기 직전에 내가 갖고 있던 것" 을 따로 적어 둔다.
+				maPreShareUids = canvasItems().map(function(pcItem) {
+					return attrOf(pcItem, ATTR_UID);
+				});
+				app.lookup("canvasGroup").style.addClass("pt-shared");
+				collab().connect({
+					url : collab().buildUrl(app.lookup("ipbShareUrl").value || msCollabBaseUrl, vsRoom),
+					room : vsRoom,
+					name : app.lookup("ipbShareName").value
+				}, {
+					onStatus : onCollabStatus,
+					onSynced : onCollabSynced,
+					onItemAdd : applyRemoteAdd,
+					onItemUpdate : applyRemoteUpdate,
+					onItemDelete : applyRemoteDelete,
+					onPresence : renderPresence
+				});
+			}
+
+			function stopShare() {
+				collab().disconnect();
+				clearPeerMarkers();
+				app.lookup("canvasGroup").style.removeClass("pt-shared");
+				setShareState("공유 꺼짐 — 캔버스 내용은 그대로입니다.");
+			}
+
+			/** 체크박스를 코드가 켜고 끌 때(접속 실패 등) value-change 가 다시 돌지 않게 한다. */
+			function setShareCheck(pbOn) {
+				mbShareSyncing = true;
+				app.lookup("cbxShare").value = pbOn ? "Y" : "";
+				mbShareSyncing = false;
+			}
+
+			function onCollabStatus(psState, psMessage) {
+				setShareState(psMessage);
+				setStatus("[공유] " + psMessage);
+				if (psState == "error") {
+					setShareCheck(false);
+					clearPeerMarkers();
+					app.lookup("canvasGroup").style.removeClass("pt-shared");
+				}
+			}
+
+			function setShareState(psText) {
+				var vcState = app.lookup("optShareState");
+				vcState.value = psText;
+				vcState.tooltip = psText;
+			}
+
+			function updateSharePeerText(paPeers) {
+				var vsText = paPeers.length == 0 ? "접속자 : 나 혼자" : "접속자 " + (paPeers.length + 1) + "명 · " + paPeers.map(function(poPeer) {
+					return poPeer.name;
+				}).join(", ");
+				var vcPeers = app.lookup("optSharePeers");
+				vcPeers.value = vsText;
+				vcPeers.tooltip = vsText;
+			}
+
+			/**
+			 * 접속 직후(방에 있던 내용을 다 받은 뒤) 한 번 불린다.
+			 * 공유본은 이미 캔버스에 그려져 있으므로, 여기서 정하는 것은 "켜기 직전의 내 항목" 을 어떻게 할지다.
+			 *  - 방이 비어 있었으면 → 내 것을 올린다(내가 첫 사람).
+			 *  - 내가 빈 캔버스였으면 → 받은 것만 쓴다(물어볼 것 없음).
+			 *  - 둘 다 있으면 → 합칠지(내 것도 올린다) 버릴지(공유본만 남긴다) 물어본다.
+			 * @param {Array} paRemoteItems 공유 문서에 들어 있는 항목
+			 */
+			function onCollabSynced(paRemoteItems) {
+				var vaMine = [];
+				maPreShareUids.forEach(function(psUid) {
+					// 공유본에 이미 같은 항목이 있으면(껐다 다시 켠 경우) "나만 가진 것" 이 아니다.
+					if (collab().hasItem(psUid)) {
+						return;
+					}
+					var vcItem = findItemByUid(psUid);
+					if (vcItem != null) {
+						vaMine.push(itemRecord(vcItem));
+					}
+				});
+				maPreShareUids = [];
+
+				if (paRemoteItems.length == 0) {
+					publishRecords(vaMine);
+					setStatus("[공유] 방 \"" + collab().getRoom() + "\" 을 열고 내 캔버스 " + vaMine.length + "개를 올렸습니다.");
+					return;
+				}
+				if (vaMine.length == 0) {
+					setStatus("[공유] 방 \"" + collab().getRoom() + "\" 의 항목 " + paRemoteItems.length + "개를 받았습니다.");
+					return;
+				}
+				if (confirm("공유방 \"" + collab().getRoom() + "\" 에 이미 " + paRemoteItems.length + "개의 항목이 있어 내 캔버스와 합쳐 두었습니다.\n\n[확인] 내가 그린 " + vaMine.length + "개도 공유방에 올립니다.\n[취소] 내가 그린 " + vaMine.length + "개는 지우고 공유본만 씁니다.")) {
+					publishRecords(vaMine);
+					setStatus("[공유] 내가 그린 " + vaMine.length + "개를 공유방에 올렸습니다.");
+					return;
+				}
+				dropMyItems(vaMine);
+				setStatus("[공유] 공유방의 항목 " + paRemoteItems.length + "개만 남겼습니다.");
+			}
+
+			/** 항목 여러 개를 한 번의 변경으로 묶어 올린다. */
+			function publishRecords(paRecords) {
+				collab().transact(function() {
+					paRecords.forEach(function(poRecord) {
+						collab().publishAdd(poRecord);
+					});
+				});
+			}
+
+			/** 공유방에 올리지 않기로 한 내 항목을 캔버스에서 지운다(공유 문서는 건드리지 않는다). */
+			function dropMyItems(paRecords) {
+				var vcCanvas = app.lookup("canvasGroup");
+				collab().withRemote(function() {
+					paRecords.forEach(function(poRecord) {
+						var vcItem = findItemByUid(poRecord.uid);
+						if (vcItem != null) {
+							if (vcItem === mcSelected) {
+								mcSelected = null;
+							}
+							vcCanvas.removeChild(vcItem, true);
+						}
+					});
+				});
+				refreshPropertyPanel();
+			}
+
+			/**
+			 * 공유 문서의 항목 하나를 캔버스에 만든다.
+			 * @param {Object} poRecord {uid, type, id, text, x, y, w, h}
+			 */
+			function createItemFromRecord(poRecord) {
+				return addCanvasItem(poRecord.type, poRecord.x || 0, poRecord.y || 0, {
+					text : poRecord.text,
+					width : poRecord.w,
+					height : poRecord.h,
+					uid : poRecord.uid,
+					id : poRecord.id,
+					quiet : true
+				});
+			}
+
+			/* ---------------------------------------------------------------- 남이 고친 것을 내 캔버스에 */
+
+			function applyRemoteAdd(psUid, poRecord) {
+				if (findItemByUid(psUid) != null) {
+					applyRemoteUpdate(psUid, poRecord);
+					return;
+				}
+				createItemFromRecord(poRecord);
+			}
+
+			function applyRemoteUpdate(psUid, poPatch) {
+				var vcWrapper = findItemByUid(psUid);
+				if (vcWrapper == null) {
+					return;
+				}
+				var ast = mod("canvasAst");
+				if (poPatch.id != null) {
+					vcWrapper.userAttr(ast.ATTR_ID, poPatch.id);
+				}
+				if (poPatch.text != null && poPatch.text !== vcWrapper.userAttr(ast.ATTR_TEXT)) {
+					vcWrapper.userAttr(ast.ATTR_TEXT, poPatch.text);
+					rebuildInnerControl(vcWrapper);
+				}
+				if (poPatch.x != null || poPatch.y != null || poPatch.w != null || poPatch.h != null) {
+					var voRect = getItemRect(vcWrapper);
+					setItemRect(vcWrapper, {
+						left : poPatch.x == null ? voRect.left : poPatch.x,
+						top : poPatch.y == null ? voRect.top : poPatch.y,
+						width : poPatch.w == null ? voRect.width : poPatch.w,
+						height : poPatch.h == null ? voRect.height : poPatch.h
+					});
+					renderPresence(collab().getPeers()); // 남의 선택 상자가 따라 움직이도록
+				}
+				if (vcWrapper === mcSelected) {
+					refreshPropertyPanel();
+				}
+			}
+
+			function applyRemoteDelete(psUid) {
+				var vcWrapper = findItemByUid(psUid);
+				if (vcWrapper == null) {
+					return;
+				}
+				if (vcWrapper === mcSelected) {
+					select(null);
+				}
+				app.lookup("canvasGroup").removeChild(vcWrapper, true);
+				// 사라진 항목을 가리키던 남의 선택 표시를 걷는다.
+				renderPresence(collab().getPeers());
+			}
+
+			/* ---------------------------------------------------------------- 누가 어디를 보고 있는지
+			 *
+			 * 남의 커서·선택은 캔버스 안에 만든 아웃풋 2개(선택 상자 · 이름표)로 그린다.
+			 * 컨트롤의 DOM 을 건드리지 않고, 색도 인라인 스타일 대신 클래스(pt-peer-0 ~ 7)로만 준다.
+			 */
+
+			function renderPresence(paPeers) {
+				var vcCanvas = app.lookup("canvasGroup");
+				var voAlive = {};
+
+				paPeers.forEach(function(poPeer) {
+					voAlive[poPeer.clientId] = true;
+					var voMarker = moPeerMarkers[poPeer.clientId];
+					if (voMarker == null) {
+						voMarker = {
+							box : new cpr.controls.Output("ptPeerBox" + poPeer.clientId),
+							chip : new cpr.controls.Output("ptPeerChip" + poPeer.clientId)
+						};
+						vcCanvas.addChild(voMarker.box, hiddenConstraint());
+						vcCanvas.addChild(voMarker.chip, hiddenConstraint());
+						moPeerMarkers[poPeer.clientId] = voMarker;
+					}
+					voMarker.box.style.setClasses(["pt-remote-sel", "pt-peer-" + poPeer.colorIndex]);
+					voMarker.chip.style.setClasses(["pt-remote-chip", "pt-peer-" + poPeer.colorIndex]);
+					voMarker.chip.value = poPeer.name;
+
+					var vcTarget = poPeer.sel == null ? null : findItemByUid(poPeer.sel);
+					var voRect = vcTarget == null ? null : getItemRect(vcTarget);
+					voMarker.box.visible = voRect != null;
+					if (voRect != null) {
+						vcCanvas.updateConstraint(voMarker.box, {
+							"left" : (voRect.left - 2) + "px",
+							"top" : (voRect.top - 2) + "px",
+							"width" : (voRect.width + 4) + "px",
+							"height" : (voRect.height + 4) + "px"
+						});
+					}
+
+					// 커서 + 이름표. 컨트롤의 왼쪽 위 모서리가 그 사람의 커서 끝이다(화살표를 그 자리에 그린다).
+					// 커서가 캔버스 밖이면 고른 항목 위에 붙여 둬 "누가 무엇을 보고 있는지" 는 그대로 보인다.
+					var voChipAt = poPeer.cursor != null ? {
+						left : poPeer.cursor.x,
+						top : poPeer.cursor.y
+					} : (voRect != null ? {
+						left : voRect.left - 2,
+						top : Math.max(0, voRect.top - 22)
+					} : null);
+					voMarker.chip.visible = voChipAt != null;
+					if (voChipAt != null) {
+						vcCanvas.updateConstraint(voMarker.chip, {
+							"left" : voChipAt.left + "px",
+							"top" : voChipAt.top + "px",
+							"width" : (poPeer.name.length * 12 + 26) + "px",
+							"height" : "18px"
+						});
+					}
+				});
+
+				Object.keys(moPeerMarkers).forEach(function(psClientId) {
+					if (!voAlive[psClientId]) {
+						disposeMarker(moPeerMarkers[psClientId]);
+						delete moPeerMarkers[psClientId];
+					}
+				});
+				updateSharePeerText(paPeers);
+			}
+
+			function hiddenConstraint() {
+				return {
+					"left" : "0px",
+					"top" : "0px",
+					"width" : "1px",
+					"height" : "1px"
+				};
+			}
+
+			function disposeMarker(poMarker) {
+				var vcCanvas = app.lookup("canvasGroup");
+				[poMarker.box, poMarker.chip].forEach(function(pcControl) {
+					if (pcControl != null && !pcControl.disposed) {
+						try {
+							vcCanvas.removeChild(pcControl, true);
+						} catch (ex) {
+							// 캔버스를 비우면서 이미 사라진 경우
+						}
+					}
+				});
+			}
+
+			function clearPeerMarkers() {
+				Object.keys(moPeerMarkers).forEach(function(psClientId) {
+					disposeMarker(moPeerMarkers[psClientId]);
+				});
+				moPeerMarkers = {};
+				updateSharePeerText([]);
+			}
+
+			/**
+			 * 내 마우스 위치를 캔버스 기준 좌표로 알린다(60ms 에 한 번).
+			 * 컨트롤마다 이벤트를 걸지 않고 document 에서 한 번만 듣고 캔버스 영역인지 계산한다.
+			 */
+			function initCursorTracking() {
+				document.addEventListener("mousemove", function(poEvent) {
+					if (!collab().isConnected() || mbCursorBusy) {
+						return;
+					}
+					mbCursorBusy = true;
+					window.setTimeout(function() {
+						mbCursorBusy = false;
+					}, 60);
+					collab().setCursor(canvasPoint(poEvent.clientX, poEvent.clientY));
+				});
+				document.addEventListener("mouseleave", function() {
+					if (collab().isConnected()) {
+						collab().setCursor(null);
+					}
+				});
+			}
+
+			/**
+			 * 뷰포트 좌표 → 캔버스 좌표(스크롤 반영). 캔버스 밖이면 null.
+			 * @return {{x:Number, y:Number}}
+			 */
+			function canvasPoint(pnClientX, pnClientY) {
+				var vcCanvas = app.lookup("canvasGroup");
+				var voRect = vcCanvas.getActualRect();
+				if (voRect == null || pnClientX < voRect.left || pnClientY < voRect.top
+						|| pnClientX > voRect.left + voRect.width || pnClientY > voRect.top + voRect.height) {
+					return null;
+				}
+				var voView = vcCanvas.getViewPortRect();
+				return {
+					x : Math.round(pnClientX - voRect.left + (voView ? voView.left : 0)),
+					y : Math.round(pnClientY - voRect.top + (voView ? voView.top : 0))
+				};
+			}
+
+			/* ---------------------------------------------------------------- 공유 설정 저장(이름 · 서버) */
+
+			function saveCollabSettings() {
+				try {
+					window.localStorage.setItem(COLLAB_STORAGE_KEY, JSON.stringify({
+						name : app.lookup("ipbShareName").value,
+						url : app.lookup("ipbShareUrl").value
+					}));
+				} catch (ex) {
+					// 저장소를 쓸 수 없는 환경에서는 저장하지 않는다.
+				}
+			}
+
+			function restoreCollabSettings() {
+				try {
+					var vsSaved = window.localStorage.getItem(COLLAB_STORAGE_KEY);
+					if (vsSaved) {
+						var voSaved = JSON.parse(vsSaved);
+						app.lookup("ipbShareName").value = voSaved.name || "";
+						app.lookup("ipbShareUrl").value = voSaved.url || "";
+					}
+				} catch (ex) {
+					// 무시
+				}
 			};
 			// End - User Script
 			
@@ -977,7 +1521,7 @@
 			formLayout_2.rightMargin = "12px";
 			formLayout_2.bottomMargin = "8px";
 			formLayout_2.leftMargin = "12px";
-			formLayout_2.setColumns(["230px", "1fr", "1110px"]);
+			formLayout_2.setColumns(["230px", "1fr", "1170px"]);
 			formLayout_2.setRows(["1fr"]);
 			group_1.setLayout(formLayout_2);
 			(function(container){
@@ -1080,6 +1624,21 @@
 					checkBox_2.falseValue = "";
 					checkBox_2.text = "팝업";
 					container.addChild(checkBox_2, {
+						"autoSize": "none",
+						"width": "52px",
+						"height": "28px"
+					});
+					var checkBox_3 = new cpr.controls.CheckBox("cbxShare");
+					checkBox_3.tooltip = "켜면 같은 화면명(방)에 접속한 사람과 캔버스를 실시간으로 함께 고칩니다. 이름·서버는 속성창 [공유] 에서 바꿉니다.";
+					checkBox_3.value = "";
+					checkBox_3.trueValue = "Y";
+					checkBox_3.falseValue = "";
+					checkBox_3.text = "공유";
+					checkBox_3.style.setClasses(["pt-share"]);
+					if(typeof onCbxShareValueChange == "function") {
+						checkBox_3.addEventListener("value-change", onCbxShareValueChange);
+					}
+					container.addChild(checkBox_3, {
 						"autoSize": "none",
 						"width": "52px",
 						"height": "28px"
@@ -1257,8 +1816,8 @@
 			formLayout_4.bottomMargin = "8px";
 			formLayout_4.leftMargin = "0px";
 			formLayout_4.setColumns(["64px", "1fr"]);
-			formLayout_4.setRows(["32px", "24px", "24px", "24px", "20px", "24px", "24px", "24px", "24px", "28px", "32px", "20px", "28px", "32px", "24px", "24px", "24px", "24px", "24px", "1fr"]);
-			formLayout_4.setRowMinHeight(19, 80);
+			formLayout_4.setRows(["32px", "24px", "24px", "24px", "20px", "24px", "24px", "24px", "24px", "28px", "32px", "24px", "24px", "20px", "32px", "32px", "20px", "28px", "32px", "24px", "24px", "24px", "24px", "24px", "1fr"]);
+			formLayout_4.setRowMinHeight(24, 80);
 			group_7.setLayout(formLayout_4);
 			(function(container){
 				var output_8 = new cpr.controls.Output("optPropTitle");
@@ -1412,20 +1971,73 @@
 					"rowIndex": 9,
 					"colSpan": 2
 				});
-				var output_18 = new cpr.controls.Output("optSaveTitle");
-				output_18.value = "저장 위치 (result)";
+				var output_18 = new cpr.controls.Output("optShareTitle");
+				output_18.value = "공유 (실시간 협업)";
 				output_18.style.setClasses(["pt-panel-title"]);
 				container.addChild(output_18, {
 					"colIndex": 0,
 					"rowIndex": 10,
 					"colSpan": 2
 				});
-				var output_19 = new cpr.controls.Output("optSaveTarget");
-				output_19.value = "";
-				output_19.style.setClasses(["pt-status"]);
+				var output_19 = new cpr.controls.Output();
+				output_19.value = "내 이름";
+				output_19.style.setClasses(["pt-label"]);
 				container.addChild(output_19, {
 					"colIndex": 0,
-					"rowIndex": 11,
+					"rowIndex": 11
+				});
+				var inputBox_8 = new cpr.controls.InputBox("ipbShareName");
+				inputBox_8.placeholder = "다른 사람에게 보일 이름";
+				if(typeof onIpbShareNameValueChange == "function") {
+					inputBox_8.addEventListener("value-change", onIpbShareNameValueChange);
+				}
+				container.addChild(inputBox_8, {
+					"colIndex": 1,
+					"rowIndex": 11
+				});
+				var output_20 = new cpr.controls.Output();
+				output_20.value = "서버";
+				output_20.style.setClasses(["pt-label"]);
+				container.addChild(output_20, {
+					"colIndex": 0,
+					"rowIndex": 12
+				});
+				var inputBox_9 = new cpr.controls.InputBox("ipbShareUrl");
+				inputBox_9.placeholder = "비워 두면 자동으로 찾습니다";
+				container.addChild(inputBox_9, {
+					"colIndex": 1,
+					"rowIndex": 12
+				});
+				var output_21 = new cpr.controls.Output("optShareState");
+				output_21.value = "";
+				output_21.style.setClasses(["pt-status"]);
+				container.addChild(output_21, {
+					"colIndex": 0,
+					"rowIndex": 13,
+					"colSpan": 2
+				});
+				var output_22 = new cpr.controls.Output("optSharePeers");
+				output_22.value = "";
+				output_22.style.setClasses(["pt-status"]);
+				container.addChild(output_22, {
+					"colIndex": 0,
+					"rowIndex": 14,
+					"colSpan": 2
+				});
+				var output_23 = new cpr.controls.Output("optSaveTitle");
+				output_23.value = "저장 위치 (result)";
+				output_23.style.setClasses(["pt-panel-title"]);
+				container.addChild(output_23, {
+					"colIndex": 0,
+					"rowIndex": 15,
+					"colSpan": 2
+				});
+				var output_24 = new cpr.controls.Output("optSaveTarget");
+				output_24.value = "";
+				output_24.style.setClasses(["pt-status"]);
+				container.addChild(output_24, {
+					"colIndex": 0,
+					"rowIndex": 16,
 					"colSpan": 2
 				});
 				var group_9 = new cpr.controls.Container("grpSaveDirButtons");
@@ -1450,50 +2062,50 @@
 				})(group_9);
 				container.addChild(group_9, {
 					"colIndex": 0,
-					"rowIndex": 12,
+					"rowIndex": 17,
 					"colSpan": 2
 				});
-				var output_20 = new cpr.controls.Output("optAiTitle");
-				output_20.value = "Gemini 설정 (무료 API 키)";
-				output_20.style.setClasses(["pt-panel-title"]);
-				container.addChild(output_20, {
+				var output_25 = new cpr.controls.Output("optAiTitle");
+				output_25.value = "Gemini 설정 (무료 API 키)";
+				output_25.style.setClasses(["pt-panel-title"]);
+				container.addChild(output_25, {
 					"colIndex": 0,
-					"rowIndex": 13,
+					"rowIndex": 18,
 					"colSpan": 2
 				});
-				var output_21 = new cpr.controls.Output();
-				output_21.value = "API Key";
-				output_21.style.setClasses(["pt-label"]);
-				container.addChild(output_21, {
+				var output_26 = new cpr.controls.Output();
+				output_26.value = "API Key";
+				output_26.style.setClasses(["pt-label"]);
+				container.addChild(output_26, {
 					"colIndex": 0,
-					"rowIndex": 14
+					"rowIndex": 19
 				});
-				var inputBox_8 = new cpr.controls.InputBox("ipbApiKey");
-				inputBox_8.secret = true;
-				inputBox_8.placeholder = "AI Studio에서 발급한 키";
-				container.addChild(inputBox_8, {
+				var inputBox_10 = new cpr.controls.InputBox("ipbApiKey");
+				inputBox_10.secret = true;
+				inputBox_10.placeholder = "AI Studio에서 발급한 키";
+				container.addChild(inputBox_10, {
 					"colIndex": 1,
-					"rowIndex": 14
+					"rowIndex": 19
 				});
-				var output_22 = new cpr.controls.Output();
-				output_22.value = "Model";
-				output_22.style.setClasses(["pt-label"]);
-				container.addChild(output_22, {
+				var output_27 = new cpr.controls.Output();
+				output_27.value = "Model";
+				output_27.style.setClasses(["pt-label"]);
+				container.addChild(output_27, {
 					"colIndex": 0,
-					"rowIndex": 15
+					"rowIndex": 20
 				});
-				var inputBox_9 = new cpr.controls.InputBox("ipbModel");
-				inputBox_9.value = "gemini-2.5-flash";
-				container.addChild(inputBox_9, {
+				var inputBox_11 = new cpr.controls.InputBox("ipbModel");
+				inputBox_11.value = "gemini-2.5-flash";
+				container.addChild(inputBox_11, {
 					"colIndex": 1,
-					"rowIndex": 15
+					"rowIndex": 20
 				});
-				var output_23 = new cpr.controls.Output();
-				output_23.value = "호출";
-				output_23.style.setClasses(["pt-label"]);
-				container.addChild(output_23, {
+				var output_28 = new cpr.controls.Output();
+				output_28.value = "호출";
+				output_28.style.setClasses(["pt-label"]);
+				container.addChild(output_28, {
 					"colIndex": 0,
-					"rowIndex": 16
+					"rowIndex": 21
 				});
 				var comboBox_3 = new cpr.controls.ComboBox("cmbAiRoute");
 				comboBox_3.value = "direct";
@@ -1504,31 +2116,31 @@
 				})(comboBox_3);
 				container.addChild(comboBox_3, {
 					"colIndex": 1,
-					"rowIndex": 16
+					"rowIndex": 21
 				});
-				var checkBox_3 = new cpr.controls.CheckBox("cbxRememberKey");
-				checkBox_3.value = "";
-				checkBox_3.trueValue = "Y";
-				checkBox_3.falseValue = "";
-				checkBox_3.text = "이 브라우저에 키 저장(localStorage)";
-				container.addChild(checkBox_3, {
+				var checkBox_4 = new cpr.controls.CheckBox("cbxRememberKey");
+				checkBox_4.value = "";
+				checkBox_4.trueValue = "Y";
+				checkBox_4.falseValue = "";
+				checkBox_4.text = "이 브라우저에 키 저장(localStorage)";
+				container.addChild(checkBox_4, {
 					"colIndex": 0,
-					"rowIndex": 17,
+					"rowIndex": 22,
 					"colSpan": 2
 				});
-				var output_24 = new cpr.controls.Output();
-				output_24.value = "화면 요구사항 메모 (AI 프롬프트에 포함)";
-				output_24.style.setClasses(["pt-label"]);
-				container.addChild(output_24, {
+				var output_29 = new cpr.controls.Output();
+				output_29.value = "화면 요구사항 메모 (AI 프롬프트에 포함)";
+				output_29.style.setClasses(["pt-label"]);
+				container.addChild(output_29, {
 					"colIndex": 0,
-					"rowIndex": 18,
+					"rowIndex": 23,
 					"colSpan": 2
 				});
 				var textArea_2 = new cpr.controls.TextArea("txaMemo");
 				textArea_2.placeholder = "예) 사원 목록 조회 화면. 부서·입사일로 검색하고 그리드에서 선택하면 하단에서 수정한다.";
 				container.addChild(textArea_2, {
 					"colIndex": 0,
-					"rowIndex": 19,
+					"rowIndex": 24,
 					"colSpan": 2
 				});
 			})(group_7);

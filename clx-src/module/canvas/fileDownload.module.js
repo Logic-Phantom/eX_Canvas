@@ -407,3 +407,5 @@ exports.saveToDirectory = function(poDir, psAppName, psXml, psScript, pfSuccess,
 
 exports.downloadText = downloadText;
 exports.sanitizeFileName = sanitizeFileName;
+/** 배포 경로(컨텍스트 패스). 같은 서버의 다른 엔드포인트를 부를 때 쓴다(공유 서버 찾기 등). */
+exports.contextPath = contextPath;

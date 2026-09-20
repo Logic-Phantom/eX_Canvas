@@ -4,14 +4,24 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -25,7 +35,13 @@ import com.sun.net.httpserver.HttpServer;
  *  - /runtime/**      → exbuilder/runtime (cleopatra.js · 기본 테마)
  *  - /ai/gemini.do    → Gemini 프록시. 키는 환경 변수 GEMINI_API_KEY (브라우저에 키를 두지 않는 경로)
  *  - /canvas/saveResult.do → 생성한 .clx/.js 를 clx-src/result/<실행 날짜>/ 에 저장
+ *  - /canvas/collabInfo.do → 공유(CRDT) 릴레이 주소 알림
  *  - 그 밖            → 빌드 폴더(e6-compiler 산출물, index.html 포함)
+ *
+ * 공유 릴레이(웹소켓)는 HTTP 와 다른 포트(기본 = HTTP 포트 + 1)에서 돈다.
+ * com.sun.net.httpserver 는 프로토콜 업그레이드를 지원하지 않아 소켓을 따로 연다.
+ *   -Dexcanvas.collab.port=0        → 공유 릴레이를 끈다
+ *   -Dexcanvas.collab.host=0.0.0.0  → 다른 PC 에서도 붙을 수 있게 연다(사내망 실습용)
  *
  * 127.0.0.1 에만 바인딩한다. 운영 용도가 아니다.
  */
@@ -49,6 +65,9 @@ public class DevServer {
 	/** 생성물을 쓸 소스 경로(clx-src). 실행 폴더가 어디든 찾아낸다. */
 	private static Path srcDir;
 
+	/** 공유(CRDT) 릴레이. 끄면 null. */
+	private static CollabRelay collab;
+
 	public static void main(String[] args) throws Exception {
 		final Path buildDir = Paths.get(args.length > 0 ? args[0] : "target/clx-dev").toAbsolutePath().normalize();
 		final Path runtimeDir = Paths.get("exbuilder/runtime").toAbsolutePath().normalize();
@@ -57,9 +76,12 @@ public class DevServer {
 
 		ensureIndexHtml(buildDir, args.length > 2 ? args[2] : "canvas/Prototyper");
 
+		startCollabRelay(port);
+
 		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
 		server.createContext("/ai/gemini.do", DevServer::proxyGemini);
 		server.createContext("/canvas/saveResult.do", DevServer::saveResult);
+		server.createContext("/canvas/collabInfo.do", DevServer::collabInfo);
 		server.createContext("/runtime/", exchange -> serveFile(exchange, runtimeDir, exchange.getRequestURI().getPath().substring("/runtime/".length())));
 		server.createContext("/", exchange -> {
 			String path = exchange.getRequestURI().getPath();
@@ -69,6 +91,38 @@ public class DevServer {
 		System.out.println("eX-Canvas dev server : http://127.0.0.1:" + port + "/  (build: " + buildDir + ")");
 		System.out.println("Gemini proxy        : " + (System.getenv("GEMINI_API_KEY") == null ? "OFF (GEMINI_API_KEY 미설정)" : "ON"));
 		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result") + "\\<yyyyMMdd>"));
+		System.out.println("공유 릴레이         : " + (collab == null ? "OFF" : "ws://" + collab.host + ":" + collab.port + CollabRelay.WS_PATH));
+	}
+
+	/** 공유 릴레이를 띄운다(포트 0 이면 띄우지 않는다). 실패해도 화면은 그대로 뜬다. */
+	private static void startCollabRelay(int httpPort) {
+		int relayPort = Integer.getInteger("excanvas.collab.port", httpPort + 1);
+		if (relayPort <= 0) {
+			return;
+		}
+		String host = System.getProperty("excanvas.collab.host", "127.0.0.1");
+		try {
+			CollabRelay relay = new CollabRelay(host, relayPort);
+			relay.start();
+			collab = relay;
+		} catch (IOException e) {
+			System.err.println("공유 릴레이를 띄우지 못했습니다(" + host + ":" + relayPort + ") : " + e.getMessage());
+		}
+	}
+
+	/** 화면이 "공유 서버가 어디냐" 고 물을 때 답한다. 릴레이가 HTTP 와 다른 포트를 쓰므로 필요하다. */
+	private static void collabInfo(HttpExchange exchange) throws IOException {
+		try {
+			if (collab == null) {
+				send(exchange, 503, "application/json; charset=utf-8",
+						"{\"ok\":false,\"message\":\"공유 릴레이가 꺼져 있습니다(-Dexcanvas.collab.port).\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			String json = "{\"ok\":true,\"port\":" + collab.port + ",\"path\":\"" + CollabRelay.WS_PATH + "\",\"rooms\":" + collab.roomCount() + "}";
+			send(exchange, 200, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
+		} finally {
+			exchange.close();
+		}
 	}
 
 	/**
@@ -279,6 +333,352 @@ public class DevServer {
 		if (body.length > 0) {
 			try (OutputStream out = exchange.getResponseBody()) {
 				out.write(body);
+			}
+		}
+	}
+
+	/* ================================================================ 공유(CRDT) 릴레이
+	 *
+	 * 브라우저끼리 Yjs 업데이트를 주고받게만 해 주는 아주 작은 웹소켓 서버다(RFC 6455 직접 구현).
+	 * 보내온 것을 해석하지 않는다 — 같은 방의 다른 사람에게 그대로 넘기고, 문서 변경만 모아 둔다.
+	 *
+	 *   [0] + Yjs update      : 문서. 모아 두었다가 새로 들어온 사람에게 다시 들려준다.
+	 *   [1] + awareness update: 커서·선택. 모아 두지 않는다.
+	 *
+	 * 방(room)은 접속 주소의 ?room= 로 나뉜다(화면명). 마지막 사람이 나가면 방과 기록을 버린다.
+	 * 같은 규약을 Tomcat 배포에서는 CrdtRelayEndpoint(javax.websocket) 가 맡는다.
+	 */
+	static final class CollabRelay {
+
+		static final String WS_PATH = "/ws/crdt-sync.do";
+		private static final String ACCEPT_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+		/** 한 번에 받는 메시지 상한(이보다 크면 끊는다) */
+		private static final int MAX_MESSAGE = 8 * 1024 * 1024;
+		/** 방 하나가 들고 있을 문서 기록의 상한 */
+		private static final long MAX_HISTORY_BYTES = 16L * 1024 * 1024;
+
+		final String host;
+		final int port;
+		private final Map<String, Room> rooms = new ConcurrentHashMap<>();
+		private ServerSocket serverSocket;
+
+		CollabRelay(String host, int port) {
+			this.host = host;
+			this.port = port;
+		}
+
+		void start() throws IOException {
+			serverSocket = new ServerSocket();
+			serverSocket.setReuseAddress(true);
+			serverSocket.bind(new InetSocketAddress(host, port));
+			Thread thread = new Thread(this::acceptLoop, "collab-accept");
+			thread.setDaemon(true);
+			thread.start();
+		}
+
+		int roomCount() {
+			return rooms.size();
+		}
+
+		private void acceptLoop() {
+			while (!serverSocket.isClosed()) {
+				try {
+					Socket socket = serverSocket.accept();
+					Thread thread = new Thread(() -> serve(socket), "collab-peer");
+					thread.setDaemon(true);
+					thread.start();
+				} catch (IOException e) {
+					if (!serverSocket.isClosed()) {
+						System.err.println("[collab] accept 실패 : " + e.getMessage());
+					}
+				}
+			}
+		}
+
+		/** 손님 하나를 처음부터 끝까지 맡는다(핸드셰이크 → 이력 재생 → 중계). */
+		private void serve(Socket socket) {
+			Peer peer = null;
+			Room room = null;
+			try {
+				socket.setTcpNoDelay(true);
+				InputStream in = new java.io.BufferedInputStream(socket.getInputStream());
+				OutputStream out = socket.getOutputStream();
+
+				String requestLine = readLine(in);
+				if (requestLine == null) {
+					socket.close();
+					return;
+				}
+				Map<String, String> headers = readHeaders(in);
+				String target = requestLine.split(" ").length > 1 ? requestLine.split(" ")[1] : "";
+				String path = target.contains("?") ? target.substring(0, target.indexOf('?')) : target;
+				String key = headers.get("sec-websocket-key");
+				if (!WS_PATH.equals(path) || key == null) {
+					out.write(("HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.ISO_8859_1));
+					out.flush();
+					socket.close();
+					return;
+				}
+				out.write(("HTTP/1.1 101 Switching Protocols\r\n"
+						+ "Upgrade: websocket\r\n"
+						+ "Connection: Upgrade\r\n"
+						+ "Sec-WebSocket-Accept: " + acceptKey(key) + "\r\n\r\n").getBytes(StandardCharsets.ISO_8859_1));
+				out.flush();
+
+				room = rooms.computeIfAbsent(roomOf(target), Room::new);
+				peer = new Peer(socket, out);
+				room.peers.add(peer);
+				System.out.println("[collab] 접속 : 방 \"" + room.name + "\" (" + room.peers.size() + "명, 기록 " + room.history.size() + "건)");
+
+				// 새로 들어온 사람에게 지금까지의 문서 변경을 그대로 들려준다(초기 동기화).
+				for (byte[] past : room.history) {
+					peer.send(past);
+				}
+				readLoop(in, peer, room);
+			} catch (IOException e) {
+				// 창을 닫았거나 네트워크가 끊긴 경우 — 아래 정리로 넘어간다.
+			} finally {
+				if (room != null && peer != null) {
+					room.peers.remove(peer);
+					System.out.println("[collab] 종료 : 방 \"" + room.name + "\" (" + room.peers.size() + "명)");
+					if (room.peers.isEmpty()) {
+						// 아무도 없으면 방을 버린다(다음 사람이 자기 캔버스로 다시 연다).
+						rooms.remove(room.name);
+					}
+				}
+				try {
+					socket.close();
+				} catch (IOException ignore) {
+					// 이미 닫혔다.
+				}
+			}
+		}
+
+		/** 프레임을 읽어 메시지 하나가 완성될 때마다 같은 방의 다른 사람에게 넘긴다. */
+		private void readLoop(InputStream in, Peer peer, Room room) throws IOException {
+			ByteArrayOutputStream message = new ByteArrayOutputStream();
+			while (true) {
+				int b0 = in.read();
+				if (b0 < 0) {
+					return;
+				}
+				boolean fin = (b0 & 0x80) != 0;
+				int opcode = b0 & 0x0F;
+				int b1 = in.read();
+				if (b1 < 0) {
+					return;
+				}
+				boolean masked = (b1 & 0x80) != 0;
+				long length = b1 & 0x7F;
+				if (length == 126) {
+					length = ((long) readByte(in) << 8) | readByte(in);
+				} else if (length == 127) {
+					length = 0;
+					for (int i = 0; i < 8; i++) {
+						length = (length << 8) | readByte(in);
+					}
+				}
+				if (length > MAX_MESSAGE || message.size() + length > MAX_MESSAGE) {
+					System.err.println("[collab] 메시지가 너무 큽니다(" + length + "바이트) — 연결을 끊습니다.");
+					return;
+				}
+				byte[] mask = masked ? readFully(in, 4) : null;
+				byte[] payload = readFully(in, (int) length);
+				if (mask != null) {
+					for (int i = 0; i < payload.length; i++) {
+						payload[i] ^= mask[i % 4];
+					}
+				}
+
+				if (opcode == 0x8) { // close
+					return;
+				}
+				if (opcode == 0x9) { // ping → pong
+					peer.sendFrame(0xA, payload);
+					continue;
+				}
+				if (opcode == 0xA) { // pong
+					continue;
+				}
+				message.write(payload);
+				if (!fin) {
+					continue; // 조각난 메시지는 이어 붙인다.
+				}
+				byte[] whole = message.toByteArray();
+				message.reset();
+				if (whole.length > 0) {
+					relay(whole, peer, room);
+				}
+			}
+		}
+
+		private void relay(byte[] message, Peer from, Room room) {
+			if (message[0] == 0) { // 문서 변경만 모아 둔다(커서는 모으지 않는다).
+				room.remember(message, MAX_HISTORY_BYTES);
+			}
+			for (Peer other : room.peers) {
+				if (other == from) {
+					continue;
+				}
+				try {
+					other.send(message);
+				} catch (IOException e) {
+					room.peers.remove(other);
+					other.closeQuietly();
+				}
+			}
+		}
+
+		/* ---------------------------------------------------------- 잔손질 */
+
+		private static String roomOf(String target) {
+			int at = target.indexOf("room=");
+			if (at < 0) {
+				return "default";
+			}
+			String value = target.substring(at + 5);
+			int end = value.indexOf('&');
+			if (end >= 0) {
+				value = value.substring(0, end);
+			}
+			try {
+				value = URLDecoder.decode(value, "UTF-8");
+			} catch (IOException ignore) {
+				// 그대로 쓴다.
+			}
+			return value.isEmpty() ? "default" : value;
+		}
+
+		private static String acceptKey(String key) {
+			try {
+				MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+				return Base64.getEncoder().encodeToString(sha1.digest((key + ACCEPT_MAGIC).getBytes(StandardCharsets.ISO_8859_1)));
+			} catch (Exception e) {
+				throw new IllegalStateException(e);
+			}
+		}
+
+		private static String readLine(InputStream in) throws IOException {
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			int read;
+			while ((read = in.read()) >= 0) {
+				if (read == '\n') {
+					break;
+				}
+				if (read != '\r') {
+					buffer.write(read);
+				}
+			}
+			if (read < 0 && buffer.size() == 0) {
+				return null;
+			}
+			return new String(buffer.toByteArray(), StandardCharsets.ISO_8859_1);
+		}
+
+		private static Map<String, String> readHeaders(InputStream in) throws IOException {
+			Map<String, String> headers = new HashMap<>();
+			String line;
+			while ((line = readLine(in)) != null && !line.isEmpty()) {
+				int colon = line.indexOf(':');
+				if (colon > 0) {
+					headers.put(line.substring(0, colon).trim().toLowerCase(), line.substring(colon + 1).trim());
+				}
+			}
+			return headers;
+		}
+
+		private static int readByte(InputStream in) throws IOException {
+			int value = in.read();
+			if (value < 0) {
+				throw new IOException("연결이 끊겼습니다.");
+			}
+			return value;
+		}
+
+		private static byte[] readFully(InputStream in, int length) throws IOException {
+			byte[] buffer = new byte[length];
+			int done = 0;
+			while (done < length) {
+				int read = in.read(buffer, done, length - done);
+				if (read < 0) {
+					throw new IOException("연결이 끊겼습니다.");
+				}
+				done += read;
+			}
+			return buffer;
+		}
+
+		/** 한 방 = 붙어 있는 사람들 + 지금까지의 문서 변경 */
+		static final class Room {
+			final String name;
+			final Set<Peer> peers = new CopyOnWriteArraySet<>();
+			final List<byte[]> history = new CopyOnWriteArrayList<>();
+			private long historyBytes;
+			private boolean historyFull;
+
+			Room(String name) {
+				this.name = name;
+			}
+
+			synchronized void remember(byte[] message, long maxBytes) {
+				if (historyFull) {
+					return;
+				}
+				if (historyBytes + message.length > maxBytes) {
+					historyFull = true;
+					System.err.println("[collab] 방 \"" + name + "\" 의 기록이 한도를 넘었습니다 — 이후 들어오는 사람은 최신 상태를 못 받을 수 있습니다.");
+					return;
+				}
+				history.add(message);
+				historyBytes += message.length;
+			}
+		}
+
+		/** 붙어 있는 브라우저 하나 */
+		static final class Peer {
+			private final Socket socket;
+			private final OutputStream out;
+
+			Peer(Socket socket, OutputStream out) {
+				this.socket = socket;
+				this.out = out;
+			}
+
+			void send(byte[] payload) throws IOException {
+				sendFrame(0x2, payload); // 0x2 = binary
+			}
+
+			synchronized void sendFrame(int opcode, byte[] payload) throws IOException {
+				List<Integer> header = new ArrayList<>();
+				header.add(0x80 | opcode);
+				int length = payload.length;
+				if (length < 126) {
+					header.add(length);
+				} else if (length < 65536) {
+					header.add(126);
+					header.add((length >> 8) & 0xFF);
+					header.add(length & 0xFF);
+				} else {
+					header.add(127);
+					for (int i = 7; i >= 0; i--) {
+						header.add((int) (((long) length >> (8 * i)) & 0xFF));
+					}
+				}
+				byte[] bytes = new byte[header.size()];
+				for (int i = 0; i < header.size(); i++) {
+					bytes[i] = (byte) header.get(i).intValue();
+				}
+				out.write(bytes);
+				out.write(payload);
+				out.flush();
+			}
+
+			void closeQuietly() {
+				try {
+					socket.close();
+				} catch (IOException ignore) {
+					// 이미 닫혔다.
+				}
 			}
 		}
 	}

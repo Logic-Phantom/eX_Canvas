@@ -129,6 +129,110 @@
   font-size: 11px;
   text-align: center;
 }
+/* ================================================================ 공유(실시간 협업)
+ *
+ * 남의 커서·선택은 캔버스 안에 놓은 아웃풋 2개로 그린다(선택 상자 · 이름표).
+ * 색은 인라인 스타일 대신 클래스로만 준다 — 사람마다 clientID % 8 로 pt-peer-0 ~ 7 하나를 받는다.
+ */
+/* 공유 중 표시 */
+.cl-checkbox.pt-share {
+  color: #2f6fed;
+}
+.cl-container.pt-canvas.pt-shared {
+  border-color: #17a2a2;
+  box-shadow: inset 0 0 0 1px rgba(23, 162, 162, 0.25);
+}
+/* 남이 고른 항목을 둘러싸는 상자 */
+.cl-output.pt-remote-sel {
+  background-color: transparent;
+  border: 2px solid #8a93a6;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 60;
+  transition: left 120ms linear, top 120ms linear, width 120ms linear, height 120ms linear;
+}
+/* 남의 마우스 커서 + 이름표
+ * 컨트롤의 왼쪽 위 모서리가 곧 그 사람의 커서 끝이다.
+ * 화살표는 안쪽에 그린다(아웃풋 밖으로 나가면 잘릴 수 있다).
+ * 좌표는 60ms 간격으로 오므로 left/top 에 전이를 줘 부드럽게 움직이게 한다. */
+.cl-output.pt-remote-chip {
+  color: #ffffff;
+  background-color: #8a93a6;
+  border-radius: 2px 9px 9px 9px;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: left;
+  padding-left: 17px;
+  white-space: nowrap;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 61;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 80ms linear, top 80ms linear;
+}
+/* 커서 화살표(테두리로 그린 좁은 삼각형을 기울였다) */
+.cl-output.pt-remote-chip::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 4px 12px 4px;
+  border-color: transparent transparent #ffffff transparent;
+  transform: rotate(-35deg);
+  transform-origin: top left;
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.3));
+}
+.cl-output.pt-remote-sel.pt-peer-0 {
+  border-color: #e0403f;
+}
+.cl-output.pt-remote-sel.pt-peer-1 {
+  border-color: #2f6fed;
+}
+.cl-output.pt-remote-sel.pt-peer-2 {
+  border-color: #17a2a2;
+}
+.cl-output.pt-remote-sel.pt-peer-3 {
+  border-color: #d97706;
+}
+.cl-output.pt-remote-sel.pt-peer-4 {
+  border-color: #7a4fd6;
+}
+.cl-output.pt-remote-sel.pt-peer-5 {
+  border-color: #0f8a4d;
+}
+.cl-output.pt-remote-sel.pt-peer-6 {
+  border-color: #d6297a;
+}
+.cl-output.pt-remote-sel.pt-peer-7 {
+  border-color: #4b5563;
+}
+.cl-output.pt-remote-chip.pt-peer-0 {
+  background-color: #e0403f;
+}
+.cl-output.pt-remote-chip.pt-peer-1 {
+  background-color: #2f6fed;
+}
+.cl-output.pt-remote-chip.pt-peer-2 {
+  background-color: #17a2a2;
+}
+.cl-output.pt-remote-chip.pt-peer-3 {
+  background-color: #d97706;
+}
+.cl-output.pt-remote-chip.pt-peer-4 {
+  background-color: #7a4fd6;
+}
+.cl-output.pt-remote-chip.pt-peer-5 {
+  background-color: #0f8a4d;
+}
+.cl-output.pt-remote-chip.pt-peer-6 {
+  background-color: #d6297a;
+}
+.cl-output.pt-remote-chip.pt-peer-7 {
+  background-color: #4b5563;
+}
 /* 내용이 비어 보이는 유형(이미지 · 빈 그룹 · 임베디드 …)의 이름표 */
 .cl-output.pt-item-overlay.pt-item-ghost {
   border: 1px dashed #aab3c5;
