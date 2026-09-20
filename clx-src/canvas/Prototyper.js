@@ -24,6 +24,10 @@ var mnRuntimeSeq = 0;
 var mbSyncing = false;
 /** 항목 클릭이 캔버스 클릭(선택 해제)으로 번지는 것을 막는다. */
 var mbItemClicked = false;
+/** 저장 서버(/canvas/saveResult.do)가 쓸 수 있는 상태인지 — 앱 로드 때 1회 확인 */
+var mbServerSave = false;
+/** 저장 서버가 알려준 경로(상태 표시용) */
+var msServerSaveDir = "";
 
 function mod(psName) {
 	return cpr.core.Module.require("module/canvas/" + psName);
@@ -49,23 +53,35 @@ function onBodyLoad(e) {
 	initPatternCombo();
 	restoreSettings();
 	refreshPropertyPanel();
+	initSaveTarget();
 	setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요.");
 }
 
 /* ================================================================ 팔레트 */
 
+/** 팔레트에 만든 컨트롤 : [{ control, kind : "category"|"item", text }] - 찾기 상자가 이 목록을 보고 숨긴다. */
+var maPaletteRows = [];
+
 /** 레지스트리의 유형마다 팔레트 항목(아웃풋)을 만들고 드래그 소스를 건다. */
 function initPalette() {
 	var vcPalette = app.lookup("grpPaletteItems");
-	// 묶음(기본 · 입력 · 데이터 · UDC)마다 머리글 1개 + 유형별 항목. UDC 묶음은 런타임에 등록된 UDC 를 찾아 만든다.
+	maPaletteRows = [];
+	// 묶음(기본 · 입력 · 데이터 · UDC · UI 템플릿)마다 머리글 1개 + 유형별 항목.
+	// UDC 는 런타임에 등록된 것을, UI 템플릿은 uiTemplateCatalog(자동 생성)를 훑어 만든다.
 	mod("controlRegistry").getCategories().forEach(function(poCategory) {
-		var vcHead = new cpr.controls.Output("optPaletteCat_" + poCategory.id);
+		var vcHead = new cpr.controls.Output("optPaletteCat_" + poCategory.id.replace(/[^A-Za-z0-9]/g, "_"));
 		vcHead.value = poCategory.label;
 		vcHead.style.setClasses(["pt-palette-category"]);
 		vcPalette.addChild(vcHead, {
 			"width" : "100%",
 			"height" : "22px",
 			"autoSize" : "none"
+		});
+		maPaletteRows.push({
+			control : vcHead,
+			kind : "category",
+			text : poCategory.label.toLowerCase(),
+			hits : 0
 		});
 		poCategory.types.forEach(addPaletteItem);
 	});
@@ -75,12 +91,24 @@ function addPaletteItem(poDef) {
 	var vcPalette = app.lookup("grpPaletteItems");
 	var vcItem = new cpr.controls.Output("optPalette_" + poDef.type.replace(/[^A-Za-z0-9]/g, "_"));
 	vcItem.value = poDef.label;
-	vcItem.tooltip = poDef.udcType ? poDef.udcType : poDef.tag;
-	vcItem.style.setClasses(poDef.udcType ? ["pt-palette-item", "pt-palette-udc"] : ["pt-palette-item"]);
+	vcItem.tooltip = poDef.tooltip || (poDef.udcType ? poDef.udcType : poDef.tag);
+	var vaClasses = ["pt-palette-item"];
+	if (poDef.udcType) {
+		vaClasses.push("pt-palette-udc");
+	}
+	if (poDef.uiTemplate) {
+		vaClasses.push("pt-palette-tpl");
+	}
+	vcItem.style.setClasses(vaClasses);
 	vcPalette.addChild(vcItem, {
 		"width" : "100%",
 		"height" : "28px",
 		"autoSize" : "none"
+	});
+	maPaletteRows.push({
+		control : vcItem,
+		kind : "item",
+		text : (poDef.label + " " + (poDef.tooltip || "")).toLowerCase()
 	});
 	// 더블클릭으로도 추가(터치패드 등 드래그가 불편한 환경)
 	vcItem.addEventListener("dblclick", function() {
@@ -88,6 +116,40 @@ function addPaletteItem(poDef) {
 		select(addCanvasItem(poDef.type, 20 + vnCount * SNAP, 20 + vnCount * SNAP));
 	});
 	createPaletteDragSource(vcItem, poDef);
+}
+
+/*
+ * 팔레트 찾기 상자에서 value-change · search · input 이벤트 발생 시 호출.
+ * 이름·설명에 글자가 들어간 항목만 남기고, 남은 항목이 없는 묶음 머리글도 함께 숨긴다.
+ */
+function onPaletteFilterChange(e) {
+	var vsKeyword = (app.lookup("sipPaletteFilter").value || "").replace(/^\s+|\s+$/g, "").toLowerCase();
+	var voCategory = null;
+	var vnShown = 0;
+
+	maPaletteRows.forEach(function(poRow) {
+		if (poRow.kind == "category") {
+			poRow.hits = 0;
+			voCategory = poRow;
+			return;
+		}
+		var vbMatch = vsKeyword === "" || poRow.text.indexOf(vsKeyword) >= 0;
+		poRow.control.visible = vbMatch;
+		if (vbMatch) {
+			vnShown++;
+			if (voCategory != null) {
+				voCategory.hits++;
+			}
+		}
+	});
+	maPaletteRows.forEach(function(poRow) {
+		if (poRow.kind == "category") {
+			poRow.control.visible = vsKeyword === "" || poRow.hits > 0;
+		}
+	});
+	if (vsKeyword !== "") {
+		setStatus("팔레트 찾기 : \"" + vsKeyword + "\" 에 맞는 항목 " + vnShown + "개");
+	}
 }
 
 function createPaletteDragSource(pcItem, poDef) {
@@ -195,25 +257,27 @@ function findItemById(psId) {
  * 실제 컨트롤 위를 덮개가 덮으므로 디자인 중에는 콤보가 열리거나 입력 포커스가 가지 않는다.
  * @return {cpr.controls.Container} 래퍼 그룹
  */
-function addCanvasItem(psType, pnLeft, pnTop) {
+function addCanvasItem(psType, pnLeft, pnTop, poOpt) {
+	poOpt = poOpt || {};
 	var registry = mod("controlRegistry");
 	var ast = mod("canvasAst");
 	var voDef = registry.getType(psType);
 	var vcCanvas = app.lookup("canvasGroup");
 	var vsRuntimeId = "ptItem" + (++mnRuntimeSeq);
+	var vsText = poOpt.text == null ? voDef.defaultText : poOpt.text;
 
 	var vcWrapper = new cpr.controls.Container(vsRuntimeId);
 	vcWrapper.setLayout(new cpr.controls.layouts.XYLayout());
 	vcWrapper.style.setClasses(["pt-item"]);
 	vcWrapper.userAttr(ast.ATTR_TYPE, psType);
 	vcWrapper.userAttr(ast.ATTR_ID, nextControlId(voDef.idPrefix));
-	vcWrapper.userAttr(ast.ATTR_TEXT, voDef.defaultText);
+	vcWrapper.userAttr(ast.ATTR_TEXT, vsText);
 
 	// ① 실제 eXBuilder6 컨트롤(UDC 포함). 만들다 실패하면 이름표 아웃풋으로 대신한다(배치·내보내기는 그대로 된다).
 	var vcControl;
 	var vbGhost = voDef.ghost === true;
 	try {
-		vcControl = registry.createControl(psType, vsRuntimeId + "_ctl", voDef.defaultText);
+		vcControl = registry.createControl(psType, vsRuntimeId + "_ctl", vsText);
 	} catch (ex) {
 		vcControl = new cpr.controls.Output(vsRuntimeId + "_ctl");
 		vbGhost = true;
@@ -250,10 +314,12 @@ function addCanvasItem(psType, pnLeft, pnTop) {
 	vcCanvas.addChild(vcWrapper, {
 		"top" : pnTop + "px",
 		"left" : pnLeft + "px",
-		"width" : voDef.width + "px",
-		"height" : voDef.height + "px"
+		"width" : (poOpt.width || voDef.width) + "px",
+		"height" : (poOpt.height || voDef.height) + "px"
 	});
-	setStatus(voDef.label + " 추가 : " + vcWrapper.userAttr(ast.ATTR_ID));
+	if (!poOpt.quiet) {
+		setStatus(voDef.label + " 추가 : " + vcWrapper.userAttr(ast.ATTR_ID));
+	}
 	return vcWrapper;
 }
 
@@ -506,12 +572,17 @@ function onBtnClearClick(e) {
 	if (!confirm("캔버스의 모든 항목을 삭제할까요?")) {
 		return;
 	}
+	clearCanvas();
+	app.lookup("txaPreview").value = "";
+	setStatus("캔버스를 비웠습니다.");
+}
+
+/** 캔버스를 비우고 선택·id 일련번호를 초기화한다. */
+function clearCanvas() {
 	app.lookup("canvasGroup").removeAllChildren(true);
 	mcSelected = null;
 	moIdSeq = {};
 	refreshPropertyPanel();
-	app.lookup("txaPreview").value = "";
-	setStatus("캔버스를 비웠습니다.");
 }
 
 /* ================================================================ 내보내기 : AST → 계획 → CLX */
@@ -523,6 +594,72 @@ function initPatternCombo() {
 		vcPattern.addItem(new cpr.controls.Item(poEach.id + " " + poEach.desc, poEach.id));
 	});
 	vcPattern.value = "auto";
+}
+
+/*
+ * 패턴 콤보에서 selection-change 이벤트 발생 시 호출.
+ * "미리 배치" 를 켜 두었으면 고른 패턴의 뼈대를 캔버스에 깔아 준다.
+ * 깔아 준 좌표는 규칙 기반 변환이 같은 패턴으로 다시 읽도록 맞춰져 있다(조회 조건 위 · 하단 버튼 맨 아래).
+ */
+function onCmbPatternSelectionChange(e) {
+	if (app.lookup("cbxPrefill").value != "Y") {
+		return;
+	}
+	var vsPattern = app.lookup("cmbPattern").value;
+	if (vsPattern == null || vsPattern == "auto") {
+		return;
+	}
+	prefillPattern(vsPattern);
+}
+
+/*
+ * "미리 배치" 체크박스에서 value-change 이벤트 발생 시 호출.
+ * 켜는 순간 이미 고른 패턴이 있으면 바로 깔아 준다.
+ */
+function onCbxPrefillValueChange(e) {
+	var vsPattern = app.lookup("cmbPattern").value;
+	if (app.lookup("cbxPrefill").value == "Y" && vsPattern != null && vsPattern != "auto") {
+		prefillPattern(vsPattern);
+	}
+}
+
+/**
+ * 지금 보이는 캔버스 크기(스크롤바가 생기지 않을 만큼 빼 둔다).
+ * 뼈대를 이 크기에 맞춰 깔아야 오른쪽·아래가 비지 않는다.
+ * @return {{width:Number, height:Number}}
+ */
+function canvasRect() {
+	var voRect = app.lookup("canvasGroup").getActualRect();
+	var vnScrollbar = 18;
+	return {
+		width : Math.round(voRect.width) - vnScrollbar,
+		height : Math.round(voRect.height) - vnScrollbar
+	};
+}
+
+/**
+ * 패턴 뼈대를 캔버스에 깐다. 이미 그린 것이 있으면 물어보고 지운다.
+ * @param {String} psPattern "P1-1" …
+ */
+function prefillPattern(psPattern) {
+	var vcCanvas = app.lookup("canvasGroup");
+	if (vcCanvas.getChildrenCount() > 0) {
+		if (!confirm(psPattern + " 뼈대를 깔기 위해 캔버스의 기존 항목을 지웁니다. 계속할까요?")) {
+			return;
+		}
+		clearCanvas();
+	}
+	var vaItems = mod("templatePlanner").skeleton(psPattern, canvasRect());
+	vaItems.forEach(function(poItem) {
+		addCanvasItem(poItem.type, poItem.x, poItem.y, {
+			text : poItem.text,
+			width : poItem.width,
+			height : poItem.height,
+			quiet : true
+		});
+	});
+	select(null);
+	setStatus(psPattern + " 뼈대를 캔버스에 깔았습니다(" + vaItems.length + "개). 라벨·버튼 글자를 고쳐 쓰세요.");
 }
 
 function getAppName() {
@@ -642,12 +779,87 @@ function onBtnDownloadClick(e) {
 	});
 }
 
+/* ================================================================ result 저장
+ *
+ * 저장 경로는 세 갈래다(위에서부터 먼저 쓴다).
+ *  1) 저장 서버  : POST /canvas/saveResult.do → clx-src/result/<yyyyMMdd>/ (DevServer · Tomcat)
+ *  2) 저장 폴더  : 사용자가 한 번 지정한 clx-src/result 아래 <yyyyMMdd>/ 에 브라우저가 직접 쓴다
+ *  3) 브라우저 다운로드(둘 다 안 되는 경우)
+ */
+
+/** 앱 로드 때 저장 서버 · 지난번 저장 폴더를 확인해 두고 안내 문구를 만든다. */
+function initSaveTarget() {
+	var download = mod("fileDownload");
+	setSaveTargetText("저장 위치 확인 중...");
+	download.probeServer(function(poResult) {
+		if (poResult != null) {
+			mbServerSave = true;
+			msServerSaveDir = poResult.dir || "clx-src/result";
+			setSaveTargetText("저장 서버 : " + msServerSaveDir + " (날짜 폴더 자동 생성)");
+			return;
+		}
+		if (!download.hasDirectoryPicker()) {
+			setSaveTargetText("저장 서버 없음 · 이 브라우저는 폴더 저장을 지원하지 않아 다운로드로 대체합니다.");
+			return;
+		}
+		download.preloadSaveDirectory(function(poDir) {
+			if (poDir == null) {
+				setSaveTargetText("저장 폴더가 지정되지 않았습니다. [폴더 지정] 으로 clx-src/result 를 고르세요.");
+			} else {
+				setSaveTargetText("저장 폴더 : " + poDir.name + "/<날짜>" + (poDir.granted ? "" : " (저장할 때 권한을 다시 묻습니다)"));
+			}
+		});
+	});
+}
+
+function setSaveTargetText(psText) {
+	var vcTarget = app.lookup("optSaveTarget");
+	vcTarget.value = psText;
+	vcTarget.tooltip = psText;
+}
+
 /*
  * "result 저장" 버튼에서 click 이벤트 발생 시 호출.
- * 소스 경로 아래 result/<실행 날짜>/<화면명>.clx · .js 로 저장한다(서버가 파일을 쓴다).
- * 저장 서버가 없거나 경로가 설정되지 않았으면 브라우저 다운로드로 대신한다.
+ * result/<실행 날짜>/<화면명>.clx · .js 로 저장한다.
  */
 function onBtnSaveResultClick(e) {
+	var download = mod("fileDownload");
+	if (mbServerSave || !download.hasDirectoryPicker()) {
+		saveResult(null);
+		return;
+	}
+	// 폴더 선택·권한 요청은 클릭(사용자 제스처) 안에서만 열린다 → CLX 생성(비동기)보다 먼저 확보한다.
+	download.ensureSaveDirectory(false, function(poDir) {
+		saveResult(poDir);
+	}, function(psError) {
+		setStatus("[저장 폴더 없음 → 브라우저 다운로드로 대체] " + psError);
+		saveResult(false);
+	});
+}
+
+/*
+ * "폴더 지정" 버튼에서 click 이벤트 발생 시 호출.
+ * 브라우저가 직접 쓸 저장 폴더(clx-src/result)를 고른다. 선택은 다음 실행에도 남는다.
+ */
+function onBtnPickSaveDirClick(e) {
+	var download = mod("fileDownload");
+	if (!download.hasDirectoryPicker()) {
+		setStatus("이 브라우저는 폴더에 바로 저장하는 기능을 지원하지 않습니다(Chrome · Edge 에서 됩니다).");
+		return;
+	}
+	download.ensureSaveDirectory(true, function(poDir) {
+		setSaveTargetText("저장 폴더 : " + poDir.name + "/<날짜>");
+		setStatus("저장 폴더를 " + poDir.name + " 으로 지정했습니다. [result 저장] 을 누르면 " + poDir.name + "/<날짜>/ 에 .clx · .js 가 만들어집니다.");
+	}, function(psError) {
+		setStatus(psError);
+	});
+}
+
+/**
+ * CLX 를 만들고 정해진 곳에 저장한다.
+ * @param {Object} poDir 폴더 핸들 · null(저장 서버 사용) · false(브라우저 다운로드)
+ */
+function saveResult(poDir) {
 	generateClx(function(psXml, poPlan) {
 		var download = mod("fileDownload");
 		var vsName = getAppName();
@@ -656,15 +868,28 @@ function onBtnSaveResultClick(e) {
 		app.lookup("optPreviewTitle").value = "출력 미리보기 - " + vsName + ".clx";
 		app.lookup("txaPreview").value = psXml;
 
-		download.saveToProject(vsName, psXml, vsScript, function(poResult) {
+		function done(poResult) {
 			setStatus("저장 완료 : " + poResult.dir + "/" + poResult.name + ".clx · .js  (" + vsPlanNote + ")");
-		}, function(psError) {
+		}
+
+		function fallback(psError) {
 			setStatus("[result 저장 실패 → 브라우저 다운로드로 대체] " + psError);
 			download.downloadClx(vsName, psXml);
+			// 스튜디오는 같은 이름의 .js 를 짝으로 본다. 브라우저가 연속 다운로드를 막지 않도록 조금 늦춘다.
 			window.setTimeout(function() {
 				download.downloadJs(vsName, vsScript);
 			}, 400);
-		});
+		}
+
+		if (poDir === false) {
+			fallback("저장할 곳이 없습니다.");
+			return;
+		}
+		if (poDir == null) {
+			download.saveToProject(vsName, psXml, vsScript, done, fallback);
+			return;
+		}
+		download.saveToDirectory(poDir, vsName, psXml, vsScript, done, fallback);
 	});
 }
 

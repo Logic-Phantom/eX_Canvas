@@ -681,6 +681,67 @@ function makeUdcDef(psQualifiedName) {
 	};
 }
 
+/* ---------------------------------------------------------------- UI 템플릿(스튜디오 상용구) */
+
+var UITPL_PREFIX = "uitpl:";
+
+/** 캔버스에 처음 놓을 때의 최대 크기. 상용구는 1580px 기준이 많아 그대로 놓으면 캔버스를 벗어난다. */
+var UITPL_MAX_WIDTH = 880;
+var UITPL_MAX_HEIGHT = 420;
+
+function uiTemplateCatalog() {
+	return cpr.core.Module.require("module/canvas/uiTemplateCatalog");
+}
+
+function templateBuilder() {
+	return cpr.core.Module.require("module/canvas/templateBuilder");
+}
+
+/**
+ * UI 템플릿 유형 정의를 만든다(유형 키 = "uitpl:" + uuid).
+ * 컨트롤 한 개짜리 템플릿도 있고 그룹·탭폴더처럼 트리를 가진 것도 있다 - 만드는 일은 templateBuilder 가 한다.
+ */
+function makeUiTemplateDef(poTemplate) {
+	var builder = templateBuilder();
+	return {
+		type : UITPL_PREFIX + poTemplate.uuid,
+		uiTemplate : poTemplate,
+		// 빈 프레임·카드처럼 안이 비어 보이는 템플릿은 캔버스에서 이름표를 함께 보여 준다.
+		ghost : poTemplate.node.type == "group" && (poTemplate.node.children == null || poTemplate.node.children.length == 0),
+		label : poTemplate.label,
+		tooltip : builder.summary(poTemplate),
+		role : builder.roleOf(poTemplate.group),
+		tag : "cl:group", // 실제 태그는 노드마다 다르다(직렬화는 clxSerializer.catalogNodeEl 이 한다).
+		sidPrefix : "group",
+		idPrefix : "tpl",
+		width : Math.min(poTemplate.width, UITPL_MAX_WIDTH),
+		height : Math.min(poTemplate.height, UITPL_MAX_HEIGHT),
+		defaultText : "",
+		textKind : "none",
+		create : function(psRuntimeId, psText) {
+			return builder.build(poTemplate);
+		}
+	};
+}
+
+/**
+ * 팔레트에 보여 줄 UI 템플릿 목록(카탈로그 순서 = 묶음 → 이름).
+ * @return {Object[]}
+ */
+exports.getUiTemplates = function() {
+	var voCatalog = uiTemplateCatalog();
+	if (voCatalog == null || voCatalog.TEMPLATES == null) {
+		return [];
+	}
+	return voCatalog.TEMPLATES.map(function(poTemplate) {
+		var vsType = UITPL_PREFIX + poTemplate.uuid;
+		if (TYPE_MAP[vsType] == null) {
+			TYPE_MAP[vsType] = makeUiTemplateDef(poTemplate);
+		}
+		return TYPE_MAP[vsType];
+	});
+};
+
 /**
  * 팔레트에 보여 줄 UDC 유형 목록.
  * @return {Object[]}
@@ -716,6 +777,20 @@ exports.getCategories = function() {
 			types : vaUdc
 		});
 	}
+	// UI 템플릿은 상용구 묶음("[버튼]", "[폼]" …)을 그대로 팔레트 묶음으로 쓴다.
+	var voGroups = {};
+	exports.getUiTemplates().forEach(function(poDef) {
+		var vsGroup = poDef.uiTemplate.group;
+		if (voGroups[vsGroup] == null) {
+			voGroups[vsGroup] = [];
+			vaResult.push({
+				id : "uitpl_" + vsGroup,
+				label : "UI 템플릿 · " + vsGroup,
+				types : voGroups[vsGroup]
+			});
+		}
+		voGroups[vsGroup].push(poDef);
+	});
 	return vaResult;
 };
 
@@ -737,6 +812,9 @@ exports.getType = function(psType) {
 		if (lookupUdcConstructor(vsName) != null) {
 			TYPE_MAP[psType] = makeUdcDef(vsName);
 		}
+	}
+	if (psType != null && TYPE_MAP[psType] == null && String(psType).indexOf(UITPL_PREFIX) == 0) {
+		exports.getUiTemplates(); // 카탈로그를 한 번 훑으면 TYPE_MAP 에 들어온다.
 	}
 	return TYPE_MAP[psType] || null;
 };

@@ -301,6 +301,10 @@ function gridParts(poCtx, paHeaders) {
  * @param {Object[]} paExtraChildren 탭 아이템처럼 호출자가 만든 고유 자식
  */
 function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
+	if (poCtrl.type == "uitpl" && poCtrl.tpl != null) {
+		// UI 템플릿은 카탈로그의 컨트롤 트리를 그대로 옮긴다(자리에 맞는 레이아웃 데이터만 갈아 끼운다).
+		return catalogNodeEl(poCtx, poCtrl.tpl.node, poLayoutData);
+	}
 	var vaInfo = TAG_INFO[poCtrl.type];
 	if (vaInfo == null) {
 		throw new Error("직렬화를 지원하지 않는 유형: " + poCtrl.type);
@@ -368,6 +372,120 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 			break;
 	}
 	return el(vaInfo[0], vaAttrs, vaChildren.concat(paExtraChildren || []).concat([voLayoutNode]));
+}
+
+/* ---------------------------------------------------------------- UI 템플릿(스튜디오 상용구) 트리 */
+
+/** 레이아웃 종류별 CLX 태그. kind 는 SyncCatalog 가 붙인다. */
+var LAYOUT_TAG = {
+	form : "cl:formlayout",
+	flow : "cl:flowlayout",
+	vertical : "cl:verticallayout",
+	xy : "cl:xylayout"
+};
+var LAYOUT_SID = {
+	form : "f-layout",
+	flow : "f-layout",
+	vertical : "v-layout",
+	xy : "xylayout"
+};
+var LAYOUT_DATA_TAG = {
+	form : "cl:formdata",
+	flow : "cl:flowlayoutdata",
+	vertical : "cl:verticaldata",
+	xy : "cl:xylayoutdata"
+};
+var LAYOUT_DATA_SID = {
+	form : "f-data",
+	flow : "f-data",
+	vertical : "v-data",
+	xy : "xy-data"
+};
+
+/** {kind, …} → [[이름, 값], …] (kind 는 빼고 나머지를 CLX 속성 그대로 쓴다) */
+function catalogAttrs(poValues) {
+	var vaAttrs = [];
+	Object.keys(poValues || {}).forEach(function(psKey) {
+		if (psKey != "kind") {
+			vaAttrs.push([psKey, poValues[psKey]]);
+		}
+	});
+	return vaAttrs;
+}
+
+/** 카탈로그 노드의 ld → 레이아웃 데이터 XML 노드 */
+function catalogLayoutData(poCtx, poLd) {
+	if (poLd == null) {
+		return null;
+	}
+	var vsKind = poLd.kind || "form";
+	return el(LAYOUT_DATA_TAG[vsKind] || "cl:formdata", [["std:sid", sid(poCtx, LAYOUT_DATA_SID[vsKind] || "f-data")]].concat(catalogAttrs(poLd)));
+}
+
+/** 카탈로그 노드의 layout/rows/columns → 레이아웃 XML 노드(컨테이너의 마지막 자식) */
+function catalogLayout(poCtx, poNode) {
+	var voLayout = poNode.layout;
+	if (voLayout == null) {
+		return el("cl:xylayout", [["std:sid", sid(poCtx, "xylayout")]]);
+	}
+	var vsKind = voLayout.kind || "xy";
+	var vaTracks = [];
+	(poNode.rows || []).forEach(function(poRow) {
+		vaTracks.push(el("cl:rows", catalogAttrs(poRow)));
+	});
+	(poNode.columns || []).forEach(function(poColumn) {
+		vaTracks.push(el("cl:columns", catalogAttrs(poColumn)));
+	});
+	return el(LAYOUT_TAG[vsKind] || "cl:xylayout", [["std:sid", sid(poCtx, LAYOUT_SID[vsKind] || "xylayout")]].concat(catalogAttrs(voLayout)), vaTracks);
+}
+
+/** 컨테이너 유형(자식과 레이아웃을 갖는 것) */
+function isCatalogContainer(psType) {
+	return psType == "group" || psType == "uicontrolshell";
+}
+
+/**
+ * 카탈로그 노드 하나를 CLX 요소로 만든다(자식까지 재귀).
+ * @param {Object} poCtx
+ * @param {Object} poNode 카탈로그 노드 { type, cls, id, props, layout, rows, columns, ld, items, gridCols, children }
+ * @param {Object} poLayoutDataOverride 이 노드가 놓일 자리의 레이아웃 데이터(최상위에서만 쓴다)
+ */
+function catalogNodeEl(poCtx, poNode, poLayoutDataOverride) {
+	if (poNode.type == "tabitem") {
+		var voContent = (poNode.children || [])[0];
+		return el("cl:tabitem", [["std:sid", sid(poCtx, "t-item")]].concat(catalogAttrs(poNode.props)),
+				[voContent == null ? null : catalogNodeEl(poCtx, voContent, null)]);
+	}
+
+	var vaInfo = TAG_INFO[poNode.type];
+	var vsTag = vaInfo != null ? vaInfo[0] : "cl:" + poNode.type;
+	var vsSidPrefix = vaInfo != null ? vaInfo[1] : poNode.type;
+
+	var vaAttrs = [["std:sid", sid(poCtx, vsSidPrefix)], ["id", uniqueId(poCtx, poNode.id)], ["class", poNode.cls || null]];
+	vaAttrs = vaAttrs.concat(catalogAttrs(poNode.props));
+
+	var voLayoutData = poLayoutDataOverride != null ? poLayoutDataOverride : catalogLayoutData(poCtx, poNode.ld);
+	var vaChildren = [voLayoutData];
+
+	if (poNode.items != null) {
+		poNode.items.forEach(function(poItem) {
+			vaChildren.push(el("cl:item", [["std:sid", sid(poCtx, "item")], ["label", poItem.label], ["value", poItem.value]]));
+		});
+	}
+	if (poNode.type == "grid") {
+		var vaHeaders = [];
+		for (var i = 0; i < (poNode.gridCols > 0 ? poNode.gridCols : 5); i++) {
+			vaHeaders.push("");
+		}
+		vaChildren = vaChildren.concat(gridParts(poCtx, vaHeaders));
+	}
+	(poNode.children || []).forEach(function(poChild) {
+		vaChildren.push(catalogNodeEl(poCtx, poChild, null));
+	});
+	if (isCatalogContainer(poNode.type)) {
+		vaChildren.push(catalogLayout(poCtx, poNode));
+	}
+	return el(vsTag, vaAttrs, vaChildren);
 }
 
 function groupEl(poCtx, psId, psClass, poLayoutData, paChildren, poLayout) {

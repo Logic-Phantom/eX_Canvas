@@ -71,6 +71,12 @@ exports.extract = function(pcCanvas, poAppInfo) {
 		if (voDef.udcType) {
 			voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 		}
+		if (voDef.uiTemplate) {
+			// UI 템플릿(스튜디오 상용구)은 컨트롤 트리를 통째로 들고 다닌다. 직렬화는 clxSerializer 가 트리대로 한다.
+			voNode.type = "uitpl";
+			voNode.tpl = voDef.uiTemplate;
+			voNode.text = voDef.uiTemplate.name;
+		}
 		if (voDef.textKind == "items" || voDef.textKind == "columns" || voDef.textKind == "tabs" || voDef.textKind == "sections") {
 			voNode.items = registry.splitCsv(vsText);
 		}

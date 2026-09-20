@@ -46,10 +46,16 @@ public class DevServer {
 		MIME.put("ttf", "font/ttf");
 	}
 
+	/** 생성물을 쓸 소스 경로(clx-src). 실행 폴더가 어디든 찾아낸다. */
+	private static Path srcDir;
+
 	public static void main(String[] args) throws Exception {
 		final Path buildDir = Paths.get(args.length > 0 ? args[0] : "target/clx-dev").toAbsolutePath().normalize();
 		final Path runtimeDir = Paths.get("exbuilder/runtime").toAbsolutePath().normalize();
 		int port = args.length > 1 ? Integer.parseInt(args[1]) : 8090;
+		srcDir = findSrcDir(buildDir);
+
+		ensureIndexHtml(buildDir, args.length > 2 ? args[2] : "canvas/Prototyper");
 
 		HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
 		server.createContext("/ai/gemini.do", DevServer::proxyGemini);
@@ -62,6 +68,94 @@ public class DevServer {
 		server.start();
 		System.out.println("eX-Canvas dev server : http://127.0.0.1:" + port + "/  (build: " + buildDir + ")");
 		System.out.println("Gemini proxy        : " + (System.getenv("GEMINI_API_KEY") == null ? "OFF (GEMINI_API_KEY 미설정)" : "ON"));
+		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result") + "\\<yyyyMMdd>"));
+	}
+
+	/**
+	 * 빌드 폴더에 index.html 이 없으면 만들어 준다.
+	 *
+	 * e6-compiler 는 --main 을 주면 index.html 을 만들지만, 이클립스의 eXBuilder6 빌더가 만드는
+	 * clx-build 에는 없다(WAS 가 .clx URL 로 직접 여는 구조라 필요가 없다).
+	 * 걸어 줄 CSS 는 빌드 폴더의 env.json(runtime-css)을 그대로 읽는다.
+	 */
+	private static void ensureIndexHtml(Path buildDir, String mainApp) throws IOException {
+		Path index = buildDir.resolve("index.html");
+		if (Files.isRegularFile(index) || !Files.isDirectory(buildDir)) {
+			return;
+		}
+		StringBuilder links = new StringBuilder();
+		for (String css : runtimeCss(buildDir)) {
+			links.append("\t\t<link rel=\"stylesheet\" href=\".").append(css).append("\" type=\"text/css\">\n");
+		}
+		String html = "<!DOCTYPE html>\n<html>\n\t<head>\n"
+				+ "\t\t<meta charset=\"UTF-8\">\n"
+				+ "\t\t<meta name=\"viewport\" content=\"width=device-width, user-scalable=no\">\n"
+				+ "\t\t<script type=\"text/javascript\" src=\"runtime/cleopatra.js\"></script>\n"
+				+ "\t\t<script type=\"text/javascript\" src=\"./cpr-lib/user-modules.js\"></script>\n"
+				+ "\t\t<script type=\"text/javascript\" src=\"./cpr-lib/udc.js\"></script>\n"
+				+ "\t\t<script type=\"text/javascript\" src=\"" + mainApp + ".clx.js\"></script>\n"
+				+ "\t\t<link rel=\"stylesheet\" type=\"text/css\" href=\"runtime/css/cleopatra.css\">\n"
+				+ links
+				+ "\t\t<style>html, body { margin: 0px; padding: 0px; height: 100%; } body { box-sizing: content-box; min-height: 100%; }</style>\n"
+				+ "\t</head>\n\t<body>\n\t\t<script type=\"text/javascript\">\n"
+				+ "\t\t\tvar app = cpr.core.Platform.INSTANCE.lookup(\"" + mainApp + "\");\n"
+				+ "\t\t\tapp.createNewInstance().run();\n"
+				+ "\t\t</script>\n\t</body>\n</html>\n";
+		Files.write(index, html.getBytes(StandardCharsets.UTF_8));
+		System.out.println("index.html 을 만들었습니다 : " + index);
+	}
+
+	/** env.json 의 runtime-css 목록(예: "/theme/custom-theme.less" → "/theme/custom-theme.css"). */
+	private static java.util.List<String> runtimeCss(Path buildDir) throws IOException {
+		java.util.List<String> result = new java.util.ArrayList<>();
+		Path env = buildDir.resolve("env.json");
+		if (!Files.isRegularFile(env)) {
+			return result;
+		}
+		String text = new String(Files.readAllBytes(env), StandardCharsets.UTF_8);
+		int at = text.indexOf("runtime-css");
+		if (at < 0) {
+			return result;
+		}
+		int open = text.indexOf('[', at);
+		int close = text.indexOf(']', open);
+		if (open < 0 || close < 0) {
+			return result;
+		}
+		for (String piece : text.substring(open + 1, close).split(",")) {
+			String value = piece.trim().replace("\"", "").trim();
+			if (value.isEmpty()) {
+				continue;
+			}
+			result.add(value.endsWith(".less") ? value.substring(0, value.length() - 5) + ".css" : value);
+		}
+		return result;
+	}
+
+	/** 설정(-Dexcanvas.src.dir) → 실행 폴더 → 빌드 폴더 순으로 위로 올라가며 clx-src 를 찾는다. */
+	private static Path findSrcDir(Path buildDir) {
+		String configured = System.getProperty("excanvas.src.dir");
+		if (configured == null || configured.isEmpty()) {
+			configured = System.getenv("EXCANVAS_SRC_DIR");
+		}
+		if (configured != null && !configured.isEmpty()) {
+			Path path = Paths.get(configured).toAbsolutePath().normalize();
+			return Files.isDirectory(path) ? path : null;
+		}
+		Path found = walkUpForSrc(Paths.get("").toAbsolutePath());
+		return found != null ? found : walkUpForSrc(buildDir);
+	}
+
+	private static Path walkUpForSrc(Path start) {
+		Path dir = start.toAbsolutePath().normalize();
+		for (int i = 0; i < 8 && dir != null; i++) {
+			Path candidate = dir.resolve("clx-src");
+			if (Files.isDirectory(candidate)) {
+				return candidate;
+			}
+			dir = dir.getParent();
+		}
+		return null;
 	}
 
 	private static void serveFile(HttpExchange exchange, Path root, String relative) throws IOException {
@@ -124,8 +218,21 @@ public class DevServer {
 	 */
 	private static void saveResult(HttpExchange exchange) throws IOException {
 		try {
-			if (!"POST".equals(exchange.getRequestMethod()) || !"eX-Canvas".equals(exchange.getRequestHeaders().getFirst("X-Requested-With"))) {
+			boolean probe = "GET".equals(exchange.getRequestMethod());
+			if (!(probe || "POST".equals(exchange.getRequestMethod())) || !"eX-Canvas".equals(exchange.getRequestHeaders().getFirst("X-Requested-With"))) {
 				send(exchange, 403, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"forbidden\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			if (srcDir == null) {
+				send(exchange, 503, "application/json; charset=utf-8",
+						"{\"ok\":false,\"message\":\"소스 경로(clx-src)를 찾지 못했습니다. 프로젝트 루트에서 실행하거나 -Dexcanvas.src.dir 를 지정하세요.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			// GET 은 저장 가능 여부만 알려준다(화면 로드 때 확인용).
+			if (probe) {
+				String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+				String probeJson = "{\"ok\":true,\"dir\":\"" + srcDir.getFileName() + "/result/" + today + "\",\"path\":\"" + srcDir.toString().replace("\\", "\\\\") + "\"}";
+				send(exchange, 200, "application/json; charset=utf-8", probeJson.getBytes(StandardCharsets.UTF_8));
 				return;
 			}
 			String query = exchange.getRequestURI().getQuery();
@@ -141,14 +248,15 @@ public class DevServer {
 
 			java.time.LocalDateTime now = java.time.LocalDateTime.now();
 			String date = now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
-			Path dir = Paths.get("clx-src", "result", date).toAbsolutePath().normalize();
+			Path dir = srcDir.resolve("result").resolve(date);
 			Files.createDirectories(dir);
 			if (Files.exists(dir.resolve(name + ".clx"))) {
 				name = name + "_" + now.format(java.time.format.DateTimeFormatter.ofPattern("HHmmss"));
 			}
 			Files.write(dir.resolve(name + ".clx"), clx.getBytes(StandardCharsets.UTF_8));
 			Files.write(dir.resolve(name + ".js"), js.getBytes(StandardCharsets.UTF_8));
-			String json = "{\"ok\":true,\"dir\":\"clx-src/result/" + date + "\",\"name\":\"" + name + "\"}";
+			System.out.println("[saveResult] " + dir.resolve(name + ".clx"));
+			String json = "{\"ok\":true,\"dir\":\"" + srcDir.getFileName() + "/result/" + date + "\",\"name\":\"" + name + "\"}";
 			send(exchange, 200, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
 		} finally {
 			exchange.close();

@@ -1,0 +1,139 @@
+/*
+ * prototyper.less
+ * eX-Canvas(Web Prototyper) 화면 전용 스타일.
+ * 위치·크기(top/left/width/height)는 레이아웃이 넣으므로 여기서 다루지 않는다.
+ */
+.cl-container.pt-root {
+  background-color: #f4f6fa;
+  color: #2b3140;
+}
+/* 상단 툴바 */
+.cl-container.pt-toolbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #d5dae3;
+}
+.cl-output.pt-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #2f6fed;
+}
+.cl-button.pt-btn-primary {
+  background-color: #2f6fed;
+  background-image: none;
+  border-color: #2f6fed;
+  color: #ffffff;
+}
+/* 좌측 팔레트 · 우측 속성창 공통 패널 */
+.cl-container.pt-panel {
+  background-color: #ffffff;
+  border: 1px solid #d5dae3;
+}
+.cl-output.pt-panel-title {
+  font-weight: bold;
+  background-color: #eef1f7;
+  border-bottom: 1px solid #d5dae3;
+  padding-left: 10px;
+}
+.cl-output.pt-label {
+  color: #5a6376;
+  padding-left: 4px;
+}
+.cl-output.pt-status {
+  color: #5a6376;
+  font-size: 12px;
+  padding-left: 8px;
+}
+/* 팔레트 항목 */
+.cl-output.pt-palette-item {
+  border: 1px solid #d5dae3;
+  border-radius: 4px;
+  background-color: #fafbfd;
+  padding-left: 10px;
+  cursor: grab;
+}
+.cl-output.pt-palette-item:hover {
+  border-color: #2f6fed;
+  color: #2f6fed;
+}
+/* 드래그 피드백(app.floatControl로 띄우는 아웃풋) */
+.cl-output.pt-drag-feedback {
+  border: 1px dashed #2f6fed;
+  background-color: rgba(47, 111, 237, 0.12);
+  color: #2f6fed;
+  text-align: center;
+  pointer-events: none;
+}
+/* 중앙 캔버스 */
+.cl-container.pt-canvas {
+  background-color: #ffffff;
+  border: 1px solid #d5dae3;
+  background-image: linear-gradient(to right, #eef1f7 1px, transparent 1px), linear-gradient(to bottom, #eef1f7 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+.cl-container.pt-canvas.pt-drop-active {
+  border-color: #2f6fed;
+}
+/* 캔버스에 놓인 항목(래퍼 그룹) */
+.cl-container.pt-item {
+  outline: 1px dashed transparent;
+}
+.cl-container.pt-item:hover {
+  outline-color: #9db8f5;
+}
+.cl-container.pt-item.pt-selected {
+  outline: 2px solid #2f6fed;
+}
+/* 실제 컨트롤 위를 덮어 클릭·드래그를 가로채는 투명 덮개 */
+.cl-output.pt-item-overlay {
+  background-color: transparent;
+  border: none;
+  cursor: move;
+}
+/* 크기 조절 핸들 */
+.cl-output.pt-item-handle {
+  background-color: #2f6fed;
+  border: 1px solid #ffffff;
+  cursor: nwse-resize;
+  opacity: 0;
+}
+.cl-container.pt-item.pt-selected .cl-output.pt-item-handle {
+  opacity: 1;
+}
+/* 출력 미리보기 */
+.cl-textarea.pt-preview {
+  font-family: Consolas, "D2Coding", monospace;
+  font-size: 12px;
+}
+/* 팔레트 묶음 머리글 · UDC 항목 */
+.cl-output.pt-palette-category {
+  font-size: 11px;
+  font-weight: bold;
+  color: #8a93a6;
+  padding-left: 2px;
+  border-bottom: 1px solid #d5dae3;
+}
+.cl-output.pt-palette-item.pt-palette-udc {
+  border-style: dashed;
+  color: #7a4fd6;
+}
+/* UI 템플릿(스튜디오 상용구) 팔레트 항목 */
+.cl-output.pt-palette-item.pt-palette-tpl {
+  border-left: 3px solid #17a2a2;
+  color: #0f7d7d;
+}
+/* 템플릿 안에서 만들지 못한 컨트롤(공통 모듈이 없는 UDC 등)의 자리 표시 */
+.cl-output.pt-tpl-ghost {
+  border: 1px dashed #17a2a2;
+  background-color: rgba(23, 162, 162, 0.08);
+  color: #0f7d7d;
+  font-size: 11px;
+  text-align: center;
+}
+/* 내용이 비어 보이는 유형(이미지 · 빈 그룹 · 임베디드 …)의 이름표 */
+.cl-output.pt-item-overlay.pt-item-ghost {
+  border: 1px dashed #aab3c5;
+  background-color: rgba(170, 179, 197, 0.12);
+  color: #8a93a6;
+  font-size: 11px;
+  text-align: center;
+}

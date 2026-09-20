@@ -1,0 +1,2106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:settings="kr.co.tomatosystem.exbuilder.model.ui.settings">
+  <settings:CannedTemplate uuid="2ee12e50-2c3c-4e5d-b2db-1a6294a66dc5" name="[버튼] 주요 버튼" preferredWidth="46" preferredHeight="26" description="[btn-submit]">
+    <control xsi:type="cl:Button" sid="button-e4bef415" class="btn-submit" value="버튼">
+      <layoutData xsi:type="cl:FlowData" sid="f-data-c57260a2" width="46px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="f4b3d120-1a38-49ec-9ef8-8012620e980d" name="[버튼] 보조 버튼" preferredWidth="46" preferredHeight="26" revision="2" description="[btn-base]">
+    <control xsi:type="cl:Button" sid="button-c5df4eff" class="btn-base" value="버튼">
+      <metaData>
+        <properties key="template-uuid" value="f4b3d120-1a38-49ec-9ef8-8012620e980d"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-6511bef4" width="46px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="56a10b6f-c4af-4a01-ae46-d7b177098ddc" name="[버튼] 인라인 버튼" preferredWidth="46" preferredHeight="26" description="[btn-inline]">
+    <control xsi:type="cl:Button" sid="button-6f44e1a6" class="btn-base" value="버튼">
+      <layoutData xsi:type="cl:FlowData" sid="f-data-4c6b3a8e" width="46px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9fa6535a-9935-44c1-9b7e-45c015ccd25c" name="[버튼] 조회 버튼" preferredWidth="63" preferredHeight="26" revision="3" description="[btn-search]">
+    <control xsi:type="cl:Button" sid="button-b8ff03b3" class="btn-search" value="조회" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="9fa6535a-9935-44c1-9b7e-45c015ccd25c"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-da68cfa1" width="63px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="321f1a24-6834-4c71-96f2-1dcb09258548" name="[버튼] 저장 버튼" preferredWidth="63" preferredHeight="26" revision="3" description="[btn-save]">
+    <control xsi:type="cl:Button" sid="button-b4af668c" class="btn-save" value="저장" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="321f1a24-6834-4c71-96f2-1dcb09258548"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-58f159d3" width="63px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="d561b7ca-80d2-4205-904c-189774953c2c" name="[버튼] 등록 버튼" preferredWidth="63" preferredHeight="26" revision="3" description="[btn-add]">
+    <control xsi:type="cl:Button" sid="button-ddd5188b" class="btn-add" value="등록" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="d561b7ca-80d2-4205-904c-189774953c2c"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-ee7c8116" width="63px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="d86d6ff8-4f88-430f-9ff0-807e7a9fa4c4" name="[버튼] 삭제 버튼" preferredWidth="63" preferredHeight="26" revision="3" description="[btn-remove]">
+    <control xsi:type="cl:Button" sid="button-150704d2" class="btn-remove" value="삭제" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="d86d6ff8-4f88-430f-9ff0-807e7a9fa4c4"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-aad4120c" width="63px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="c147804b-9c47-4431-b8bd-a1d06e3ba592" name="[버튼] 행추가 버튼" preferredWidth="74" preferredHeight="26" revision="3" description="[btn-insert]">
+    <control xsi:type="cl:Button" sid="button-f6ddbbfa" class="btn-insert" value="행추가" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="c147804b-9c47-4431-b8bd-a1d06e3ba592"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-b095f1c1" width="74px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="35600121-63aa-46f7-8a72-ad054634930e" name="[버튼] 행취소 버튼" preferredWidth="74" preferredHeight="26" revision="2" description="[btn-revert]">
+    <control xsi:type="cl:Button" sid="button-4d908135" class="btn-revert" value="행취소" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="35600121-63aa-46f7-8a72-ad054634930e"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-9f24caba" width="74px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="28436a20-e048-4f7d-b4bd-cdb970437579" name="[버튼] 행삭제 버튼" preferredWidth="74" preferredHeight="26" revision="2" description="[btn-delete]">
+    <control xsi:type="cl:Button" sid="button-f053cef7" class="btn-delete" value="행삭제" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="28436a20-e048-4f7d-b4bd-cdb970437579"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-02bf016a" width="74px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="33c49c66-0a4a-4db5-be3b-4d61f163454e" name="[버튼] 출력 버튼" preferredWidth="63" preferredHeight="26" revision="2" description="[btn-print]">
+    <control xsi:type="cl:Button" sid="button-3e5036d3" class="btn-print" value="출력" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="33c49c66-0a4a-4db5-be3b-4d61f163454e"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-0c01c6c8" width="63px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="7ee9442b-6574-46ff-87bf-118378559e92" name="[버튼] 팝업 호출 버튼" preferredWidth="85" preferredHeight="26" revision="2" description="[btn-pop]">
+    <control xsi:type="cl:Button" sid="button-8c313136" class="btn-pop" value="팝업호출" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="7ee9442b-6574-46ff-87bf-118378559e92"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-690c5b7a" width="85px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="ed2b3e9d-4954-42e1-a447-7a9c901874cc" name="[버튼] 엑셀업로드 버튼" preferredWidth="97" preferredHeight="26" revision="2" description="[btn-excel]">
+    <control xsi:type="cl:Button" sid="button-c6728be3" class="btn-excel" value="엑셀업로드" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="ed2b3e9d-4954-42e1-a447-7a9c901874cc"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-d5ad5be2" width="97px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="db10345c-44b9-4a61-8aab-f11ff191fd16" name="[버튼] 엑셀다운로드 버튼" preferredWidth="108" preferredHeight="26" revision="2" description="[btn-excel]">
+    <control xsi:type="cl:Button" sid="button-a2e16246" class="btn-excel" value="엑셀다운로드" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="db10345c-44b9-4a61-8aab-f11ff191fd16"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-a876b619" width="108px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="cbe95027-edd9-46a5-9e25-2ca0fa78d5e3" name="[버튼] 초기화 아이콘 버튼" preferredWidth="28" preferredHeight="26" revision="2" description="[btn-i-only btn-reset] 초기화 아이콘 버튼">
+    <control xsi:type="cl:Button" sid="button-7d1f76cf" class="btn-reset btn-i-only" fieldLabel="초기화" tooltip="초기화" value="" icon="../theme/images/controls/button/ic_btn_blank.svg">
+      <metaData>
+        <properties key="template-uuid" value="cbe95027-edd9-46a5-9e25-2ca0fa78d5e3"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-227842cb" width="28px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="cac1b6c6-647f-450c-8a08-9bf99b5be1b2" name="[버튼] 타이틀 버튼 그룹" preferredWidth="1580" preferredHeight="26" revision="2" description="[title-button-group] 타이틀 버튼 그룹. content-title-group 내 우측에 배치, 우측 정렬(horizontalSpacing = 4px), 다른 유형의 컨트롤 배치 시 사이에 간격 아웃풋 배치">
+    <control xsi:type="cl:Group" sid="group-319101d3" class="title-button-group">
+      <metaData>
+        <properties key="template-uuid" value="cac1b6c6-647f-450c-8a08-9bf99b5be1b2"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-ccbaa5c6" width="600px" height="26px"/>
+      <controls xsi:type="cl:UserDefinedControl" sid="ud-control-fa4a1dd5" id="udccomgridcudbtns1" type="udc.com.udcComGridCudBtns">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-b9d398f8" width="230px" height="26px" autoSize="width" allowNewLine="false"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-f516adce" class="btn-save" value="저장" icon="0">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-d108d607" width="63px" height="26px" autoSize="width" allowNewLine="false"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-aa18c125" class="spacing">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-1e658bc5" width="8px" height="26px"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-1ab3e6a9" class="btn-submit" value="버튼">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-0d824c9b" width="47px" height="26px" autoSize="width" allowNewLine="false"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-a1f5aa04" scrollable="false" horizontalAlign="right"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="fbff0210-ac88-4699-b32a-bf65c7b35a21" name="[버튼] 푸터 버튼 그룹" preferredWidth="600" preferredHeight="26" description="[footer-button-group] 푸터 버튼 그룹. content-footer 내 배치, 좌측 버튼 그룹과 우측 버튼 그룹으로 분리하여 배치(각각 width=&quot;765px&quot;, autoSizing=&quot;true&quot;, minLength=&quot;0&quot;)">
+    <control xsi:type="cl:Group" sid="group-89d9707e" class="footer-button-group">
+      <layoutData xsi:type="cl:FormData" sid="f-data-dbb86e09" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:Group" sid="group-2361c433">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7dcb312f" rowIndex="0" colIndex="0"/>
+        <controls xsi:type="cl:Button" sid="button-87ab91d6" class="btn-base" value="버튼">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-e76d3559" width="48px" height="32px" autoSize="width"/>
+        </controls>
+        <controls xsi:type="cl:Button" sid="button-b87baf25" class="btn-base" value="버튼">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-17f39cb5" width="48px" height="32px" autoSize="width"/>
+        </controls>
+        <layout xsi:type="cl:FlowLayout" sid="f-layout-ab89fe4d" horizontalAlign="left"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-98ea6c41">
+        <layoutData xsi:type="cl:FormData" sid="f-data-06ffa68a" rowIndex="0" colIndex="1"/>
+        <controls xsi:type="cl:Button" sid="button-3830a058" class="btn-submit" value="버튼">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-7093ec89" width="48px" height="32px" autoSize="width"/>
+        </controls>
+        <controls xsi:type="cl:Button" sid="button-d3506684" class="btn-submit" value="버튼">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-d896051a" width="48px" height="32px" autoSize="width"/>
+        </controls>
+        <controls xsi:type="cl:Button" sid="button-0833fb34" class="btn-base" value="버튼">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-44e8d7f8" width="48px" height="32px" autoSize="width"/>
+        </controls>
+        <layout xsi:type="cl:FlowLayout" sid="f-layout-6d32a134" horizontalAlign="right"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-877f6ca0" scrollable="false" horizontalSpacing="1fr" verticalSpacing="0px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="300" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+        <columns length="300" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9ba09bfe-ffa4-4573-95cb-8435162cf52d" name="[폼] 조회 폼 라벨" preferredWidth="60" preferredHeight="26" description="[label] 조회 폼의 라벨">
+    <control xsi:type="cl:Output" sid="output-868ef3ad" class="label" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-a8b7bce2" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="2cd8ddd3-b315-4794-ae24-f99747d0a0b0" name="[폼] 조회 폼 서브 라벨" preferredWidth="60" preferredHeight="26" description="[sub-label] 조회 폼의 서브 라벨">
+    <control xsi:type="cl:Output" sid="output-f5c089eb" class="sub-label" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-6f0159a4" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="58f8f851-b51b-45a4-9d8e-8a19664dc543" name="[폼] 조회 폼 필수 라벨" preferredWidth="60" preferredHeight="26" description="[label required] 조회 폼의 라벨 또는 서브 라벨필수입력값">
+    <control xsi:type="cl:Output" sid="output-6845a62c" class="label required" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-4bde21a5" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9d275920-2a28-43f5-af8d-db35540278fa" name="[폼] 조회 (1행)" preferredWidth="1580" preferredHeight="50" revision="3" description="[search-box]">
+    <control xsi:type="cl:Group" sid="group-46ffeb4f" id="grpSearch" class="search-box">
+      <metaData>
+        <properties key="template-uuid" value="9d275920-2a28-43f5-af8d-db35540278fa"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-7e966561" width="1580px" height="50px" autoSize="height"/>
+      <controls xsi:type="cl:Output" sid="output-c2c58d30" class="label required" value="인풋박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6aa308aa" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-38f7bb37" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ab4bcc27" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-47723d38" class="label required" value="콤보박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-2fae2323" rowIndex="0" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:ComboBox" sid="c-box-1ea276c1" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-bac8672f" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-ac479005" class="label" value="주민등록번호">
+        <layoutData xsi:type="cl:FormData" sid="f-data-d090f273" rowIndex="0" colIndex="4"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-16482f15">
+        <layoutData xsi:type="cl:FormData" sid="f-data-d0b5b62c" rowIndex="0" colIndex="5"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-c9e3b5f1" maxLength="6" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-976df143" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-2e7da14d" value="-">
+          <layoutData xsi:type="cl:FormData" sid="f-data-6e5c0b2b" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:InputBox" sid="i-box-b9c6bcf3" maxLength="7" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-c1d8d760" rowIndex="0" colIndex="2"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-629bbe26" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="100" unit="PIXEL"/>
+          <columns length="6" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="100" unit="PIXEL"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-96f1603c" class="label" value="데이트인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-8226417a" rowIndex="0" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:DateInput" sid="d-input-b6475c06" value="20241231">
+        <layoutData xsi:type="cl:FormData" sid="f-data-b8fb78f4" horizontalAlign="LEFT" width="110" rowIndex="0" colIndex="7"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-87957842" id="btnSearch" class="btn-search" value="조회" icon="../theme/images/controls/button/ic_btn_blank.svg">
+        <layoutData xsi:type="cl:FormData" sid="f-data-26e37540" width="63" rowIndex="0" colIndex="8"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-b71c8463" scrollable="false" horizontalSpacing="8px" verticalSpacing="8px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="26" unit="PIXEL"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent" minLength="0"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" minLength="0"/>
+        <columns length="63" unit="PIXEL" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="e96b2545-9dc1-416b-b5b1-8dca8c8f086a" name="[폼] 조회 (2행)" preferredWidth="1580" preferredHeight="84" revision="3" description="[search-box]">
+    <control xsi:type="cl:Group" sid="group-c1e3aacb" id="grpSearch" class="search-box">
+      <metaData>
+        <properties key="template-uuid" value="e96b2545-9dc1-416b-b5b1-8dca8c8f086a"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-abd89720" width="1580px" height="84px" autoSize="height"/>
+      <controls xsi:type="cl:Output" sid="output-75867440" class="label required" value="인풋박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-e81b8853" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-23ae25af" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6f41f488" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-ae3a27c2" class="label required" value="콤보박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-df3bbfeb" rowIndex="0" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:ComboBox" sid="c-box-46f0783b" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-63c478c3" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-2ad2ba30" class="label" value="주민등록번호">
+        <layoutData xsi:type="cl:FormData" sid="f-data-229870d9" rowIndex="0" colIndex="4"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-b0601382">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3f5ad006" rowIndex="0" colIndex="5"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-455bc3ff" maxLength="6" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-cf9889ad" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-4ca47cd8" value="-">
+          <layoutData xsi:type="cl:FormData" sid="f-data-cb61fab6" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:InputBox" sid="i-box-9ccdc34d" maxLength="7" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-8d2484cf" rowIndex="0" colIndex="2"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-cc2027b8" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="100" unit="PIXEL"/>
+          <columns length="6" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="100" unit="PIXEL"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-1087bcfc" class="label" value="데이트인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-98726269" rowIndex="0" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:DateInput" sid="d-input-0e6306b3" value="20241231">
+        <layoutData xsi:type="cl:FormData" sid="f-data-b35289e8" horizontalAlign="LEFT" width="110" rowIndex="0" colIndex="7"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-37d58a21" class="label" value="서치인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-d2682298" rowIndex="1" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:SearchInput" sid="s-input-1ce4ab4a">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0904cddb" rowIndex="1" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-082e511e" class="label" value="라디오버튼">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7c6f6f16" rowIndex="1" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:RadioButton" sid="r-button-c2bab6bb" value="value1">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a2a4c755" rowIndex="1" colIndex="3"/>
+        <items sid="item-e003fe73" label="예" value="value1"/>
+        <items sid="item-4c475c5a" label="아니오" value="value2"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-8c7b9d52" class="label" value="체크박스그룹">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3f480e54" rowIndex="1" colIndex="4"/>
+      </controls>
+      <controls xsi:type="cl:CheckBoxGroup" sid="cb-group-8202c737">
+        <layoutData xsi:type="cl:FormData" sid="f-data-1480979e" rowIndex="1" colIndex="5"/>
+        <items sid="item-63f396b8" label="아이템" value="value1"/>
+        <items sid="item-150b642e" label="아이템" value="value2"/>
+        <items sid="item-70bd9170" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-b8114a9e" class="label" value="데이트인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-156eb064" rowIndex="1" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-b920c6f6">
+        <layoutData xsi:type="cl:FormData" sid="f-data-fa480da4" rowIndex="1" colIndex="7"/>
+        <controls xsi:type="cl:DateInput" sid="d-input-7a5cf79f" value="20241231">
+          <layoutData xsi:type="cl:FormData" sid="f-data-be6d1351" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-9320d724" value="-">
+          <layoutData xsi:type="cl:FormData" sid="f-data-5e6055af" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:DateInput" sid="d-input-e70f91b2" value="20241231">
+          <layoutData xsi:type="cl:FormData" sid="f-data-b46970f1" rowIndex="0" colIndex="2"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-6e5a7374" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="110" unit="PIXEL"/>
+          <columns length="6" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="110" unit="PIXEL"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-44c29ffc" id="btnSearch" class="btn-search" value="조회" icon="../theme/images/controls/button/ic_btn_blank.svg">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7f98eac8" width="63" rowIndex="1" colIndex="8"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-221a4f49" scrollable="false" horizontalSpacing="8px" verticalSpacing="8px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="63" unit="PIXEL" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="262f53ee-6273-4f4f-841e-c14efad28f44" name="[폼] 조회 (3행)" preferredWidth="1580" preferredHeight="118" revision="3" description="[search-box]">
+    <control xsi:type="cl:Group" sid="group-5013bd10" id="grpSearch" class="search-box">
+      <metaData>
+        <properties key="template-uuid" value="262f53ee-6273-4f4f-841e-c14efad28f44"/>
+        <properties key="template-rev" value="2"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-7b54b71f" width="1580px" height="118px" autoSize="height"/>
+      <controls xsi:type="cl:Output" sid="output-99f650d2" class="label required" value="인풋박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ef01e531" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-6c076401" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-bc47611f" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-b05649d4" class="label required" value="콤보박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a8fc687d" rowIndex="0" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:ComboBox" sid="c-box-9aec2733" class="required">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3167b8dd" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-38f65fe2" class="label" value="주민등록번호">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a817b70b" rowIndex="0" colIndex="4"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-bc65b8af">
+        <layoutData xsi:type="cl:FormData" sid="f-data-9580b9ae" rowIndex="0" colIndex="5"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-19caaea0" maxLength="6" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-751f5e50" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-dd31d218" value="-">
+          <layoutData xsi:type="cl:FormData" sid="f-data-903b178c" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:InputBox" sid="i-box-101b65e5" maxLength="7" inputFilter="[0-9]">
+          <layoutData xsi:type="cl:FormData" sid="f-data-6fb93e8f" rowIndex="0" colIndex="2"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-6b4b98a6" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="100" unit="PIXEL"/>
+          <columns length="6" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="100" unit="PIXEL"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-0cf0ff30" class="label" value="데이트인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-f5fd86f5" rowIndex="0" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:DateInput" sid="d-input-52bf2ff6" value="20241231">
+        <layoutData xsi:type="cl:FormData" sid="f-data-906da581" horizontalAlign="LEFT" width="110" rowIndex="0" colIndex="7"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-8034a760" class="label" value="서치인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-4d322bba" rowIndex="1" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:SearchInput" sid="s-input-949b23db">
+        <layoutData xsi:type="cl:FormData" sid="f-data-37dc61b5" rowIndex="1" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-01d9dfd4" class="label" value="라디오버튼">
+        <layoutData xsi:type="cl:FormData" sid="f-data-70d6e206" rowIndex="1" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:RadioButton" sid="r-button-344f9916" value="value1">
+        <layoutData xsi:type="cl:FormData" sid="f-data-9ab22d87" rowIndex="1" colIndex="3"/>
+        <items sid="item-2b43082c" label="예" value="value1"/>
+        <items sid="item-cb2e3df8" label="아니오" value="value2"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-44fb4231" class="label" value="체크박스그룹">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a8384a2a" rowIndex="1" colIndex="4"/>
+      </controls>
+      <controls xsi:type="cl:CheckBoxGroup" sid="cb-group-155f8cc2">
+        <layoutData xsi:type="cl:FormData" sid="f-data-1e1918d8" rowIndex="1" colIndex="5"/>
+        <items sid="item-80fad1af" label="아이템" value="value1"/>
+        <items sid="item-8a23e735" label="아이템" value="value2"/>
+        <items sid="item-ac5d7895" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-96607bd5" class="label" value="데이트인풋">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7c8e10c1" rowIndex="1" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-28fad8ef">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3515e179" rowIndex="1" colIndex="7"/>
+        <controls xsi:type="cl:DateInput" sid="d-input-2c5e2fb2" value="20241231">
+          <layoutData xsi:type="cl:FormData" sid="f-data-b1e49837" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-500cf722" value="-">
+          <layoutData xsi:type="cl:FormData" sid="f-data-25cb0da8" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:DateInput" sid="d-input-ecef0805" value="20241231">
+          <layoutData xsi:type="cl:FormData" sid="f-data-f7191f41" rowIndex="0" colIndex="2"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-317af544" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="110" unit="PIXEL"/>
+          <columns length="6" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="110" unit="PIXEL"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-be99fbbf" class="label" value="검색어">
+        <layoutData xsi:type="cl:FormData" sid="f-data-675fa8a7" rowIndex="2" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-8a76a60d">
+        <layoutData xsi:type="cl:FormData" sid="f-data-44660748" rowIndex="2" colIndex="1" rowSpan="1" colSpan="5"/>
+        <controls xsi:type="cl:ComboBox" sid="c-box-70172b66">
+          <layoutData xsi:type="cl:FormData" sid="f-data-56dc85dc" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:InputBox" sid="i-box-10be3762">
+          <layoutData xsi:type="cl:FormData" sid="f-data-c943ceae" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-cb7db4ad" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="200" unit="PIXEL"/>
+          <columns length="1" unit="FRACTION"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-8a148443" class="label" value="체크박스">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0e585039" rowIndex="2" colIndex="6"/>
+      </controls>
+      <controls xsi:type="cl:CheckBox" sid="c-box-f68f3312" text="">
+        <layoutData xsi:type="cl:FormData" sid="f-data-291d2e88" rowIndex="2" colIndex="7"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-a3d8b147" id="btnSearch" class="btn-search" value="조회" icon="../theme/images/controls/button/ic_btn_blank.svg">
+        <layoutData xsi:type="cl:FormData" sid="f-data-55c7f323" width="63" rowIndex="2" colIndex="8"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-90608010" scrollable="false" horizontalSpacing="8px" verticalSpacing="8px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="110" unit="PIXEL" autoSizing="true" minLength="70" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="63" unit="PIXEL" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="c27293ac-7f6d-4c87-80a0-6727ace8bceb" name="[폼] 입력행 (1행)" preferredWidth="1091" preferredHeight="40" description="[form-base]">
+    <control xsi:type="cl:Group" sid="group-1b48d124" class="form-base">
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-604a1d34" width="1042px" height="40px" autoSize="none"/>
+      <controls xsi:type="cl:Output" sid="output-3ef34b41" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0b494467" rowIndex="0" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-6a42f0d3" value="데이터">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ae1c56d8" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-04bc556b" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6c5fc526" rowIndex="0" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-12e9cc8a" class="text-right" value="1234567890" dataType="number" format="s#,##0">
+        <layoutData xsi:type="cl:FormData" sid="f-data-f0167f74" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-70bdb303" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-b1e76102" rowIndex="0" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-c5837ca4" value="20241231" dataType="date" format="YYYY-MM-DD">
+        <layoutData xsi:type="cl:FormData" sid="f-data-c57ac4a8" rowIndex="0" colIndex="5"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-dbabe69d" scrollable="false" horizontalSpacing="17px" verticalSpacing="13px" topMargin="6px" rightMargin="8px" bottomMargin="6px" leftMargin="8px" horizontalSeparatorWidth="1" horizontalSeparatorType="BY_CLASS">
+        <rows length="26" unit="PIXEL"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="366dae4c-60bb-4dca-a4b9-e7518d1fec2b" name="[폼] 입력행 (2행)" preferredWidth="1091" preferredHeight="79" description="[form-base]">
+    <control xsi:type="cl:Group" sid="group-da7fa351" class="form-base">
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-e91a14c9" width="1042px" height="79px" autoSize="none"/>
+      <controls xsi:type="cl:Output" sid="output-7288b0d5" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-cc100f66" rowIndex="0" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-c40ae4a9" value="데이터">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7dc877fb" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-2c83e32f" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-8279d12a" rowIndex="0" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-83ab326c" class="text-right" value="1234567890" dataType="number" format="s#,##0">
+        <layoutData xsi:type="cl:FormData" sid="f-data-03d56d7a" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-e4f1981b" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-f1905fa4" rowIndex="0" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-ab17c216" value="20241231" dataType="date" format="YYYY-MM-DD">
+        <layoutData xsi:type="cl:FormData" sid="f-data-b02d0843" rowIndex="0" colIndex="5"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-3e1916f9" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-decafa47" rowIndex="1" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-b00e106f">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ad5451df" rowIndex="1" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-44d5d586" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6dd765ba" rowIndex="1" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-7cda42fd" class="form-control">
+        <layoutData xsi:type="cl:FormData" sid="f-data-9bf900c7" rowIndex="1" colIndex="3"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-27d5f86e">
+          <layoutData xsi:type="cl:FormData" sid="f-data-2e2ba2de" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:CheckBox" sid="c-box-517facb9" text="체크박스">
+          <layoutData xsi:type="cl:FormData" sid="f-data-465bb103" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-79e7c925" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="80" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-654d9210" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3b986a06" rowIndex="1" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-ed928313" class="form-control">
+        <layoutData xsi:type="cl:FormData" sid="f-data-244834f6" rowIndex="1" colIndex="5"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-3edb06ab">
+          <layoutData xsi:type="cl:FormData" sid="f-data-40fe47de" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Button" sid="button-6f1c4513" class="btn-inline" value="테이블버튼">
+          <layoutData xsi:type="cl:FormData" sid="f-data-c271a95b" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-b3010ed0" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="66" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        </layout>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-73721a86" scrollable="false" horizontalSpacing="17px" verticalSpacing="13px" topMargin="6px" rightMargin="8px" bottomMargin="6px" leftMargin="8px" horizontalSeparatorWidth="1" horizontalSeparatorType="BY_CLASS">
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="087f0a79-d176-4fa0-8c73-6ddcb366a9bb" name="[폼] 입력행 (3행)" preferredWidth="1091" preferredHeight="118" description="[search-box]">
+    <control xsi:type="cl:Group" sid="group-c3f3d414" class="form-base">
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-2665a169" width="1042px" height="118px" autoSize="none"/>
+      <controls xsi:type="cl:Output" sid="output-5b3f1324" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-254e11fb" rowIndex="0" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-943ac4d7" value="데이터">
+        <layoutData xsi:type="cl:FormData" sid="f-data-c7c02dad" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-51940522" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0ec0e1a1" rowIndex="0" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-9e8e4262" class="text-right" value="1234567890" dataType="number" format="s#,##0">
+        <layoutData xsi:type="cl:FormData" sid="f-data-92b784ea" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-e7525b4b" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-7ae3ae07" rowIndex="0" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-c1c92337" value="20241231" dataType="date" format="YYYY-MM-DD">
+        <layoutData xsi:type="cl:FormData" sid="f-data-bd94c5b4" rowIndex="0" colIndex="5"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-0a02ae38" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ea1d404a" rowIndex="1" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-028968a4">
+        <layoutData xsi:type="cl:FormData" sid="f-data-011efc3c" rowIndex="1" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-04be09f4" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-f9bafb82" rowIndex="1" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-72c6f925" class="form-control">
+        <layoutData xsi:type="cl:FormData" sid="f-data-2b6e56e3" rowIndex="1" colIndex="3"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-95c84903">
+          <layoutData xsi:type="cl:FormData" sid="f-data-a41f357f" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:CheckBox" sid="c-box-07311d06" text="체크박스">
+          <layoutData xsi:type="cl:FormData" sid="f-data-15e59010" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-26469ba5" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="80" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-a1afe6b4" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-1bd4a14c" rowIndex="1" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-4577a142" class="form-control">
+        <layoutData xsi:type="cl:FormData" sid="f-data-1540bf5b" rowIndex="1" colIndex="5"/>
+        <controls xsi:type="cl:InputBox" sid="i-box-15ebe573">
+          <layoutData xsi:type="cl:FormData" sid="f-data-e546c4d6" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Button" sid="button-802d1368" class="btn-inline" value="테이블버튼">
+          <layoutData xsi:type="cl:FormData" sid="f-data-0cffaaaa" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-47bc205a" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="66" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-60af53be" class="label required" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0e3d8070" rowIndex="2" colIndex="0" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:NumberEditor" sid="n-editor-71c4b11e">
+        <layoutData xsi:type="cl:FormData" sid="f-data-fb798c0d" rowIndex="2" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-35ce9504" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-95471a1d" rowIndex="2" colIndex="2" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:DateInput" sid="d-input-59228738" value="20241231">
+        <layoutData xsi:type="cl:FormData" sid="f-data-bcd64db3" horizontalAlign="LEFT" width="110" rowIndex="2" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-bf006391" class="label" value="항목">
+        <layoutData xsi:type="cl:FormData" sid="f-data-2777b824" rowIndex="2" colIndex="4" ignoreLayoutSpacing="true"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-00c1ee6d" class="form-control">
+        <layoutData xsi:type="cl:FormData" sid="f-data-fa774a1d" rowIndex="2" colIndex="5"/>
+        <controls xsi:type="cl:NumberEditor" sid="n-editor-3ce0b0ad">
+          <layoutData xsi:type="cl:FormData" sid="f-data-646f3f67" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-581462a8" value="원">
+          <layoutData xsi:type="cl:FormData" sid="f-data-4a14bf5a" rowIndex="0" colIndex="1"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-bf8209ae" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="110" unit="PIXEL" shadeType="NONE" shadeColor="transparent"/>
+          <columns length="50" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        </layout>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-ba613e5e" scrollable="false" horizontalSpacing="17px" verticalSpacing="13px" topMargin="6px" rightMargin="8px" bottomMargin="6px" leftMargin="8px" horizontalSeparatorWidth="1" horizontalSeparatorType="BY_CLASS">
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <rows length="26" unit="PIXEL"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL" autoSizing="true"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9c06a577-2fc0-4c34-b5fd-4fd37911c5ef" name="[카드] 일반" preferredWidth="1091" preferredHeight="150" description="[card]">
+    <control xsi:type="cl:Group" sid="group-a80ef64d" class="card">
+      <metaData>
+        <properties key="template-uuid" value="91f8b635-22de-4a22-9177-a3f60bcb0747"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-4cb86563" width="1091px" height="150px" autoSize="height"/>
+      <layout xsi:type="cl:VerticalLayout" sid="v-layout-25ac7081" scrollable="false"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="b116bc97-03fd-44a4-9134-81b17ddff2b4" name="[콘텐츠] 그리드 타이틀" preferredWidth="1580" preferredHeight="26" revision="2" description="[content-title-box]">
+    <control xsi:type="cl:Group" sid="group-f75cd45a" class="content-title-box">
+      <metaData>
+        <properties key="template-uuid" value="b116bc97-03fd-44a4-9134-81b17ddff2b4"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-2b50120e" width="1064px" height="26px"/>
+      <controls xsi:type="cl:UserDefinedControl" sid="ud-control-9af55cf3" id="udccomgridtitle1" type="udc.com.udcComGridTitle">
+        <layoutData xsi:type="cl:FormData" sid="f-data-5a0765cc" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-319101d3" class="title-button-group">
+        <layoutData xsi:type="cl:FormData" sid="f-data-459f4d77" rowIndex="0" colIndex="1"/>
+        <controls xsi:type="cl:UserDefinedControl" sid="ud-control-fa4a1dd5" id="udccomgridcudbtns1" type="udc.com.udcComGridCudBtns">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-b9d398f8" width="230px" height="26px" autoSize="width" allowNewLine="false"/>
+        </controls>
+        <layout xsi:type="cl:FlowLayout" sid="f-layout-a1f5aa04" scrollable="false" horizontalAlign="right"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-b735756d" scrollable="false" horizontalSpacing="0px" verticalSpacing="0px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="200" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="59042279-5672-436a-9140-2aece17954cd" name="[콘텐츠] 폼 타이틀" preferredWidth="1580" preferredHeight="26" revision="2" description="[content-title-box]">
+    <control xsi:type="cl:Group" sid="group-d222e14d" class="content-title-box">
+      <metaData>
+        <properties key="template-uuid" value="59042279-5672-436a-9140-2aece17954cd"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-4c3d3396" width="1064px" height="26px"/>
+      <controls xsi:type="cl:UserDefinedControl" sid="ud-control-639a16ed" id="udccomformtitle1" type="udc.com.udcComFormTitle">
+        <layoutData xsi:type="cl:FormData" sid="f-data-fe70afbc" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-fe2dd29b" class="title-button-group">
+        <layoutData xsi:type="cl:FormData" sid="f-data-544e78ef" rowIndex="0" colIndex="1"/>
+        <controls xsi:type="cl:UserDefinedControl" sid="ud-control-419bc70d" id="udccomgridcudbtns2" type="udc.com.udcComGridCudBtns">
+          <layoutData xsi:type="cl:FlowData" sid="f-data-79c7ad06" width="230px" height="26px" autoSize="width" allowNewLine="false"/>
+        </controls>
+        <layout xsi:type="cl:FlowLayout" sid="f-layout-c14195e3" scrollable="false" horizontalAlign="right"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-6a01704e" scrollable="false" horizontalSpacing="0px" verticalSpacing="0px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="200" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="eb5323ac-ca81-448f-b148-620d31527e47" name="[콘텐츠] 그리드" preferredWidth="1580" preferredHeight="234" revision="2" description="[content]">
+    <control xsi:type="cl:Group" sid="group-f4ffe5ea" class="content">
+      <metaData>
+        <properties key="template-uuid" value="eb5323ac-ca81-448f-b148-620d31527e47"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-bbf96f3c" width="1064px" height="234px"/>
+      <controls xsi:type="cl:Group" sid="group-f6771733" class="content-title-box">
+        <layoutData xsi:type="cl:VerticalData" sid="v-data-03a1e758" width="1064px" height="26px" autoSize="none"/>
+        <controls xsi:type="cl:UserDefinedControl" sid="ud-control-7c6b51ec" id="udccomgridtitle2" type="udc.com.udcComGridTitle">
+          <layoutData xsi:type="cl:FormData" sid="f-data-c356c9c2" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-2609e70f" class="title-button-group">
+          <layoutData xsi:type="cl:FormData" sid="f-data-31c30316" rowIndex="0" colIndex="1"/>
+          <controls xsi:type="cl:UserDefinedControl" sid="ud-control-88bd94d9" id="udccomgridcudbtns3" type="udc.com.udcComGridCudBtns">
+            <layoutData xsi:type="cl:FlowData" sid="f-data-e30f1e4e" width="230px" height="26px" autoSize="width" allowNewLine="false"/>
+          </controls>
+          <layout xsi:type="cl:FlowLayout" sid="f-layout-e9b7a231" scrollable="false" horizontalAlign="right"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-dfc21339" scrollable="false" horizontalSpacing="0px" verticalSpacing="0px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="200" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="1" unit="FRACTION"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Grid" sid="grid-3400986f">
+        <layoutData xsi:type="cl:VerticalData" sid="v-data-4c9a79b6" width="1064px" height="200px" autoSize="none"/>
+        <gridColumns sid="g-column-34b27805"/>
+        <gridColumns sid="g-column-e0839e85"/>
+        <gridColumns sid="g-column-b9d31c3c"/>
+        <gridColumns sid="g-column-a12c6426"/>
+        <gridColumns sid="g-column-9566422b"/>
+        <gridHeader sid="gh-band-bdfca8da">
+          <gridRows sid="g-row-dfdb7c61" height="30px"/>
+          <gridCells sid="gh-cell-a1c67880" rowIndex="0" colIndex="0"/>
+          <gridCells sid="gh-cell-1396d413" rowIndex="0" colIndex="1"/>
+          <gridCells sid="gh-cell-1a521e95" rowIndex="0" colIndex="2"/>
+          <gridCells sid="gh-cell-8d492b79" rowIndex="0" colIndex="3"/>
+          <gridCells sid="gh-cell-8f1b8bf4" rowIndex="0" colIndex="4"/>
+        </gridHeader>
+        <gridDetail sid="gd-band-0443e0bf">
+          <gridRows sid="g-row-bc86e735" height="30px"/>
+          <gridCells sid="gd-cell-f9c03d05" rowIndex="0" colIndex="0"/>
+          <gridCells sid="gd-cell-847f12d1" rowIndex="0" colIndex="1"/>
+          <gridCells sid="gd-cell-cf7ded0e" rowIndex="0" colIndex="2"/>
+          <gridCells sid="gd-cell-9f0459a9" rowIndex="0" colIndex="3"/>
+          <gridCells sid="gd-cell-fdd55d89" rowIndex="0" colIndex="4"/>
+        </gridDetail>
+      </controls>
+      <layout xsi:type="cl:VerticalLayout" sid="v-layout-723c2b88" scrollable="false"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="ccc8e728-c055-4019-927c-1b5885565986" name="[콘텐츠] 폼" preferredWidth="1580" preferredHeight="191" revision="2" description="[content]">
+    <control xsi:type="cl:Group" sid="group-b2c9a95e" class="content">
+      <metaData>
+        <properties key="template-uuid" value="ccc8e728-c055-4019-927c-1b5885565986"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-aeabec8b" width="1064px" height="191px"/>
+      <controls xsi:type="cl:Group" sid="group-13a98895" class="content-title-box">
+        <layoutData xsi:type="cl:VerticalData" sid="v-data-71bb301d" width="1064px" height="26px" autoSize="none"/>
+        <controls xsi:type="cl:UserDefinedControl" sid="ud-control-2a522116" id="udccomformtitle3" type="udc.com.udcComFormTitle">
+          <layoutData xsi:type="cl:FormData" sid="f-data-9c8865cc" rowIndex="0" colIndex="0"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-23a23f57" class="title-button-group">
+          <layoutData xsi:type="cl:FormData" sid="f-data-b3a0673e" rowIndex="0" colIndex="1"/>
+          <controls xsi:type="cl:UserDefinedControl" sid="ud-control-89525071" id="udccomgridcudbtns5" type="udc.com.udcComGridCudBtns">
+            <layoutData xsi:type="cl:FlowData" sid="f-data-4942e62d" width="230px" height="26px" autoSize="width" allowNewLine="false"/>
+          </controls>
+          <layout xsi:type="cl:FlowLayout" sid="f-layout-f0364a08" scrollable="false" horizontalAlign="right"/>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-55317840" scrollable="false" horizontalSpacing="0px" verticalSpacing="0px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+          <rows length="1" unit="FRACTION"/>
+          <columns length="200" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          <columns length="1" unit="FRACTION"/>
+        </layout>
+      </controls>
+      <controls xsi:type="cl:Group" sid="group-6095f8d8" class="form-base">
+        <layoutData xsi:type="cl:VerticalData" sid="v-data-e068ed95" width="1064px" height="157px" autoSize="none"/>
+        <controls xsi:type="cl:Output" sid="output-1662e57e" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-9e0339da" rowIndex="0" colIndex="0" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-8b0ee6f9" value="데이터">
+          <layoutData xsi:type="cl:FormData" sid="f-data-49d724e9" rowIndex="0" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-03f359b5" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-6d1985f7" rowIndex="0" colIndex="2" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-5c59031c" class="text-right" value="1234567890" dataType="number" format="s#,##0">
+          <layoutData xsi:type="cl:FormData" sid="f-data-396aa4d5" rowIndex="0" colIndex="3"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-64043d05" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-671b8ede" rowIndex="0" colIndex="4" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-06b0e977" value="20241231" dataType="date" format="YYYY-MM-DD">
+          <layoutData xsi:type="cl:FormData" sid="f-data-6b4b4983" rowIndex="0" colIndex="5"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-c29b3697" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-d195e292" rowIndex="1" colIndex="0" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:InputBox" sid="i-box-1d4b33c1">
+          <layoutData xsi:type="cl:FormData" sid="f-data-bba0fea9" rowIndex="1" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-12d3f415" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-b2cec07b" rowIndex="1" colIndex="2" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-11de4804" class="form-control">
+          <layoutData xsi:type="cl:FormData" sid="f-data-ed8347c9" rowIndex="1" colIndex="3"/>
+          <controls xsi:type="cl:InputBox" sid="i-box-2dfa46a0">
+            <layoutData xsi:type="cl:FormData" sid="f-data-aed7a545" rowIndex="0" colIndex="0"/>
+          </controls>
+          <controls xsi:type="cl:CheckBox" sid="c-box-c6f9c0b7" text="체크박스">
+            <layoutData xsi:type="cl:FormData" sid="f-data-cc2288b4" rowIndex="0" colIndex="1"/>
+          </controls>
+          <layout xsi:type="cl:FormLayout" sid="f-layout-5af49b07" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+            <rows length="1" unit="FRACTION"/>
+            <columns length="1" unit="FRACTION"/>
+            <columns length="80" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          </layout>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-3fd13107" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-e6e3c20b" rowIndex="1" colIndex="4" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-831ed24f" class="form-control">
+          <layoutData xsi:type="cl:FormData" sid="f-data-a3e14134" rowIndex="1" colIndex="5"/>
+          <controls xsi:type="cl:InputBox" sid="i-box-ef04cba8">
+            <layoutData xsi:type="cl:FormData" sid="f-data-8165d085" rowIndex="0" colIndex="0"/>
+          </controls>
+          <controls xsi:type="cl:Button" sid="button-fff83799" class="btn-inline" value="테이블버튼">
+            <layoutData xsi:type="cl:FormData" sid="f-data-16fc36e9" rowIndex="0" colIndex="1"/>
+          </controls>
+          <layout xsi:type="cl:FormLayout" sid="f-layout-60c9ab7e" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+            <rows length="1" unit="FRACTION"/>
+            <columns length="1" unit="FRACTION"/>
+            <columns length="66" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          </layout>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-3777fccc" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-92c0eeec" rowIndex="2" colIndex="0" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:NumberEditor" sid="n-editor-df0a69ac">
+          <layoutData xsi:type="cl:FormData" sid="f-data-7c612237" rowIndex="2" colIndex="1"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-bb5278c4" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-07f9c382" rowIndex="2" colIndex="2" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:DateInput" sid="d-input-7cab2844" value="20241231">
+          <layoutData xsi:type="cl:FormData" sid="f-data-140b7d9e" horizontalAlign="LEFT" width="110" rowIndex="2" colIndex="3"/>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-71e2a400" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-055053fc" rowIndex="2" colIndex="4" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-c35ae9da" class="form-control">
+          <layoutData xsi:type="cl:FormData" sid="f-data-0d059b3a" rowIndex="2" colIndex="5"/>
+          <controls xsi:type="cl:NumberEditor" sid="n-editor-687b99d5">
+            <layoutData xsi:type="cl:FormData" sid="f-data-4b7bbcd3" rowIndex="0" colIndex="0"/>
+          </controls>
+          <controls xsi:type="cl:Output" sid="output-6fe40ca1" value="원">
+            <layoutData xsi:type="cl:FormData" sid="f-data-d429149c" rowIndex="0" colIndex="1"/>
+          </controls>
+          <layout xsi:type="cl:FormLayout" sid="f-layout-1e69c840" scrollable="false" horizontalSpacing="4px" verticalSpacing="4px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+            <rows length="1" unit="FRACTION"/>
+            <columns length="110" unit="PIXEL" shadeType="NONE" shadeColor="transparent"/>
+            <columns length="50" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+          </layout>
+        </controls>
+        <controls xsi:type="cl:Output" sid="output-d8d7811a" class="label" value="항목">
+          <layoutData xsi:type="cl:FormData" sid="f-data-1e2f1c6e" rowIndex="3" colIndex="0" ignoreLayoutSpacing="true"/>
+        </controls>
+        <controls xsi:type="cl:Group" sid="group-d362ff3f" class="form-control">
+          <layoutData xsi:type="cl:FormData" sid="f-data-ea6abb5f" rowIndex="3" colIndex="1" rowSpan="1" colSpan="5"/>
+          <controls xsi:type="cl:SearchInput" sid="s-input-195ebf98">
+            <layoutData xsi:type="cl:FormData" sid="f-data-ff6995d6" rowIndex="0" colIndex="0"/>
+          </controls>
+          <controls xsi:type="cl:InputBox" sid="i-box-b66a103c">
+            <layoutData xsi:type="cl:FormData" sid="f-data-6c0db5d2" rowIndex="0" colIndex="1"/>
+          </controls>
+          <controls xsi:type="cl:InputBox" sid="i-box-9c17bb2e">
+            <layoutData xsi:type="cl:FormData" sid="f-data-830d57ae" rowIndex="0" colIndex="2"/>
+          </controls>
+          <layout xsi:type="cl:FormLayout" sid="f-layout-982135a3" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+            <rows length="1" unit="FRACTION"/>
+            <columns length="120" unit="PIXEL"/>
+            <columns length="1" unit="FRACTION"/>
+            <columns length="1" unit="FRACTION"/>
+          </layout>
+        </controls>
+        <layout xsi:type="cl:FormLayout" sid="f-layout-44727ed3" scrollable="false" horizontalSpacing="17px" verticalSpacing="13px" topMargin="6px" rightMargin="8px" bottomMargin="6px" leftMargin="8px" horizontalSeparatorWidth="1" horizontalSeparatorType="BY_CLASS">
+          <rows length="26" unit="PIXEL"/>
+          <rows length="26" unit="PIXEL"/>
+          <rows length="26" unit="PIXEL"/>
+          <rows length="26" unit="PIXEL"/>
+          <columns length="120" unit="PIXEL" autoSizing="true"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="120" unit="PIXEL" autoSizing="true"/>
+          <columns length="1" unit="FRACTION"/>
+          <columns length="120" unit="PIXEL" autoSizing="true"/>
+          <columns length="1" unit="FRACTION"/>
+        </layout>
+      </controls>
+      <layout xsi:type="cl:VerticalLayout" sid="v-layout-ccb4e717" scrollable="false"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="81e5333f-697c-4a47-abcd-19963f9d5416" name="[프레임] 버티컬 레이아웃" preferredWidth="958" preferredHeight="26" description="[form-control] &quot;form-control&quot; 클래스가 적용된 그룹">
+    <control xsi:type="cl:Group" sid="group-f78c80db" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="dc44aa23-2abb-40d2-a7c0-d148bb490024"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-de672a75" rowIndex="1" colIndex="1"/>
+      <layout xsi:type="cl:VerticalLayout" sid="v-layout-9827ad24" scrollable="false" spacing="4"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="e349a579-5a7d-41f4-a831-5fa800baf526" name="[프레임] 폼 레이아웃" preferredWidth="958" preferredHeight="26" description="[form-control] &quot;form-control&quot; 클래스가 적용된 그룹">
+    <control xsi:type="cl:Group" sid="group-14eb9503" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="b037a3ee-87c6-40b2-a3a2-d9ecdfc7bc7e"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-fc6f553f" rowIndex="2" colIndex="1"/>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-4a3c2210" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="cd5c4752-40ea-4d51-8b98-4dbaa32114a1" name="[프레임] 플로우 레이아웃" preferredWidth="958" preferredHeight="26" description="[form-control] &quot;form-control&quot; 클래스가 적용된 그룹">
+    <control xsi:type="cl:Group" sid="group-c2573f1d" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="c4bf5c85-fe69-428f-ba45-5e9c66be1134"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-cb9edcb2" rowIndex="3" colIndex="1"/>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-731e4fc8" scrollable="false"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="19d38982-1f54-4923-ab5a-736a56db327f" name="[프레임] 분할 배치" preferredWidth="958" preferredHeight="300" description="[division-group] &quot;division-group&quot; 클래스가 적용된 그룹">
+    <control xsi:type="cl:Group" sid="group-297b87a4" class="division-group" clipContent="true">
+      <metaData>
+        <properties key="template-uuid" value="b92e29ab-2bf1-409e-89d9-709358cfefee"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-387fc351" rowIndex="1" colIndex="1"/>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-781cea7c" scrollable="false" horizontalSpacing="16px" verticalSpacing="16px" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="0acf4130-7586-43ff-a1df-b731e604df62" name="[프레임] 컨트롤 그룹 (1)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 단위&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-4ca19226" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="460e3378-6033-4236-a79b-a38916128435"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-099ab890" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:Output" sid="output-e8d1856e" value="단위">
+        <layoutData xsi:type="cl:FormData" sid="f-data-46aeb78f" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-afc3c3db" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="30" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="3bf13d0a-f558-4031-9001-4cf6f17ba355" name="[프레임] 컨트롤 그룹 (2)" preferredWidth="200" preferredHeight="26" revision="2" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 버튼&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-59193fde" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="3bf13d0a-f558-4031-9001-4cf6f17ba355"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-bcce93ff" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:Button" sid="button-26244342" class="btn-inline" value="버튼">
+        <layoutData xsi:type="cl:FormData" sid="f-data-18ca600f" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-835a5a16" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="66" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="ec46a9d8-1177-4555-8a99-a41c1c89336c" name="[프레임] 컨트롤 그룹 (3)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 체크박스&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-7e9fc35c" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="460e3378-6033-4236-a79b-a38916128435"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-c97df5a1" rowIndex="3" colIndex="1"/>
+      <controls xsi:type="cl:CheckBox" sid="c-box-ab08b5ee" value="" text="텍스트">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6dcac829" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-bfbfe18f" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="80" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="918cbf94-1e15-4444-88ed-e829aed08e1f" name="[프레임] 컨트롤 그룹 (4)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 컨트롤&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-aa8f0869" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="7850a8be-64c5-422a-8cc7-d63dd73e9c65"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-903d3f5f" rowIndex="4" colIndex="1"/>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-b855c0c1" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9fe64964-7337-4bec-8724-ae10c45cef24" name="[프레임] 컨트롤 그룹 (5)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 컨트롤 + 컨트롤&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-2a71b008" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="58f146c6-3743-4814-ab96-f868cdc8b2e2"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-4846d031" rowIndex="5" colIndex="1"/>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-5cd9f45f" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="64a81f8d-ec4e-4a4d-a8fb-408fc5d6d23c" name="[프레임] 컨트롤 그룹 (6)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 기호 + 컨트롤&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-2051fceb" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="c865f4a9-9173-469b-98df-43a3272bf8d1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-dd84eb5e" rowIndex="6" colIndex="1"/>
+      <controls xsi:type="cl:Output" sid="output-227f1db4" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ecad8706" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-d2c4f044" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9a24b1cb-2975-4579-8f77-24e591ac8878" name="[프레임] 컨트롤 그룹 (7)" preferredWidth="200" preferredHeight="26" description="[form-control] 폼 레이아웃이 적용된 &quot;컨트롤 + 기호 + 컨트롤&quot; 형태의 프레임">
+    <control xsi:type="cl:Group" sid="group-4db16087" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="80a8b57f-43f4-43bf-93e4-6de8ea90894d"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-7c5f2fdb" rowIndex="7" colIndex="1"/>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-4da8eee5" scrollable="false"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="180d4529-7bf8-457d-a2a5-5a8f8bccbbe1" name="[인풋박스] 컨트롤 그룹 (1)" preferredWidth="200" preferredHeight="26" description="[form-control] 이메일">
+    <control xsi:type="cl:Group" sid="group-fcf7a3e3" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="512b6bab-995c-41c0-acbf-dd6b71eea9ac"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-460453fd" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:InputBox" sid="i-box-583ee1a7">
+        <layoutData xsi:type="cl:FormData" sid="f-data-c8d015c7" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-90e2aedc" value="@">
+        <layoutData xsi:type="cl:FormData" sid="f-data-2ac78fdc" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-120e129d">
+        <layoutData xsi:type="cl:FormData" sid="f-data-0f11b844" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-8241e1d5" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="3cb09572-a0ee-47e9-921c-dc152c0c9d22" name="[인풋박스] 컨트롤 그룹 (2)" preferredWidth="200" preferredHeight="26" description="[form-control] 전화번호">
+    <control xsi:type="cl:Group" sid="group-ee905cc9" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="5e3bb9bc-aea9-4802-a5ff-bec57c35813f"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-0cec49f5" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:InputBox" sid="i-box-75dd1cc8" maxLength="4" inputFilter="[0-9]">
+        <layoutData xsi:type="cl:FormData" sid="f-data-65791bfa" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-98b7ea6c" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-28a0c44f" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-c3f212f2" maxLength="4" inputFilter="[0-9]">
+        <layoutData xsi:type="cl:FormData" sid="f-data-8bd5ca8d" rowIndex="0" colIndex="2"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-efb2e39f" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-9f34a665" rowIndex="0" colIndex="3"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-a4e7608d" maxLength="4" inputFilter="[0-9]">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ffc5b431" rowIndex="0" colIndex="4"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-2d5cd9d1" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="d0a501f0-a273-42ba-923f-dd5f2cfd514f" name="[인풋박스] 컨트롤 그룹 (3)" preferredWidth="200" preferredHeight="26" description="[form-control] 주민등록번호">
+    <control xsi:type="cl:Group" sid="group-2051fceb" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="28505f77-9130-4eb1-896a-640d24cbd4bc"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-4336a604" rowIndex="3" colIndex="1"/>
+      <controls xsi:type="cl:InputBox" sid="i-box-8086436b" maxLength="6" inputFilter="[0-9]">
+        <layoutData xsi:type="cl:FormData" sid="f-data-95c0ff04" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-227f1db4" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-ecad8706" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-91ced8c3" secret="true" maxLength="7" inputFilter="[0-9]">
+        <layoutData xsi:type="cl:FormData" sid="f-data-df1ba677" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-d2c4f044" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="a8cdfbbd-1169-45cc-834f-150ff9628521" name="[인풋박스] 컨트롤 그룹 (4)" preferredWidth="200" preferredHeight="26" description="[form-control] 이어지는 텍스트">
+    <control xsi:type="cl:Group" sid="group-c22e0b5a" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="28505f77-9130-4eb1-896a-640d24cbd4bc"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-8fcd693e" rowIndex="4" colIndex="1"/>
+      <controls xsi:type="cl:InputBox" sid="i-box-4af62830">
+        <layoutData xsi:type="cl:FormData" sid="f-data-c94d2175" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-a884c536" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-adb77c08" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-45405daf">
+        <layoutData xsi:type="cl:FormData" sid="f-data-930de2d5" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-b0e3f5d5" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="c3482941-102e-4f07-82f8-f69a5e92bda9" name="[인풋박스] 컨트롤 그룹 (6)" preferredWidth="200" preferredHeight="26" description="[form-control] 인풋박스 + 버튼">
+    <control xsi:type="cl:Group" sid="group-5bb8e635" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="195b2c78-1fd5-45c7-a619-98a24f38c0d2"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-76608786" rowIndex="5" colIndex="1"/>
+      <controls xsi:type="cl:InputBox" sid="i-box-ccf1091f">
+        <layoutData xsi:type="cl:FormData" sid="f-data-318dee20" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-9ca44550" class="btn-inline" value="버튼">
+        <layoutData xsi:type="cl:FormData" sid="f-data-837bf670" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-295154cc" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="35" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="1a7c92dd-1428-47d5-becf-b16863735f46" name="[서치인풋] 컨트롤 그룹 (1)" preferredWidth="200" preferredHeight="26" revision="2" description="[form-control] 서치인풋 + 초기화 버튼">
+    <control xsi:type="cl:Group" sid="group-2895feb9" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="1a7c92dd-1428-47d5-becf-b16863735f46"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-7fd2d82f" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:SearchInput" sid="s-input-eac708b9">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a0864b18" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-ed57e8b7" class="btn-reset btn-i-only" fieldLabel="초기화" tooltip="초기화" value="" icon="0">
+        <layoutData xsi:type="cl:FormData" sid="f-data-faa4bb67" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-65d46c3b" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="30" unit="PIXEL" autoSizing="true" shadeType="NONE" shadeColor="transparent" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="77d4bf6a-85d7-4cac-afc4-b45077aa5fff" name="[서치인풋] 컨트롤 그룹 (2)" preferredWidth="200" preferredHeight="26" description="[form-control] 주소">
+    <control xsi:type="cl:Group" sid="group-77c8aa30" class="form-control">
+      <layoutData xsi:type="cl:FormData" sid="f-data-357c40b6" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:SearchInput" sid="s-input-9273c016">
+        <layoutData xsi:type="cl:FormData" sid="f-data-3be59550" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-847917c9">
+        <layoutData xsi:type="cl:FormData" sid="f-data-659fedb3" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:InputBox" sid="i-box-fe6a4ed5">
+        <layoutData xsi:type="cl:FormData" sid="f-data-b1d46334" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-f3183ed3" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="120" unit="PIXEL"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="a351beff-d6e3-4186-af22-69f9939a964a" name="[넘버에디터] 컨트롤 그룹 (1)" preferredWidth="200" preferredHeight="26" description="[form-control] 넘버에디터 + 아웃풋">
+    <control xsi:type="cl:Group" sid="group-b545fe3e" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="67a3bf09-e180-423d-a0e0-1c9a54d766a3"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-a4f4cb55" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:NumberEditor" sid="n-editor-4512bcbc">
+        <layoutData xsi:type="cl:FormData" sid="f-data-4f405a62" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-bc0220d4" value="원">
+        <layoutData xsi:type="cl:FormData" sid="f-data-40114846" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-94c0cf25" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="30" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="80d29e6d-f550-49bf-ba64-363774bc6350" name="[넘버에디터] 컨트롤 그룹 (2)" preferredWidth="200" preferredHeight="26" description="[form-control] displayExp : text + &quot; 원&quot;">
+    <control xsi:type="cl:NumberEditor" sid="n-editor-4dae6805" displayExp="text + &quot; 원&quot;">
+      <metaData>
+        <properties key="template-uuid" value="41ae50b3-d9a9-4461-972b-cdacb044ef1d"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-d0a687a8" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="6b396fea-295d-4868-8d31-da46c2b416af" name="[데이트인풋] 데이터 포맷 (1)" preferredWidth="110" preferredHeight="26" description="연-월-일">
+    <control xsi:type="cl:DateInput" sid="d-input-ab4286a1">
+      <metaData>
+        <properties key="template-uuid" value="33f60c95-3f8c-406c-b42d-cf43c32cbf4a"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-8c63b63a" horizontalAlign="LEFT" width="110" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="124a9e07-bda4-4b7e-a57e-39e6c5572f9f" name="[데이트인풋] 데이터 포맷 (2)" preferredWidth="110" preferredHeight="26" description="연-월">
+    <control xsi:type="cl:DateInput" sid="d-input-e909d11e" calendarType="yearmonth" mask="YYYY-MM" format="YYYYMM">
+      <metaData>
+        <properties key="template-uuid" value="28fb0ce1-a2af-45d5-9d43-bbf0f83f7c27"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-dffa180d" horizontalAlign="LEFT" width="110" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="499790e4-87af-4d8e-aa18-5ed628cde29e" name="[데이트인풋] 데이터 포맷 (3)" preferredWidth="110" preferredHeight="26" description="연도">
+    <control xsi:type="cl:DateInput" sid="d-input-2b9b34be" calendarType="year" mask="YYYY" format="YYYY">
+      <metaData>
+        <properties key="template-uuid" value="08214a92-6271-4c73-a7c5-45ca42bbe08a"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-459c4931" horizontalAlign="LEFT" width="110" rowIndex="3" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="5040fb5a-6733-4e69-a6a7-f8a8a63b2816" name="[데이트인풋] 데이터 포맷 (4)" preferredWidth="80" preferredHeight="26" description="시:분:초">
+    <control xsi:type="cl:DateInput" sid="d-input-70e38000" class="timepicker" value="235959" hideButton="true" mask="HH:mm:ss" format="HHmmss">
+      <metaData>
+        <properties key="template-uuid" value="18ce6ad0-f8b4-44f3-bdba-ec0e3d44a8f3"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-5a744142" horizontalAlign="LEFT" width="80" rowIndex="4" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="47e27fba-bdba-400c-8123-5fbdadac95c0" name="[데이트인풋] 데이터 포맷 (5)" preferredWidth="170" preferredHeight="26" description="연-월-일 시:분:초">
+    <control xsi:type="cl:DateInput" sid="d-input-fb7f99f7" value="20240101123456" mask="YYYY-MM-DD HH:mm:ss" format="YYYYMMDDHHmmss">
+      <layoutData xsi:type="cl:FormData" sid="f-data-b0cd4d2a" horizontalAlign="LEFT" width="170" rowIndex="5" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="82df0947-feb3-4833-9087-dbc0d5bc7783" name="[데이트인풋] 데이터 포맷 (6)" preferredWidth="130" preferredHeight="26" description="스핀버튼이 보이는 데이트 인풋">
+    <control xsi:type="cl:DateInput" sid="d-input-ee118372" value="20240101" spinButton="true">
+      <layoutData xsi:type="cl:FormData" sid="f-data-492a21e8" horizontalAlign="LEFT" width="130" rowIndex="6" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="b63e0b62-db52-408e-8c55-1602b9fad09b" name="[데이트인풋] 컨트롤 그룹" preferredWidth="276" preferredHeight="26" description="[form-control] 시작일자 ~ 종료일자">
+    <control xsi:type="cl:Group" sid="group-c8a3e773" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="521e329e-a849-4747-a73d-2a5ade154bb1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-747e957b" horizontalAlign="FILL" width="236" rowIndex="7" colIndex="1"/>
+      <controls xsi:type="cl:DateInput" sid="d-input-53a3754e">
+        <layoutData xsi:type="cl:FormData" sid="f-data-84a5b088" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-5fc86a64" value="-">
+        <layoutData xsi:type="cl:FormData" sid="f-data-e7c1c69f" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:DateInput" sid="d-input-f72119e5">
+        <layoutData xsi:type="cl:FormData" sid="f-data-32cbd88f" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-0edb1c41" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION"/>
+        <columns length="10" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION" autoSizing="true" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="46410091-7999-46c5-87bf-be4baffd1552" name="[파일인풋] 컨트롤 그룹" preferredWidth="300" preferredHeight="26" revision="2" description="[form-control]">
+    <control xsi:type="cl:Group" sid="group-0dc545c2" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="46410091-7999-46c5-87bf-be4baffd1552"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-79b54b41" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:FileInput" sid="f-input-117da990">
+        <layoutData xsi:type="cl:FormData" sid="f-data-a8767007" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-e4824163" class="btn-inline" value="파일찾기">
+        <layoutData xsi:type="cl:FormData" sid="f-data-6966559a" rowIndex="0" colIndex="1"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-a2e16246" class="btn-excel" value="엑셀다운로드" icon="0">
+        <layoutData xsi:type="cl:FormData" sid="f-data-96c1d9bd" rowIndex="0" colIndex="2"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-a0e223e3" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION"/>
+        <columns length="1" unit="FRACTION" autoSizing="false" hidden="false" shadeType="NONE" shadeColor="#000000" minLength="0"/>
+        <columns length="63" unit="PIXEL" autoSizing="true" hidden="false" shadeType="NONE" shadeColor="#000000" minLength="0" synchronizeMinLength="false"/>
+        <columns length="108" unit="PIXEL" autoSizing="true" hidden="false" minLength="0" synchronizeMinLength="false"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="51988901-befd-4368-8487-21ccb2828d3d" name="[아웃풋] 빈값" preferredWidth="120" preferredHeight="26">
+    <control xsi:type="cl:Output" sid="output-85eb788a" value="">
+      <metaData>
+        <properties key="template-uuid" value="4a3648c3-da12-49fc-885e-a62a63cf2192"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-fdb20846" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="cc987a0f-6c38-402f-a708-0ea4edc4f551" name="[아웃풋] 좌측 정렬" preferredWidth="120" preferredHeight="26" description="[text-left] 문자열 비정형 데이터에 적용하는 정렬">
+    <control xsi:type="cl:Output" sid="output-33cfadec" class="text-left" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="da86a08d-6a69-4664-a2f9-d0368bcfcdbf"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-deb73d21" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="b73557d3-4d7b-4227-a5a0-06227da4b33f" name="[아웃풋] 가로 중앙 정렬" preferredWidth="120" preferredHeight="26" description="[text-center] 문자열 정형 데이터에 적용하는 정렬">
+    <control xsi:type="cl:Output" sid="output-d3814f98" class="text-center" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="d660de80-4662-49f8-8c0a-827a6d6033a5"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-9a0a03b9" rowIndex="3" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="7e78a81b-a1e9-43e9-adc5-ca4c31380182" name="[아웃풋] 우측 정렬" preferredWidth="120" preferredHeight="26" description="[text-right] 숫자형 데이터에 적용하는 정렬">
+    <control xsi:type="cl:Output" sid="output-9bf088ce" class="text-right" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-8435776e" rowIndex="4" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="2fedbbde-9cb6-42cc-b3db-cdecffaaccce" name="[아웃풋] 상측 정렬" preferredWidth="120" preferredHeight="26" description="[align-top] 상측 정렬">
+    <control xsi:type="cl:Output" sid="output-8c682704" class="align-top" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-1fc1353f" rowIndex="5" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="de843ab2-c354-47a7-b10b-06bf2d7611bc" name="[아웃풋] 세로 중앙 정렬" preferredWidth="120" preferredHeight="26" description="[align-middle] 세로 중앙 정렬">
+    <control xsi:type="cl:Output" sid="output-d5a815e8" class="align-middle" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-9319516f" rowIndex="6" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="2a189c03-7c9f-4f1c-af4f-5bc14e1206e0" name="[아웃풋] 하측 정렬" preferredWidth="120" preferredHeight="26" description="[align-bottom] 하측 정렬">
+    <control xsi:type="cl:Output" sid="output-13283af3" class="align-bottom" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-488f4081" rowIndex="7" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="29150d37-80f5-4d99-bc4e-48c14bc3de4e" name="[아웃풋] h1 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h1] h1 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-c4c0cd1f" class="tit h1" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-e1f41273" rowIndex="8" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="d43d3803-cc6c-41b8-9b2b-d6cb6c15840c" name="[아웃풋] h2 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h2] h2 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-2b213f4d" class="tit h2" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-d8803bb7" rowIndex="9" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="95e7aa60-138f-4e03-88d2-df85b0d21d4d" name="[아웃풋] h3 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h3] h3 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-18ad7c7b" class="tit h3" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-31abe810" rowIndex="10" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="64dab3a0-2aa7-4ece-b202-afb09318e873" name="[아웃풋] h4 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h4] h4 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-10211a68" class="tit h4" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-bdde621a" rowIndex="11" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="029e4628-1dd1-4d9b-a9b5-dd2717eeb854" name="[아웃풋] h5 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h5] h5 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-9d0976b9" class="tit h5" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-e235ff50" rowIndex="12" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="a0f108c0-58d4-4f85-b876-192221bb18a9" name="[아웃풋] h6 타이틀" preferredWidth="120" preferredHeight="26" description="[tit h6] h6 제목 수준 타이틀">
+    <control xsi:type="cl:Output" sid="output-cc935271" class="tit h6" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="e4a3c05f-e64e-4709-b7e1-3e21d809e4f1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-4b68cbdd" rowIndex="13" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="bf561763-3ae6-497e-8c67-9519feb10866" name="[아웃풋] 밑줄" preferredWidth="120" preferredHeight="26" description="[underline] 텍스트 밑줄">
+    <control xsi:type="cl:Output" sid="output-f37ed858" class="underline" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="4a3648c3-da12-49fc-885e-a62a63cf2192"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-3e7458f1" rowIndex="14" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="600d11aa-950f-490c-a07c-b5bdc5d3cc0e" name="[아웃풋] 윗줄" preferredWidth="120" preferredHeight="26" description="[overline] 텍스트 윗줄">
+    <control xsi:type="cl:Output" sid="output-1f488d60" class="overline" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="4a3648c3-da12-49fc-885e-a62a63cf2192"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-e3c1ec8b" rowIndex="15" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="4512654d-80e6-4bd4-88cb-722f8dd03b3d" name="[아웃풋] 취소선" preferredWidth="120" preferredHeight="26" description="[line-through] 텍스트 취소선">
+    <control xsi:type="cl:Output" sid="output-6e0c383b" class="line-through" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="4a3648c3-da12-49fc-885e-a62a63cf2192"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-8b7651ac" rowIndex="16" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="0acf360c-96c7-4eee-8f1f-bf800bc83cb4" name="[아웃풋] 밑줄 해제" preferredWidth="120" preferredHeight="26" description="[no-underline] 텍스트 밑줄 해제">
+    <control xsi:type="cl:Output" sid="output-da3f38ba" class="no-underline" value="텍스트">
+      <metaData>
+        <properties key="template-uuid" value="4a3648c3-da12-49fc-885e-a62a63cf2192"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-b4c3f4e7" rowIndex="17" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="1bd7d761-a884-4746-8d7d-096a5b9c98a1" name="[아웃풋] 단위 포맷" preferredWidth="120" preferredHeight="26" description="단위를 변경할 경우 displayExp 속성을 통해 수정">
+    <control xsi:type="cl:Output" sid="output-1ca1b465" value="00" displayExp="text + &quot;단위&quot;">
+      <metaData>
+        <properties key="template-uuid" value="ce67626d-b191-4c1d-8c08-1a12e87170a4"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-8c536f34" rowIndex="18" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="6ca4b38b-25a1-4bf6-aedc-32cb7108302a" name="[아웃풋] 주민등록번호 포맷" preferredWidth="120" preferredHeight="26">
+    <control xsi:type="cl:Output" sid="output-b216b702" id="opt60" value="0000000000000" format="000000-0000000">
+      <metaData>
+        <properties key="template-uuid" value="949be520-03aa-4a09-92a7-bdf1f8ea1605"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-950c2c86" rowIndex="19" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="f2270d48-df22-4dba-9232-fc5a3c278a69" name="[아웃풋] 마스킹 문자열 포맷" preferredWidth="120" preferredHeight="26">
+    <control xsi:type="cl:Output" sid="output-bf56fdc5" id="opt66" value="0000000000000" format="000000-0******">
+      <metaData>
+        <properties key="template-uuid" value="7760eda0-2fb6-4934-a430-29ffc3a3bf29"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-358f7614" rowIndex="20" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="88350e32-912a-4848-bc42-ee66cdd0918e" name="[아웃풋] 숫자 포맷 (1)" preferredWidth="120" preferredHeight="26" description="[text-right] s#,##0">
+    <control xsi:type="cl:Output" sid="output-00e9974d" class="text-right" value="0" dataType="number" format="s#,##0">
+      <metaData>
+        <properties key="template-uuid" value="cb4684d9-bc44-47d5-bd89-76512e70e9f4"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-4dad1e27" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="0ed268e2-e9af-4a7f-8c51-26af3b60ee89" name="[아웃풋] 숫자 포맷 (2)" preferredWidth="120" preferredHeight="26" description="[text-right] s#,##9">
+    <control xsi:type="cl:Output" sid="output-2ff5c7c2" class="text-right" value="0" dataType="number" format="s#,##9">
+      <metaData>
+        <properties key="template-uuid" value="b42b4798-ee3b-427f-a3cf-f521876bd682"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-85b4bda3" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="08cc7ab1-9bd9-4e28-ba3a-026bdcde0c62" name="[아웃풋] 숫자 포맷 (3)" preferredWidth="120" preferredHeight="26" description="[text-right] s#,##0.00">
+    <control xsi:type="cl:Output" sid="output-18e68de9" id="opt54" class="text-right" value="0" dataType="number" format="s#,##0.00">
+      <metaData>
+        <properties key="template-uuid" value="f41dde4e-0187-4c2b-b7db-a3b8fbb13e59"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-48b91c2a" rowIndex="3" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="a4cf7ab9-2a08-4889-82aa-868674b9904e" name="[아웃풋] 숫자 포맷 (4)" preferredWidth="120" preferredHeight="26" description="[text-right] s#,##9.99">
+    <control xsi:type="cl:Output" sid="output-f33571c6" id="opt55" class="text-right" value="0" dataType="number" format="s#,##9.99">
+      <metaData>
+        <properties key="template-uuid" value="446b4aba-cd35-4a51-8773-336d9de2d352"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-0b656baf" rowIndex="4" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="6af7e61d-8a4b-4a41-973a-df22c1587d66" name="[아웃풋] 숫자 포맷 (5)" preferredWidth="120" preferredHeight="26" description="[text-right] displayExp : text + &quot; 원&quot;, 단위를 변경할 경우 displayExp 속성을 통해 수정">
+    <control xsi:type="cl:Output" sid="output-f1e8c40a" class="text-right" value="0" dataType="number" format="s#,##0" displayExp="text + &quot; 원&quot;">
+      <metaData>
+        <properties key="template-uuid" value="efc1e7eb-a495-43b9-bf4e-be35b7547dd5"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-1c466a99" rowIndex="5" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="36f9faf7-5af3-4358-9236-7a5d0a45d8c2" name="[아웃풋] 숫자 포맷 (6)" preferredWidth="120" preferredHeight="26" description="[text-right] displayExp : &quot;₩ &quot; + text">
+    <control xsi:type="cl:Output" sid="output-c11776db" id="opt138" class="text-right" value="0" dataType="number" format="s#,##0" displayExp="&quot;₩ &quot; + text">
+      <metaData>
+        <properties key="template-uuid" value="56427457-62f2-4dd1-b295-9811c7d54236"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-51f381c1" rowIndex="6" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9ef508eb-05be-4b5a-94c8-a264864de481" name="[아웃풋] 숫자 포맷 (7)" preferredWidth="120" preferredHeight="26" description="[text-right] displayExp : &quot;$ &quot; + text">
+    <control xsi:type="cl:Output" sid="output-d07f22b5" id="opt139" class="text-right" value="0" dataType="number" format="s#,##0" displayExp="&quot;$ &quot; + text">
+      <metaData>
+        <properties key="template-uuid" value="83eddfab-7f15-4fb9-bf00-0d92f44633d9"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-0b87573f" rowIndex="7" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="f185d7d5-87c5-4803-934a-b20166854cf8" name="[아웃풋] 숫자 포맷 (8)" preferredWidth="120" preferredHeight="26" description="[text-right] displayExp : text + &quot; %&quot;">
+    <control xsi:type="cl:Output" sid="output-3cff50d5" class="text-right" value="0" dataType="number" format="#,##0" displayExp="text + &quot; %&quot;">
+      <metaData>
+        <properties key="template-uuid" value="5d3c9a27-08da-476a-b59f-a83391c3528a"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-6002ffa0" rowIndex="8" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="5c57edc3-08ef-454b-a496-e0d06d58bc39" name="[아웃풋] 날짜 포맷 (1)" preferredWidth="120" preferredHeight="26" description="YYYY-MM-DD">
+    <control xsi:type="cl:Output" sid="output-371bf3e4" value="20221231" dataType="date" format="YYYY-MM-DD">
+      <metaData>
+        <properties key="template-uuid" value="85f8eb1c-a42f-4f6a-a89a-08d592191742"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-ba31d1a6" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="58a9418e-aab5-49ab-8b7a-992b54d99eb2" name="[아웃풋] 날짜 포맷 (2)" preferredWidth="120" preferredHeight="26" description="YYYY-MM">
+    <control xsi:type="cl:Output" sid="output-3542ff88" value="202212" dataType="date" format="YYYY-MM">
+      <metaData>
+        <properties key="template-uuid" value="5354fba6-bacf-48cb-908a-adfef7fefdc1"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-3101549a" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="3b540d80-5bc6-464f-9452-09438de17745" name="[아웃풋] 날짜 포맷 (3)" preferredWidth="120" preferredHeight="26" description="YYYY">
+    <control xsi:type="cl:Output" sid="output-0719a9de" value="2022" dataType="date" format="YYYY">
+      <metaData>
+        <properties key="template-uuid" value="956d030e-156a-4944-8a2c-07805c8cea04"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-f7a25902" rowIndex="3" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9387a0f3-3bb6-4911-a783-8c0df8d0ab63" name="[아웃풋] 날짜 포맷 (4)" preferredWidth="120" preferredHeight="26" description="YYYY-MM-DD HH:mm:ss">
+    <control xsi:type="cl:Output" sid="output-f52af0de" value="20221231121212" dataType="date" format="YYYY-MM-DD HH:mm:ss">
+      <metaData>
+        <properties key="template-uuid" value="1aedd21c-43a9-42f6-8b2d-37a0f1071c51"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-7e6a9a36" rowIndex="4" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="81948831-28fc-4919-b214-866c1aaea251" name="[아웃풋] 날짜 포맷 (5)" preferredWidth="120" preferredHeight="26" description="YYYY-MM-DD (ddd)">
+    <control xsi:type="cl:Output" sid="output-12cddc9a" value="20220101" dataType="date" format="YYYY-MM-DD (ddd)">
+      <metaData>
+        <properties key="template-uuid" value="fca8c966-d6a5-48f7-a5af-7139f3c006c7"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-924df705" rowIndex="5" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="5d481d88-f429-4d17-885f-c3fc135625b6" name="[아웃풋] 지시문/안내문 (1)" preferredWidth="300" preferredHeight="20" description="[info-txt] 일반">
+    <control xsi:type="cl:Output" sid="output-e1083bb1" class="info-txt" value="지시문/안내문은 &quot;info-txt&quot; 클래스를 적용합니다.">
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-db6f6ed6" width="1223px" height="20px" autoSize="height"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="70485a00-35ae-49aa-8a1c-4d70db2a7f4a" name="[아웃풋] 지시문/안내문 (2)" preferredWidth="300" preferredHeight="20" description="[info-txt-highlighted] 강조">
+    <control xsi:type="cl:Output" sid="output-b3036a56" class="info-txt-highlighted" value="지시문/안내문은 &quot;info-txt&quot; 클래스를 적용합니다.">
+      <layoutData xsi:type="cl:VerticalData" sid="v-data-0df32cf5" width="1223px" height="20px" autoSize="height"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="0d664027-f2ae-4fdc-bdbc-7c3a86b83c74" name="[아웃풋] 간격 지정 컨트롤" preferredWidth="8" preferredHeight="26" description="[spacing] 버튼 영역, 정보 영역 등에서 기본 간격 이외에 컨트롤 간 간격을 지정할 때 사용. 해당 컨트롤 다음으로 오는 컨트롤은 allowNewLine=false 처리할 것">
+    <control xsi:type="cl:Output" comment="간격 지정 컨트롤. 다음으로 오는 컨트롤은 allowNewLine=false로 처리할 것" sid="output-5a88bb76" id="opt2" class="spacing" value="">
+      <metaData>
+        <properties key="template-uuid" value="f01e8707-5cd8-416e-8458-c43aa6fd0545"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-6677cb81" horizontalAlign="LEFT" width="8" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="51209a27-edd3-46ad-ba64-a7e92eeda661" name="[아웃풋] 상태" preferredWidth="300" preferredHeight="26" description="[state-cell] 그리드에서 상태 컬럼으로 사용되는 컬럼의 디테일 셀에 행의 상태를 표시">
+    <control xsi:type="cl:Output" sid="output-bc7e6ca9" class="state-cell" value="">
+      <layoutData xsi:type="cl:FormData" sid="f-data-0de21627" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="53d4207d-7537-430b-bd46-1371cddbcfc5" name="[콤보박스] 컨트롤 그룹" preferredWidth="200" preferredHeight="26" description="[form-control]">
+    <control xsi:type="cl:Group" sid="group-c7759f81" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="87548034-0735-4269-b329-de267284bfe0"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-70c1405a" rowIndex="1" colIndex="1"/>
+      <controls xsi:type="cl:ComboBox" sid="c-box-e0dc303a">
+        <layoutData xsi:type="cl:FormData" sid="f-data-98319187" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:ComboBox" sid="c-box-355f63d6">
+        <layoutData xsi:type="cl:FormData" sid="f-data-83ad6052" rowIndex="0" colIndex="1"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-e9366bf1" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="1" unit="FRACTION" shadeType="NONE" shadeColor="transparent"/>
+        <columns length="1" unit="FRACTION" autoSizing="false" synchronizeMinLength="true"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9a6a9b23-9613-45aa-a93b-29f8c3b97b58" name="[체크박스] 빈값" preferredWidth="200" preferredHeight="26">
+    <control xsi:type="cl:CheckBox" sid="c-box-a5d39dea" text="">
+      <metaData>
+        <properties key="template-uuid" value="18d554e8-3ddd-4029-82b0-1f07df12d0d7"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-1e1efbe0" rowIndex="1" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="e84f4651-0d5f-442c-98ba-aca79799cfa9" name="[체크박스] 중앙정렬" preferredWidth="200" preferredHeight="26" description="[text-center] 폼에서 사용 (그리드 내 체크박스 및 체크박스그룹은 CSS에 의해 자동으로 중앙정렬됨)">
+    <control xsi:type="cl:CheckBox" sid="c-box-8f34f402" class="text-center" text="">
+      <metaData>
+        <properties key="template-uuid" value="3e763a54-0c08-4732-b948-b13152dd275c"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-a92ba8dc" rowIndex="2" colIndex="1"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="22a07f29-fef6-44a8-83dc-4623c5721390" name="[체크박스] 컨트롤 그룹 (1)" preferredWidth="200" preferredHeight="26" description="[form-control] 체크박스 + 체크박스">
+    <control xsi:type="cl:Group" sid="group-fc74da24" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="d3a65d2a-4180-4c66-8ce1-bd9c84573fab"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-aa910de1" rowIndex="3" colIndex="1"/>
+      <controls xsi:type="cl:CheckBox" sid="c-box-064fd45f" text="체크박스">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-c762e6a7" width="65px" height="26px" autoSize="width"/>
+      </controls>
+      <controls xsi:type="cl:CheckBox" sid="c-box-1bc62000" text="체크박스">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-f2fbd787" width="65px" height="26px" autoSize="width"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-077d57d9" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="072537e7-74df-4ae6-9985-a888da151119" name="[체크박스] 컨트롤 그룹 (2)" preferredWidth="200" preferredHeight="26" revision="2" description="[form-control] 체크박스 + 버튼">
+    <control xsi:type="cl:Group" sid="group-a82122f9" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="072537e7-74df-4ae6-9985-a888da151119"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-246ab568" rowIndex="4" colIndex="1"/>
+      <controls xsi:type="cl:CheckBox" sid="c-box-344a8811" text="체크박스">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-fd8fb514" width="65px" height="26px" autoSize="width"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-d946fe2e" class="btn-inline" value="버튼">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-296e0c01" width="64px" height="26px" autoSize="width"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-5d925742" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="4ea77f30-3ba3-4611-a362-1b3fb221046b" name="[체크박스그룹] 고정 아이템" preferredWidth="400" preferredHeight="26" description="colCount=0, fixedWidth=true">
+    <control xsi:type="cl:CheckBoxGroup" sid="cb-group-8fad81ad" colCount="0" fixedWidth="true">
+      <metaData>
+        <properties key="template-uuid" value="ccea6083-7f6e-4ad1-a26e-a6646f2b8a15"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-a28fd947" rowIndex="1" colIndex="1"/>
+      <items sid="item-dce901cb" label="아이템" value="value1"/>
+      <items sid="item-15c1614b" label="아이템" value="value2"/>
+      <items sid="item-e93f51ea" label="아이템" value="value3"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="cf8acdb7-eb0f-455e-80f3-248818b5f6fc" name="[체크박스그룹] 컨트롤 그룹 (1)" preferredWidth="400" preferredHeight="26" description="[form-control] 체크박스그룹 + 체크박스그룹">
+    <control xsi:type="cl:Group" sid="group-43080745" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="1ce32a8d-c05f-4783-89c6-233e6ef05c0a"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-dfd2f872" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:CheckBoxGroup" sid="cb-group-e2bd26e1">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-1f3f2db0" width="200px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-8320a8b2" label="아이템" value="value1"/>
+        <items sid="item-2264c0c2" label="아이템" value="value2"/>
+        <items sid="item-5b9b7e56" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:CheckBoxGroup" sid="cb-group-01493e72">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-7120c0d7" width="130px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-c2806574" label="아이템" value="value1"/>
+        <items sid="item-2aebce81" label="아이템" value="value2"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-7b7305d9" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="ab986a32-30d2-4615-88d2-9896543228df" name="[체크박스그룹] 컨트롤 그룹 (2)" preferredWidth="400" preferredHeight="26" revision="2" description="[form-control] 체크박스그룹 + 버튼">
+    <control xsi:type="cl:Group" sid="group-58796a41" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="ab986a32-30d2-4615-88d2-9896543228df"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-1f9366ec" rowIndex="3" colIndex="1"/>
+      <controls xsi:type="cl:CheckBoxGroup" sid="cb-group-c7f13181">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-721ff1c0" width="200px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-b06b9ed6" label="아이템" value="value1"/>
+        <items sid="item-59ee80e3" label="아이템" value="value2"/>
+        <items sid="item-02662d6e" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-947a6685" class="btn-inline" value="버튼">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-fe8ddac0" width="64px" height="26px" autoSize="width"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-e2877bde" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="d80bd3eb-e3a4-4be1-a3ca-006a831790cf" name="[라디오버튼] 고정 아이템" preferredWidth="400" preferredHeight="26" description="colCount=0, fixedWidth=true">
+    <control xsi:type="cl:RadioButton" sid="r-button-f9050c74" colCount="0" fixedWidth="true">
+      <metaData>
+        <properties key="template-uuid" value="a512a8f1-495b-42db-b7cd-9b041c05ebb8"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-2143c60c" rowIndex="1" colIndex="1"/>
+      <items sid="item-ad939c79" label="아이템" value="value1"/>
+      <items sid="item-202109a9" label="아이템" value="value2"/>
+      <items sid="item-f5c3550e" label="아이템" value="value3"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="fccda1a1-9fc8-4ae2-b84e-c0560190bf95" name="[라디오버튼] 컨트롤 그룹 (1)" preferredWidth="400" preferredHeight="26" description="[form-control] 라디오버튼 + 라디오버튼">
+    <control xsi:type="cl:Group" sid="group-3d18fa8d" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="0d4bf405-7167-44c7-8880-d2955006b55e"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-64049a6c" rowIndex="2" colIndex="1"/>
+      <controls xsi:type="cl:RadioButton" sid="r-button-a7471c3b" colCount="0" fixedWidth="true">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-a89a2435" width="200px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-36c2e463" label="아이템" value="value1"/>
+        <items sid="item-6d3712fb" label="아이템" value="value2"/>
+        <items sid="item-2e450bc6" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:RadioButton" sid="r-button-e5416043" colCount="0" fixedWidth="true">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-42a6bfa8" width="130px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-4d0214d3" label="아이템" value="value1"/>
+        <items sid="item-4aaedf04" label="아이템" value="value2"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-ab3293f7" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="155ca2e4-7915-471b-9777-71456ea22ec9" name="[라디오버튼] 컨트롤 그룹 (2)" preferredWidth="400" preferredHeight="26" revision="2" description="[form-control] 라디오버튼 + 버튼">
+    <control xsi:type="cl:Group" sid="group-089f7ed9" class="form-control">
+      <metaData>
+        <properties key="template-uuid" value="155ca2e4-7915-471b-9777-71456ea22ec9"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-2e931530" rowIndex="3" colIndex="1"/>
+      <controls xsi:type="cl:RadioButton" sid="r-button-b25aaecd" colCount="0" fixedWidth="true">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-fbd86473" width="200px" height="26px" minHeight="20" autoSize="both"/>
+        <items sid="item-aab0cb71" label="아이템" value="value1"/>
+        <items sid="item-f9e8257f" label="아이템" value="value2"/>
+        <items sid="item-9c18daee" label="아이템" value="value3"/>
+      </controls>
+      <controls xsi:type="cl:Button" sid="button-ed84db9d" class="btn-inline" value="버튼">
+        <layoutData xsi:type="cl:FlowData" sid="f-data-4563b08f" width="64px" height="26px" autoSize="width"/>
+      </controls>
+      <layout xsi:type="cl:FlowLayout" sid="f-layout-912d31a6" scrollable="false" horizontalSpacing="10"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="6df393fb-8121-42d4-b59f-8cdd788d628c" name="[탭폴더] 일반" preferredWidth="1045" preferredHeight="200">
+    <control xsi:type="cl:TabFolder" sid="t-folder-d0a9b3f1" headerArrowVisible="show">
+      <metaData>
+        <properties key="template-uuid" value="72a98f8b-36f4-427e-a699-665084617166"/>
+        <properties key="template-rev" value="1"/>
+        <properties key="locked" value="true"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-417ef004" rowIndex="1" colIndex="1"/>
+      <tabItems sid="t-item-13783ca3" selected="true" text="아이템">
+        <metaData>
+          <properties key="is-active-item" value="true"/>
+        </metaData>
+        <content xsi:type="cl:Group" sid="group-a6725fd6">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-0f30c0a0" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-aacc76b0" text="아이템">
+        <content xsi:type="cl:Group" sid="group-ff3c73ac">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-989c8ba8" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-0aa47afc" text="아이템">
+        <content xsi:type="cl:Group" sid="group-e8d73c9a">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-3f3c555b" spacing="12"/>
+        </content>
+      </tabItems>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="a2d665a6-8cae-4b64-8c8d-51e5f113c1be" name="[탭폴더] 아이콘 탭" preferredWidth="1045" preferredHeight="200" description="[tab]">
+    <control xsi:type="cl:TabFolder" sid="t-folder-8c36d8e4" class="tab" headerArrowVisible="show">
+      <metaData>
+        <properties key="template-uuid" value="c762f63a-274f-460e-a665-d004e392cb49"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FormData" sid="f-data-6e25f4c0" rowIndex="2" colIndex="1"/>
+      <tabItems sid="t-item-6ffdb15e" selected="true" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab01"/>
+        <content xsi:type="cl:Group" sid="group-d9a02f14">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-da28587a" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-fa3d47b9" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab02"/>
+        <content xsi:type="cl:Group" sid="group-6ffa8fde">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-f0dff9b9" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-6320182b" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab03"/>
+        <content xsi:type="cl:Group" sid="group-d04224a1">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-ae27b020" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-776b398e" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab04"/>
+        <content xsi:type="cl:Group" sid="group-96d12c63">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-33214b50" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-2474477c" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab05"/>
+        <content xsi:type="cl:Group" sid="group-9f6491bf">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-20465204" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-924f3028" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab06"/>
+        <content xsi:type="cl:Group" sid="group-062f8414">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-f4e92791" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-42c56a38" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab07"/>
+        <content xsi:type="cl:Group" sid="group-bfb0fbb0">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-873169a1" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-cd1551a2" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab08"/>
+        <content xsi:type="cl:Group" sid="group-62329aaa">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-ebe5e22c" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-0995b183" text="아이템">
+        <userAttributes key="tab-icon-class" value="tab09"/>
+        <content xsi:type="cl:Group" sid="group-c4d9afce">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-f286260b" spacing="12"/>
+        </content>
+      </tabItems>
+      <tabItems sid="t-item-44d390ea" text="아이템">
+        <metaData>
+          <properties key="is-active-item" value="true"/>
+        </metaData>
+        <userAttributes key="tab-icon-class" value="tab10"/>
+        <content xsi:type="cl:Group" sid="group-1252071d">
+          <metaData>
+            <properties key="locked" value="true"/>
+          </metaData>
+          <layout xsi:type="cl:VerticalLayout" sid="v-layout-4be0d8d4" spacing="12"/>
+        </content>
+      </tabItems>
+      <itemStyle>
+        <binders xsi:type="cl:ExpressionBind" property="class" category="CLASS" expression="userAttr(&quot;tab-icon-class&quot;)"/>
+      </itemStyle>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="26018776-4707-4c5f-831f-5f44e3f4c483" name="[텍스트에리어] 길이 제한 텍스트에리어" preferredWidth="469" preferredHeight="81" description="[form-control]">
+    <control xsi:type="cl:Group" sid="group-9bd0470f" class="form-control">
+      <layoutData xsi:type="cl:FormData" sid="f-data-a3c3f804" rowIndex="0" colIndex="1"/>
+      <controls xsi:type="cl:TextArea" sid="t-area-4940f500" id="txa" maxLength="80">
+        <layoutData xsi:type="cl:FormData" sid="f-data-658f7801" rowIndex="0" colIndex="0"/>
+      </controls>
+      <controls xsi:type="cl:Output" sid="output-4bf9cc3f" id="optTxt" class="txt-byte text-right" value="Output" displayExp="#txa.length + &quot;/&quot; + #txa.maxLength + &quot; Bytes&quot;">
+        <layoutData xsi:type="cl:FormData" sid="f-data-608f3da8" rowIndex="1" colIndex="0"/>
+      </controls>
+      <layout xsi:type="cl:FormLayout" sid="f-layout-e3844512" scrollable="false" topMargin="0px" rightMargin="0px" bottomMargin="0px" leftMargin="0px">
+        <rows length="60" unit="PIXEL"/>
+        <rows length="18" unit="PIXEL" autoSizing="true" synchronizeMinLength="false"/>
+        <columns length="1" unit="FRACTION"/>
+      </layout>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="f7ec4f03-fce6-43f1-a499-583b33ea6ae7" name="[버튼] 파일 업로드 버튼" preferredWidth="74" preferredHeight="26" revision="2" description="[btn-upload]">
+    <control xsi:type="cl:Button" sid="button-93a13e58" class="btn-upload" value="업로드" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="f7ec4f03-fce6-43f1-a499-583b33ea6ae7"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-e57218eb" width="74px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="9d752cfd-7966-4a1e-ab83-a52b363afb0b" name="[버튼] 파일 다운로드 버튼" preferredWidth="85" preferredHeight="26" revision="2" description="[btn-download]">
+    <control xsi:type="cl:Button" sid="button-a0fcf626" class="btn-download" value="다운로드" icon="0">
+      <metaData>
+        <properties key="template-uuid" value="9d752cfd-7966-4a1e-ab83-a52b363afb0b"/>
+        <properties key="template-rev" value="1"/>
+      </metaData>
+      <layoutData xsi:type="cl:FlowData" sid="f-data-83651f33" width="85px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="eed3d45b-9210-4163-bb90-350094815165" name="[폼] 라벨" preferredWidth="120" preferredHeight="38" description="[label] 폼의 라벨">
+    <control xsi:type="cl:Output" sid="output-da204d10" class="label" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-de6a28e2" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="c1b08fd3-c5c2-4e14-86cc-afb4be24ed3e" name="[폼] 서브 라벨" preferredWidth="120" preferredHeight="38" description="[sub-label] 폼의 서브 라벨">
+    <control xsi:type="cl:Output" sid="output-92b42820" class="sub-label" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-ed0daf6d" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="22a9fe8c-82b7-42fb-8db7-6e324501d6ef" name="[폼] 필수 라벨" preferredWidth="120" preferredHeight="38" description="[label required] 폼의 라벨 또는 서브 라벨 필수입력값">
+    <control xsi:type="cl:Output" sid="output-e9bd81c8" class="label required" value="항목">
+      <layoutData xsi:type="cl:FormData" sid="f-data-b9a48781" rowIndex="0" colIndex="0"/>
+    </control>
+  </settings:CannedTemplate>
+  <settings:CannedTemplate uuid="c26dffd9-8a0e-4604-84f0-ec332c238ae8" name="[버튼] 초기화 버튼" preferredWidth="74" preferredHeight="26" description="[btn-reset]">
+    <control xsi:type="cl:Button" sid="button-a12ee4c3" class="btn-reset" value="초기화" icon="0">
+      <layoutData xsi:type="cl:FlowData" sid="f-data-3616141b" width="74px" height="26px" autoSize="width"/>
+    </control>
+  </settings:CannedTemplate>
+</xmi:XMI>

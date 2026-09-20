@@ -1,0 +1,28 @@
+.cl-container.grp-overlay {
+  background-color: rgba(30, 61, 115, 0.25);
+}
+.cl-container.grp-toolbar {
+  border-radius: 10px;
+  background-color: #ffffff;
+  opacity: 0.5;
+}
+.cl-button.img-btn {
+  border: 0px;
+  border-radius: 0px;
+  background-color: unset;
+  background-image: none;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+.cl-button.img-btn.rotate-ccw {
+  background-image: url("../images/icon/rotate-ccw.svg");
+}
+.cl-button.img-btn.rotate-cw {
+  background-image: url("../images/icon/rotate-cw.svg");
+}
+.cl-button.img-btn.plus {
+  background-image: url("../images/icon/plus-circle.svg");
+}
+.cl-button.img-btn.minus {
+  background-image: url("../images/icon/minus-circle.svg");
+}

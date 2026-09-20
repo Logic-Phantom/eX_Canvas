@@ -1,0 +1,184 @@
+# eX-Canvas 카탈로그 지문 - tools/SyncCatalog.java 가 만든다(변경 감지용).
+screen	Inner Pattern_P0-1	127892ebb63cadce
+screen	List Pattern P3-1	95a7bc1f599a3b99
+screen	List Pattern P3-1_P	c16266cdbf17ef7f
+screen	List Pattern P3-2	4cb7489f0a6225f8
+screen	List Pattern P3-2_P	9f472f7c285e5eb0
+screen	List Pattern P3-3	e7a7447dd127b16c
+screen	List Pattern P3-4	dd98730114a82c25
+screen	Master Detail Pattern P4-1	8bced7093b0f3cae
+screen	Master Detail Pattern P4-1_P	94144b49d1aab138
+screen	Master Detail Pattern P4-2	55623443b42275f5
+screen	Master Detail Pattern P4-2_P	571020d573cf530b
+screen	Master Detail Pattern P4-3	95a690a2f823a2f1
+screen	Master Detail Pattern P4-3_P	bbb69e03f175c88c
+screen	Master Detail Pattern P4-4	6f2d8d812b7ddd8a
+screen	Master Detail Pattern P4-4_P	f9b8d903e7e77664
+screen	Master Detail Pattern P4-5	a42a0993947a51b7
+screen	Master Detail Pattern P4-5_P	c84dea12d8eb6a02
+screen	Master Detail Pattern P4-6	d1dc55f992b0d46b
+screen	Master Detail Pattern P4-6_P	c2f3b81a9c7a6b88
+screen	Master Detail Pattern P4-7	bc05bd56390044f3
+screen	Multi Pattern P2-1	6ef1a1b469ca105e
+screen	Multi Pattern P2-1_P	cb0f61d0dd4e60ed
+screen	Multi Pattern P2-2	8dfe8f2d5033869f
+screen	Multi Pattern P2-2_P	3e3c848bca4afde6
+screen	Multi Pattern P2-3	ecdc1cd8c533c64d
+screen	Multi Pattern P2-3_P	8f7135358cb83392
+screen	Multi Pattern P2-4	a4097ae9738832c0
+screen	Multi Pattern P2-4_P	3f88d662e52069a7
+screen	Multi Pattern P2-5	a4b93a2471aca463
+screen	Shuttle Pattern P7-1	dd3344b2bf779c12
+screen	Shuttle Pattern P7-1_P	5996aced6cdb0f25
+screen	Shuttle Pattern P7-2	7113477c4e170e2d
+screen	Shuttle Pattern P7-3	742526672d8dbf18
+screen	Single Pattern P1-1	eb563aa9a0a8596c
+screen	Single Pattern P1-1_P	cfc609481c77486a
+screen	Single Pattern P1-2	2b7542aa3d9cef50
+screen	Single Pattern P1-2_P	fac01dbfa481b014
+screen	Single Pattern P1-3	d8dfd2a8c3fe9180
+screen	Single Pattern P1-3_P	1590e7995d29d881
+screen	Single Pattern P1-4	5f037e6c76de744b
+screen	Single Pattern P1-4_P	38d5d458dcb96119
+screen	Single Pattern P1-5	2477e5d3e9ac2bee
+screen	Single Pattern P1-5_P	2c6bcb355f239977
+screen	Single Pattern P1-6	a7f333e5f63f3dec
+screen	Single Pattern P1-6_P	a6c80efc7e3b058f
+screen	Single Pattern P1-7_P	4deefdeef396cd7a
+screen	Single Pattern P1-8_P	53bf90aa76252296
+screen	Tab Pattern P5-1	33e0515ae0777af7
+screen	Tab Pattern P5-1_P	cea5433e1311e773
+screen	Tab Pattern P5-2	1c9c20777f7a536b
+screen	Tab Pattern P5-2_P	b12407ab2de8d275
+screen	Thirdparty Pattern P8-1	1d17833813ad7976
+screen	Thirdparty Pattern P8-1_P	2f324b5597d2d61d
+screen	Thirdparty Pattern P8-2	9875fd3483f09434
+screen	Thirdparty Pattern P8-2_P	d796ee5d962c3e38
+screen	Thirdparty Pattern P8-3	b08a51cc260a531b
+screen	Thirdparty Pattern P8-3_P	53bf0b22522c7f1a
+screen	Thirdparty Pattern P8-4	2b2ce34008b11aef
+screen	Thirdparty Pattern P8-4_P	2c8cf752c2942178
+screen	Tree Pattern P6-1	371e026c6c39a296
+screen	Tree Pattern P6-1_P	034ffdf5acfe31a8
+screen	Tree Pattern P6-2	098bdd3fedc5d0e5
+screen	Tree Pattern P6-3	a9fb853736dc97ab
+udc	udc.com.udcComAppHeader	0207d4c10b24f0a1
+udc	udc.com.udcComFormTitle	c0918ea60d3058a4
+udc	udc.com.udcComGridCudBtns	5e2dd11d7cb9b56e
+udc	udc.com.udcComGridTitle	5eb71c7e9aad3e88
+uitpl	[넘버에디터] 컨트롤 그룹 (1)	938680f84dfa1e9d
+uitpl	[넘버에디터] 컨트롤 그룹 (2)	c7504f5da66e14ac
+uitpl	[데이트인풋] 데이터 포맷 (1)	d44c36249c14bdb1
+uitpl	[데이트인풋] 데이터 포맷 (2)	c1852fd69144b8c5
+uitpl	[데이트인풋] 데이터 포맷 (3)	d4d6bdd5de2ad602
+uitpl	[데이트인풋] 데이터 포맷 (4)	e9d6e353e7cd2330
+uitpl	[데이트인풋] 데이터 포맷 (5)	1a29182576327fe2
+uitpl	[데이트인풋] 데이터 포맷 (6)	1dd3b0201a353bae
+uitpl	[데이트인풋] 컨트롤 그룹	a8aad52a1fa71edf
+uitpl	[라디오버튼] 고정 아이템	9f535f691f7c9afc
+uitpl	[라디오버튼] 컨트롤 그룹 (1)	57c1ddd2f5ba9fa8
+uitpl	[라디오버튼] 컨트롤 그룹 (2)	af06a90f3cf1344d
+uitpl	[버튼] 등록 버튼	cfde397f205cfa92
+uitpl	[버튼] 보조 버튼	fb7858cca717a307
+uitpl	[버튼] 삭제 버튼	49c3cedf96ffc111
+uitpl	[버튼] 엑셀다운로드 버튼	0aeabf5b2b91938a
+uitpl	[버튼] 엑셀업로드 버튼	a41212d610a12210
+uitpl	[버튼] 인라인 버튼	412e47d53069568d
+uitpl	[버튼] 저장 버튼	2b68718b7aea89b1
+uitpl	[버튼] 조회 버튼	66d596619a040125
+uitpl	[버튼] 주요 버튼	9a0ca93225a8bf9e
+uitpl	[버튼] 초기화 버튼	cc4c8cd2a4919d25
+uitpl	[버튼] 초기화 아이콘 버튼	e7619da65cdc5f25
+uitpl	[버튼] 출력 버튼	fcd949d6ec63d3b2
+uitpl	[버튼] 타이틀 버튼 그룹	339f866743a74067
+uitpl	[버튼] 파일 다운로드 버튼	c137be29fef6c3ae
+uitpl	[버튼] 파일 업로드 버튼	1cc869379ce02a50
+uitpl	[버튼] 팝업 호출 버튼	c7f7173b38a1532b
+uitpl	[버튼] 푸터 버튼 그룹	26170e8981f41ef8
+uitpl	[버튼] 행삭제 버튼	c2d0b686260c1668
+uitpl	[버튼] 행추가 버튼	6bc3b9a4aa186891
+uitpl	[버튼] 행취소 버튼	81341dd3cbddc27b
+uitpl	[서치인풋] 컨트롤 그룹 (1)	16d256813696eff8
+uitpl	[서치인풋] 컨트롤 그룹 (2)	5b4fc5abf5f56acc
+uitpl	[아웃풋] h1 타이틀	e7e68cccb5f1f414
+uitpl	[아웃풋] h2 타이틀	6ab61067e9e9ed6d
+uitpl	[아웃풋] h3 타이틀	493fa9ee4c34333f
+uitpl	[아웃풋] h4 타이틀	ede1b61afddba16c
+uitpl	[아웃풋] h5 타이틀	17fae06c01f61f4f
+uitpl	[아웃풋] h6 타이틀	3eaef46f714fe1d2
+uitpl	[아웃풋] 가로 중앙 정렬	f14fc7a9e6d83253
+uitpl	[아웃풋] 간격 지정 컨트롤	f603b9259651d5a5
+uitpl	[아웃풋] 날짜 포맷 (1)	17ab2dc0ec47a114
+uitpl	[아웃풋] 날짜 포맷 (2)	f9b52921e069df98
+uitpl	[아웃풋] 날짜 포맷 (3)	58fb457f6e52c34d
+uitpl	[아웃풋] 날짜 포맷 (4)	d9536cd2f6841428
+uitpl	[아웃풋] 날짜 포맷 (5)	7b65797f28fec5a3
+uitpl	[아웃풋] 단위 포맷	d404b5e7062813f8
+uitpl	[아웃풋] 마스킹 문자열 포맷	a7236e04cd7369f6
+uitpl	[아웃풋] 밑줄	731dd8c99120380e
+uitpl	[아웃풋] 밑줄 해제	f2dda23cebaafb61
+uitpl	[아웃풋] 빈값	c4923a21de12f16e
+uitpl	[아웃풋] 상측 정렬	6299660138d652f6
+uitpl	[아웃풋] 상태	ef7f5eafc0fb1374
+uitpl	[아웃풋] 세로 중앙 정렬	f170bb3895a6984e
+uitpl	[아웃풋] 숫자 포맷 (1)	501fc7e83ed5a50d
+uitpl	[아웃풋] 숫자 포맷 (2)	e963a88ded9956ec
+uitpl	[아웃풋] 숫자 포맷 (3)	9593072025546c79
+uitpl	[아웃풋] 숫자 포맷 (4)	5d37145ceb5913aa
+uitpl	[아웃풋] 숫자 포맷 (5)	f5ca9795d4af5a78
+uitpl	[아웃풋] 숫자 포맷 (6)	a46b8ffc63f5017e
+uitpl	[아웃풋] 숫자 포맷 (7)	b0a2e9690577d59c
+uitpl	[아웃풋] 숫자 포맷 (8)	79b9bfa27e9e8632
+uitpl	[아웃풋] 우측 정렬	15e7c09e3964e515
+uitpl	[아웃풋] 윗줄	51b88a262d4e79d1
+uitpl	[아웃풋] 좌측 정렬	19979520e30abd98
+uitpl	[아웃풋] 주민등록번호 포맷	4773664ff760ce71
+uitpl	[아웃풋] 지시문/안내문 (1)	d1965ec49ef4a669
+uitpl	[아웃풋] 지시문/안내문 (2)	050d205cdade5393
+uitpl	[아웃풋] 취소선	81a994e31c7db8dd
+uitpl	[아웃풋] 하측 정렬	7f3809eca9b694b3
+uitpl	[인풋박스] 컨트롤 그룹 (1)	02f2c6caaf7a0e5f
+uitpl	[인풋박스] 컨트롤 그룹 (2)	7157bd69985b2f46
+uitpl	[인풋박스] 컨트롤 그룹 (3)	09c9e92807477d7e
+uitpl	[인풋박스] 컨트롤 그룹 (4)	e9e48ece6bdb6075
+uitpl	[인풋박스] 컨트롤 그룹 (6)	c9d113c12428e00d
+uitpl	[체크박스] 빈값	c60e4a6789298abe
+uitpl	[체크박스] 중앙정렬	dac7fb6a510a8b8a
+uitpl	[체크박스] 컨트롤 그룹 (1)	4e57a066bd32ccdc
+uitpl	[체크박스] 컨트롤 그룹 (2)	347b678c96587e91
+uitpl	[체크박스그룹] 고정 아이템	18ea5802c58b4a50
+uitpl	[체크박스그룹] 컨트롤 그룹 (1)	0dec514dac6a341e
+uitpl	[체크박스그룹] 컨트롤 그룹 (2)	b77f3b0736ac1790
+uitpl	[카드] 일반	1f4b2f00c8de4dec
+uitpl	[콘텐츠] 그리드	33e98c3a008cc3bc
+uitpl	[콘텐츠] 그리드 타이틀	c01386c65ef56255
+uitpl	[콘텐츠] 폼	89c783ecd4c96edb
+uitpl	[콘텐츠] 폼 타이틀	a553e1bf58653db4
+uitpl	[콤보박스] 컨트롤 그룹	a0d03ff8117bda62
+uitpl	[탭폴더] 아이콘 탭	080873e87f43b34c
+uitpl	[탭폴더] 일반	93cafad90c6b2440
+uitpl	[텍스트에리어] 길이 제한 텍스트에리어	076dc2598914772a
+uitpl	[파일인풋] 컨트롤 그룹	8e1bbac92cb2b838
+uitpl	[폼] 라벨	2484b01478371e2e
+uitpl	[폼] 서브 라벨	8d663a7aea7b13e8
+uitpl	[폼] 입력행 (1행)	223d7caccc185776
+uitpl	[폼] 입력행 (2행)	6f665aefbc6fc0c3
+uitpl	[폼] 입력행 (3행)	0a07149ed8811e9f
+uitpl	[폼] 조회 (1행)	f311f891e991dacb
+uitpl	[폼] 조회 (2행)	a9f948a7d623ee16
+uitpl	[폼] 조회 (3행)	b4435230fc419859
+uitpl	[폼] 조회 폼 라벨	5bb3d34c74ba8d17
+uitpl	[폼] 조회 폼 서브 라벨	02c59726dce27be3
+uitpl	[폼] 조회 폼 필수 라벨	f5f538714d3c97d1
+uitpl	[폼] 필수 라벨	bdb744e233937507
+uitpl	[프레임] 버티컬 레이아웃	fe46b743ab954ee2
+uitpl	[프레임] 분할 배치	c4bf794768461525
+uitpl	[프레임] 컨트롤 그룹 (1)	3679aad1b5ad2742
+uitpl	[프레임] 컨트롤 그룹 (2)	b25de70cb014b5a4
+uitpl	[프레임] 컨트롤 그룹 (3)	4920317dea781ca4
+uitpl	[프레임] 컨트롤 그룹 (4)	a5d7bc4227b16627
+uitpl	[프레임] 컨트롤 그룹 (5)	7dbde8b0a54f2ac2
+uitpl	[프레임] 컨트롤 그룹 (6)	744fc9485fafede8
+uitpl	[프레임] 컨트롤 그룹 (7)	8de173499839a905
+uitpl	[프레임] 폼 레이아웃	017549e29adab28d
+uitpl	[프레임] 플로우 레이아웃	72b0ceb7f0cc010b

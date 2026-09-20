@@ -4,8 +4,13 @@
 React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.*` JavaScript API + 공통 모듈(`*.module.js`)** 만으로 만들었습니다.
 
 ```
-팔레트에서 끌어다 놓기 → 캔버스(XY) 배치 → JSON AST 추출 → 템플릿 뼈대에 맞춰 재배치(규칙 또는 Gemini) → .clx/.js 저장
+(패턴 뼈대 미리 배치) → 팔레트에서 끌어다 놓기 → 캔버스(XY) 배치 → JSON AST 추출
+                     → 템플릿 뼈대에 맞춰 재배치(규칙 또는 Gemini) → .clx/.js 저장
 ```
+
+팔레트에는 낱개 컨트롤 29종과 프로젝트 UDC 말고도 **UI 템플릿**(스튜디오 상용구 116종 — 조회 버튼 · 저장 버튼 · 조회 폼 한 줄 · 그리드 구획 …)이 올라옵니다.
+끌어다 놓으면 사내 테마 클래스가 붙은 채로 그려지므로 **브라우저에서 실제 모양 그대로** 보이고, 그대로 `.clx` 로 나갑니다.
+빈 화면부터 그리기 싫으면 툴바의 **[미리 배치]** 로 고른 패턴의 뼈대를 캔버스에 깔고 고쳐 쓰면 됩니다.
 
 ---
 
@@ -19,43 +24,52 @@ React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.
 tools\dev.cmd
 ```
 
-빌드(`e6-compiler.jar`) 후 개발 서버가 뜹니다 → 브라우저에서 **http://127.0.0.1:8090/**
+① 카탈로그 갱신(`SyncCatalog`) → ② 빌드(`BuildOnce` → `e6-compiler.jar`) → ③ 개발 서버가 뜹니다 → 브라우저에서 **http://127.0.0.1:8090/**
 
 | 하고 싶은 것 | 방법 |
 |---|---|
 | Gemini 를 서버 프록시로 쓰기 | 실행 전에 `set GEMINI_API_KEY=발급받은키` (브라우저에 키를 두지 않는 경로) |
-| 빌드만 하기 | `java -Dfile.encoding=UTF-8 -jar ci-lib\clx\e6-compiler.jar -s . -o target\clx-dev --main canvas/Prototyper` |
+| 상용구 파일 위치 지정 | 실행 전에 `set EXCANVAS_CANNED_XMI=…\.settings\canned-templates.xmi` |
+| 카탈로그만 갱신(변경점 보기) | `java -Dfile.encoding=UTF-8 tools\SyncCatalog.java` |
+| 빌드만 하기 | `java -Dfile.encoding=UTF-8 tools\BuildOnce.java target\clx-dev canvas/Prototyper` |
 | 서버만 띄우기 | `java tools\DevServer.java target\clx-dev 8090` |
 
 ### eXBuilder6 스튜디오 / Tomcat 에서 실행
 
 프로젝트를 빌드·배포한 뒤 `…/eX-Canvas/ui/canvas/Prototyper.clx` 를 엽니다.
-`result` 저장을 쓰려면 Tomcat JVM 옵션에 `-Dexcanvas.src.dir=C:/eclipse_AI/workspace/eX-Canvas/clx-src` 를 추가합니다(없으면 브라우저 다운로드로 대체됩니다).
+`result` 저장은 서버가 배포 경로에서 `clx-src` 를 스스로 찾습니다. 못 찾으면(다른 워크스페이스 등) Tomcat JVM 옵션에 `-Dexcanvas.src.dir=C:/eclipse_AI/workspace/eX-Canvas/clx-src` 를 추가하세요.
+저장 서버가 아예 없는 환경(스튜디오 내장 미리보기 등)에서는 속성창 맨 아래 **[폴더 지정]** 으로 `clx-src/result` 를 한 번 고르면 브라우저가 그 아래 날짜 폴더에 직접 씁니다. 화면 오른쪽 **저장 위치 (result)** 칸이 지금 어디에 저장되는지 알려 줍니다.
 
 ### 사용 순서
 
-1. 좌측 **팔레트**에서 컨트롤(또는 UDC)을 중앙 **캔버스**로 끌어다 놓습니다. (더블클릭으로도 추가)
-2. 캔버스에서 항목을 끌어 **이동**, 오른쪽 아래 파란 핸들로 **크기 조절**, 클릭해 **선택**합니다.
-3. 우측 **속성창**에서 ID · Text · Left · Top · Width · Height 를 고칩니다. (Text 의 뜻은 유형마다 다릅니다 — 아래 표)
-4. 상단 툴바에서 **화면명 · 변환 방식 · 패턴 · 팝업 여부**를 정합니다.
-5. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
+1. (선택) 툴바에서 **패턴**을 고르고 **미리 배치**를 켜면 그 패턴의 뼈대가 캔버스에 깔립니다 — 빈 화면부터 그리지 않아도 됩니다([4.9](#49-패턴-미리-배치)).
+2. 좌측 **팔레트**에서 컨트롤 · UDC · **UI 템플릿**을 중앙 **캔버스**로 끌어다 놓습니다. (더블클릭으로도 추가)
+   항목이 149개나 되므로 팔레트 맨 위 **찾기 상자**에 `조회` `버튼` 처럼 넣어 좁혀 쓰세요.
+3. 캔버스에서 항목을 끌어 **이동**, 오른쪽 아래 파란 핸들로 **크기 조절**, 클릭해 **선택**합니다.
+4. 우측 **속성창**에서 ID · Text · Left · Top · Width · Height 를 고칩니다. (Text 의 뜻은 유형마다 다릅니다 — 아래 표)
+5. 상단 툴바에서 **화면명 · 변환 방식 · 패턴 · 팝업 여부**를 정합니다.
+6. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
 
 ---
 
 ## 2. 화면 구성
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ 툴바  화면명 | 변환 방식 | 패턴 | 팝업 | [미리보기] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
-├────────────┬──────────────────────────────────────────────┬───────────────────────────────┤
-│ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                │ 속성창                         │
-│  기본       │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로   │  Type / ID / Text             │
-│  입력       │   그려진다                                    │  Left / Top / Width / Height  │
-│  데이터·컨테이너│                                           │  [선택 삭제]                   │
-│  UDC        ├──────────────────────────────────────────────┤ Gemini 설정                   │
-│            │ 출력 미리보기 (생성된 XML / AST JSON)           │  API Key / Model / 호출 경로 / 메모│
-└────────────┴──────────────────────────────────────────────┴───────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 툴바  화면명 | 변환 | 패턴 | 미리 배치 | 팝업 | [미리보기] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
+├────────────┬─────────────────────────────────────────────────┬───────────────────────────────────┤
+│ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                   │ 속성창                             │
+│  [찾기]     │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로      │  Type / ID / Text                 │
+│  기본       │   그려진다                                       │  Left / Top / Width / Height      │
+│  입력       │                                                 │  [선택 삭제]                       │
+│  데이터·컨테이너├─────────────────────────────────────────────────┤ 저장 위치 / [폴더 지정]             │
+│  UDC        │ 출력 미리보기 (생성된 XML / AST JSON)              │ Gemini 설정                       │
+│  UI 템플릿 · 버튼 │                                             │  API Key / Model / 호출 경로 / 메모 │
+│  UI 템플릿 · 폼 …│                                             │                                   │
+└────────────┴─────────────────────────────────────────────────┴───────────────────────────────────┘
 ```
+
+팔레트 맨 위 **찾기 상자**에 글자를 넣으면 이름·설명이 맞는 항목만 남고, 남은 것이 없는 묶음 머리글도 함께 숨습니다.
 
 ### 툴바 옵션
 
@@ -65,9 +79,10 @@ tools\dev.cmd
 | | **템플릿(Gemini AI)** | 규칙 기반 초안을 Gemini 가 다듬음(라벨·제목·의미 있는 id·패턴 선택). 실패하면 규칙 기반으로 자동 대체 |
 | | **XY 좌표 그대로** | 캔버스 좌표를 `cl:xylayout` 으로 그대로 내보냄 |
 | 패턴 | 자동 선택 / P1-1 … P8-3 | 직접 고르면 그 패턴의 배치(위아래/좌우)를 강제 |
+| 미리 배치 | 체크 | 패턴을 고르는 순간 그 패턴의 뼈대(조회 조건 · 그리드/폼 · 하단 버튼)를 캔버스에 깔아 준다 |
 | 팝업 | 체크 | `_P` 템플릿 형태(`pop-content-wrapper`, EXB-POP 활성, 앱 헤더 숨김) |
 
-### 팔레트 (29종 + UDC)
+### 팔레트 (기본 29종 + UDC + UI 템플릿 116종 = 149항목)
 
 | 묶음 | 컨트롤 |
 |---|---|
@@ -75,6 +90,7 @@ tools\dev.cmd
 | 입력 | InputBox · ComboBox · DateInput · NumberEditor · MaskEditor · SearchInput · CheckBox · CheckBoxGroup · RadioButton · ListBox · TextArea · Slider · FileInput |
 | 데이터 · 컨테이너 | Grid · Tree · TabFolder · Accordion · Group · PageIndexer · Calendar · FileUpload · EmbeddedPage · EmbeddedApp · UIControlShell |
 | UDC | 빌드에 등록된 UDC 전부 — 런타임에 자동 탐색. `clx-src/udc` 에 추가하고 빌드하면 팔레트에 나타남 |
+| UI 템플릿 · &lt;묶음&gt; | 스튜디오 상용구 116종. 상용구의 `[버튼]` `[폼]` `[콘텐츠]` … 묶음이 그대로 팔레트 묶음이 됨 ([4.7](#47-ui-템플릿스튜디오-상용구)) |
 
 ### 속성창 Text 의 뜻
 
@@ -98,31 +114,41 @@ tools\dev.cmd
 ```
 eX-Canvas/
 ├ README.md                          ← 이 문서
-├ docs/eX-Canvas-architecture.md     ← 상세 설계(아키텍처 · 템플릿 매칭 · Gemini · 저장 규약)
+├ docs/
+│  ├ eX-Canvas-architecture.md       ← 상세 설계(아키텍처 · 템플릿 매칭 · Gemini · 저장 규약)
+│  └ catalog.md                      ← **자동 생성** : UI 템플릿 · UDC · 화면 템플릿 목록 + 변경 이력
 ├ templates/                         ← 표준 화면 템플릿 77개(P0~P8, popup). 생성물이 닮아야 할 원본
+├ .settings/canned-templates.xmi     ← 스튜디오 상용구(UI 템플릿의 원본). 없으면 eXCFrame-ui 워크스페이스를 찾는다
 ├ clx-src/                           ← eXBuilder6 소스 경로
 │  ├ canvas/
 │  │  ├ Prototyper.clx               ← Web Prototyper 화면(툴바 · 팔레트 · 캔버스 · 속성창 · 미리보기)
 │  │  ├ Prototyper.js                ← 화면 스크립트: 드래그 앤 드롭 · 선택/이동/크기 · 속성 반영 · 내보내기
 │  │  └ 확인필요.md                   ← 검증한 것 / 아직 확인이 필요한 것
-│  ├ module/canvas/                  ← 공통 모듈 6종 (cpr.core.Module.require("module/canvas/<이름>"))
-│  │  ├ controlRegistry.module.js    ← 컨트롤 유형 표 + UDC 자동 탐색
+│  ├ module/canvas/                  ← 공통 모듈 8종 (cpr.core.Module.require("module/canvas/<이름>"))
+│  │  ├ controlRegistry.module.js    ← 컨트롤 유형 표 + UDC 자동 탐색 + UI 템플릿 등록
 │  │  ├ canvasAst.module.js          ← 캔버스 → JSON AST
-│  │  ├ templatePlanner.module.js    ← 템플릿 카탈로그 · 규칙 기반 계획 · 계획 검증/정규화
+│  │  ├ templatePlanner.module.js    ← 템플릿 카탈로그 · 규칙 기반 계획 · 계획 검증/정규화 · 패턴 뼈대(skeleton)
 │  │  ├ geminiPlanner.module.js      ← Gemini 호출 → 화면 계획(JSON)
-│  │  ├ clxSerializer.module.js      ← JSON → .clx XML (XY / 템플릿 뼈대)
-│  │  └ fileDownload.module.js       ← Blob 다운로드 · 프로젝트 저장 요청
-│  ├ theme/custom/prototyper.less    ← Prototyper 전용 스타일(env.json 의 runtime-css 에 등록)
+│  │  ├ clxSerializer.module.js      ← JSON → .clx XML (XY / 템플릿 뼈대 / UI 템플릿 트리)
+│  │  ├ fileDownload.module.js       ← Blob 다운로드 · 저장 서버 요청 · 지정 폴더에 직접 쓰기
+│  │  ├ templateBuilder.module.js    ← UI 템플릿 노드 → 실제 cpr.controls.* 트리(캔버스 미리보기)
+│  │  └ uiTemplateCatalog.module.js  ← **자동 생성** : 상용구 116종의 컨트롤 트리 (SyncCatalog 가 만든다)
+│  ├ style/prototyper.less           ← Prototyper 전용 스타일(env.json 의 runtime-css 에 등록)
+│  ├ theme/                          ← eXCFrame 테마 LESS 원본(이클립스 빌더가 컴파일한다 — [6](#6-검증-현황과-알려진-제약) 참고)
 │  ├ udc/com/                        ← 프로젝트 UDC (팔레트 UDC 묶음의 원천)
 │  └ result/<yyyyMMdd>/              ← [result 저장] 결과물(.clx + .js). 실행한 날짜별 폴더
 ├ src/main/java/com/tomatosystem/canvas/web/
 │  ├ GeminiProxyController.java      ← POST /ai/gemini.do       (Tomcat 용 Gemini 프록시)
-│  └ CanvasResultController.java     ← POST /canvas/saveResult.do (Tomcat 용 result 저장)
+│  └ CanvasResultController.java     ← /canvas/saveResult.do (Tomcat 용 result 저장 · GET 은 가능 여부 확인)
 ├ tools/
-│  ├ dev.cmd                         ← 빌드 + 개발 서버 실행
+│  ├ dev.cmd                         ← 카탈로그 갱신 + 빌드 + 개발 서버 실행
+│  ├ SyncCatalog.java                ← 상용구 XMI·UDC·화면 템플릿 훑기 → 카탈로그 모듈 · docs/catalog.md · 변경 보고
+│  ├ catalog-index.txt               ← 자동 생성: 변경 감지용 지문(항목별 해시)
+│  ├ BuildOnce.java                  ← e6-compiler 실행 + eXCFrame 테마(clx-build/theme) 반영
 │  └ DevServer.java                  ← Tomcat 없이 쓰는 개발 서버(정적 파일 + 위 두 엔드포인트), 127.0.0.1 전용
 ├ ci-lib/clx/e6-compiler.jar         ← eXBuilder6 컴파일러(빌드 · 생성물 유효성 검증에 사용)
 ├ exbuilder/runtime/                 ← 런타임(cleopatra.js · 기본 테마)
+├ clx-build/                         ← 이클립스 eXBuilder6 빌더 산출물. BuildOnce 가 여기서 테마를 가져온다
 └ target/clx-dev/                    ← 개발 서버용 빌드 산출물(생성됨)
 ```
 
@@ -133,15 +159,17 @@ eX-Canvas/
 ### 4.1 전체 데이터 흐름
 
 ```
- 팔레트 항목(Output)
+ 팔레트 항목(Output · UDC · UI 템플릿)         ◀── 패턴 미리 배치는 이 단계를 건너뛰고 캔버스에 바로 깐다
     │  cpr.controls.DragSource (dataType = "pt-palette", 피드백은 app.floatControl)
     ▼
  canvasGroup  ── cpr.controls.DropTarget.onDrop ──▶ pointerLocation → 캔버스 상대 좌표(10px 격자 스냅)
-    │  new cpr.controls.Xxx() / new udc.com.Xxx()  →  canvas.addChild(wrapper, {top,left,width,height})
+    │  new cpr.controls.Xxx() / new udc.com.Xxx() / templateBuilder.build(UI 템플릿)
+    │      →  canvas.addChild(wrapper, {top,left,width,height})
     ▼
  canvasAst.extract()      getChildren() 순회 + getConstraint()(좌표) + userAttr()(유형·id·text)
     ▼
- JSON AST   { app:{name,popup,canvas}, children:[{type, role, id, text, items, udcType, layoutData:{x,y,width,height}}] }
+ JSON AST   { app:{name,popup,canvas}, children:[{type, role, id, text, items, udcType, tpl, layoutData:{x,y,width,height}}] }
+    │          (UI 템플릿은 type="uitpl" + tpl = 카탈로그 항목)
     │
     ├─ 변환 = XY ───────────────────────────────▶ clxSerializer.serializeXY(ast)
     │
@@ -153,7 +181,8 @@ eX-Canvas/
                                                                 ▼
                                        clxSerializer.serializePlan(plan)   /templates 뼈대로 XML 생성
     ▼
- [result 저장]  fileDownload.saveToProject() → POST /canvas/saveResult.do → clx-src/result/<yyyyMMdd>/<화면명>.clx · .js
+ [result 저장]  saveToProject() → POST /canvas/saveResult.do ─┬─▶ clx-src/result/<yyyyMMdd>/<화면명>.clx · .js
+                saveToDirectory() → 지정한 폴더(브라우저가 직접) ┘   (둘 다 안 되면 브라우저 다운로드)
  [CLX 다운로드] fileDownload.downloadClx()   → Blob → <a download>
 ```
 
@@ -163,10 +192,11 @@ eX-Canvas/
 
 ```
 래퍼 그룹(XY, class=pt-item)   ← 캔버스의 XY 제약(top/left/width/height)이 위치·크기의 단일 원본
- ├ ① 실제 컨트롤 (cpr.controls.* 또는 UDC 인스턴스)   ← 보이기만 한다
+ ├ ① 실제 컨트롤 (cpr.controls.* · UDC 인스턴스 · UI 템플릿 트리)  ← 보이기만 한다
  ├ ② 투명 덮개 Output (pt-item-overlay)               ← 클릭 = 선택, 드래그 = 이동
  └ ③ 크기 핸들 Output (pt-item-handle)                ← 드래그 = 크기 조절
 래퍼의 사용자 속성: pt-type(유형) · pt-id(CLX id) · pt-text(속성창 Text)
+  pt-type 은 유형 키 그대로 — 기본 컨트롤은 `output` · UDC 는 `udc:<정규 이름>` · UI 템플릿은 `uitpl:<uuid>`
 ```
 
 - 덮개가 없으면 디자인 중에 콤보가 열리거나 인풋에 포커스가 가서 편집이 안 됩니다.
@@ -222,14 +252,64 @@ body.content-wrapper                       (팝업: pop-content-wrapper)
 
 ### 4.6 result 저장
 
-`POST /canvas/saveResult.do?name=<화면명>` — 본문은 `clx + "\n=====eX-Canvas-JS=====\n" + js`.
+어디에 저장하든 결과는 같습니다 — `…/result/<yyyyMMdd>/<화면명>.clx` 와 같은 이름의 `.js`. 소스 경로 안이므로 스튜디오에서 바로 열립니다(앱 URI `result/<yyyyMMdd>/<화면명>`).
+같은 이름이 있으면 덮어쓰지 않고 `_HHmmss` 를 붙이고, 파일명은 글자·숫자·`_`·`-` 만 남깁니다(`result` 폴더 밖으로 나갈 수 없음).
 
-- 저장 위치: `clx-src/result/<yyyyMMdd>/<화면명>.clx` · `.js` → 소스 경로 안이므로 스튜디오에서 바로 열립니다(앱 URI `result/<yyyyMMdd>/<화면명>`).
-- 같은 이름이 있으면 덮어쓰지 않고 `_HHmmss` 를 붙입니다.
-- 파일명은 글자·숫자·`_`·`-` 만 남겨 `result` 폴더 밖으로 나갈 수 없고, `X-Requested-With: eX-Canvas` 헤더가 없으면 403 입니다.
-- 서버가 없거나 저장 경로가 설정되지 않았으면 브라우저 다운로드로 대체합니다.
+화면이 뜰 때 `GET /canvas/saveResult.do?probe=1` 로 저장 서버를 확인해 두고, **[result 저장]** 은 아래 순서로 저장합니다.
 
-### 4.7 생성되는 CLX 의 규칙
+| 순위 | 방법 | 조건 | 쓰는 주체 |
+|---|---|---|---|
+| 1 | 저장 서버 | `POST /canvas/saveResult.do?name=<화면명>` 이 200 (DevServer · Tomcat) | 서버 |
+| 2 | 저장 폴더 | 속성창 **[폴더 지정]** 으로 `clx-src/result` 를 고른 경우 (Chrome · Edge) | 브라우저(File System Access API) |
+| 3 | 브라우저 다운로드 | 위 둘 다 안 될 때 | 브라우저 기본 다운로드 폴더 |
+
+- **저장 서버** — 본문은 `clx + "\n=====eX-Canvas-JS=====\n" + js`, `X-Requested-With: eX-Canvas` 헤더가 없으면 403.
+  소스 경로(`clx-src`)는 ① `-Dexcanvas.src.dir` / `EXCANVAS_SRC_DIR` ② 배포 폴더에서 위로 올라가며 탐색 ③ 이클립스 WTP 배포 경로 → 워크스페이스의 같은 이름 프로젝트 ④ 서버 실행 폴더 순으로 찾습니다. DevServer 는 실행 폴더·빌드 폴더에서 거슬러 찾으므로 어느 폴더에서 실행해도 됩니다(시작 로그에 저장 경로를 찍습니다).
+- **저장 폴더** — 고른 폴더는 IndexedDB 에 남아 다음 실행에도 이어집니다(권한만 저장할 때 다시 확인). 폴더 선택·권한 창은 브라우저가 클릭 안에서만 열어 주므로 CLX 를 만들기 **전에** 먼저 확보합니다.
+- 현재 어디에 저장되는지는 속성창 **저장 위치 (result)** 칸에 나옵니다.
+
+### 4.7 UI 템플릿(스튜디오 상용구)
+
+`[버튼] 조회 버튼` · `[폼] 조회 (1행)` · `[콘텐츠] 그리드` 처럼 **이미 디자인이 끝난 컨트롤 묶음**을 팔레트에서 그대로 꺼내 씁니다.
+원본은 eXBuilder6 스튜디오의 상용구 파일 `<eXCFrame-ui>/.settings/canned-templates.xmi` 입니다.
+
+```
+canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.module.js (컨트롤 트리 JSON)
+                                                    │
+                        팔레트/캔버스 ◀── templateBuilder.build() ──┤  실제 cpr.controls.* 트리 (테마 클래스 그대로)
+                        .clx 내보내기 ◀── clxSerializer.catalogNodeEl() ──┘  같은 트리를 XML 로
+```
+
+- **한 노드, 두 출력** — 캔버스에 그리는 것과 파일로 나가는 것이 같은 노드에서 나옵니다. 화면에서 본 모양이 곧 `.clx` 입니다.
+- 클래스(`btn-search` · `search-box` · `label required` …)·레이아웃(폼/플로우/버티컬의 행·열·여백)·고정 아이템·그리드 컬럼 수를 그대로 옮깁니다.
+- 옮기지 않는 것 : 스튜디오 전용 정보(`metaData` · `fieldLabel`), 표현식 바인딩(`itemStyle`/`binders`), 탭 아이콘용 `userAttributes`. 데이터셋에 붙는 속성(`datatype` · `displayexp`)은 파일에는 그대로 나가지만 캔버스 미리보기에는 쓰지 않습니다.
+- UDC 가 들어 있는 템플릿은 공통 모듈(`createCommonUtil`)이 없는 이 프로젝트에서 이름표로 대신 보입니다(파일에는 `<cl:udc type="…">` 로 정상 출력).
+- 템플릿 묶음 이름으로 화면 계획에서의 역할을 정합니다 — `버튼`→버튼 자리, `아웃풋`→라벨, `폼`·`인풋박스` 등→입력 필드, `콘텐츠`·`탭폴더`·`프레임`·`카드`→데이터 구획.
+
+### 4.8 카탈로그 동기화와 변경 감지
+
+`tools\dev.cmd` 가 빌드 전에 `SyncCatalog` 를 돌립니다(수동: `java -Dfile.encoding=UTF-8 tools\SyncCatalog.java`).
+
+| 보는 곳 | 무엇을 |
+|---|---|
+| `.settings\canned-templates.xmi` (없으면 eXCFrame-ui 워크스페이스) | UI 템플릿 116종. `-Dexcanvas.canned.xmi` · `EXCANVAS_CANNED_XMI` · 실행 인자로 경로를 직접 줄 수도 있습니다 |
+| `clx-src/udc/**` | 프로젝트 UDC |
+| `templates/**` | 화면 템플릿(P0~P8 · popup) |
+
+- 만드는 것 : `clx-src/module/canvas/uiTemplateCatalog.module.js`(팔레트가 읽는 카탈로그) · `docs/catalog.md`(사람이 읽는 목록) · `tools/catalog-index.txt`(지문).
+- 지난 실행의 지문과 비교해 **추가 / 삭제 / 수정**을 콘솔과 `docs/catalog.md` 에 적습니다. 이름뿐 아니라 컨트롤 트리·클래스·레이아웃이 바뀐 것도 "수정"으로 잡습니다.
+- 상용구 파일을 찾지 못하면 기존 카탈로그를 그대로 두고 경고만 합니다(빌드는 계속됩니다).
+
+### 4.9 패턴 미리 배치
+
+툴바에서 **미리 배치**를 켜고 **패턴**을 고르면 그 패턴의 뼈대가 캔버스에 깔립니다(이미 그린 것이 있으면 물어본 뒤 지웁니다).
+
+- 깔리는 것 : 조회 조건 줄(라벨·입력·기간·조회·초기화) → 패턴별 데이터 영역(그리드 / 폼 / 탭 / 트리 / 셔틀 / 카드 …) → 하단 버튼(저장·닫기).
+- **지금 보이는 캔버스 크기를 꽉 채웁니다.** 사방 20px 여백만 두고 폭·높이를 나눠 쓰므로 오른쪽·아래가 남지 않습니다 — 조회/초기화·저장/닫기 버튼은 오른쪽 끝에 붙고, 하단 버튼 줄은 캔버스 바닥에 붙습니다. 폼 구획은 남는 높이만큼 행을 더 깔고 행 간격을 늘려 채웁니다. 창을 넓히고 다시 고르면 그 크기로 다시 깔립니다.
+- 좌표는 **규칙 기반 변환이 그 패턴으로 다시 읽도록** 맞춰 두었습니다(데이터 컨트롤 위 = 조회 조건, 맨 아래 줄 = 하단 버튼, 좌우 배치는 세로로 겹치게).
+- 21개 패턴 모두 `skeleton → planByRule → resolve` 왕복을 확인했습니다. 다만 `P4-1/P4-3/P4-4` 는 `P1-6/P3-2/P3-1` 과 배치가 같아 **자동 선택**으로 되돌리면 뒤쪽으로 판정됩니다(고른 패턴을 그대로 두면 그대로 나갑니다).
+
+### 4.10 생성되는 CLX 의 규칙
 
 - `std:sid` 는 파일 안에서 유일(태그별 접두 + 16진수 8자리), 컨트롤 `id` 도 중복 시 번호를 붙여 유일하게.
 - 컨테이너의 레이아웃 노드는 마지막 자식, 자식마다 부모 레이아웃에 맞는 데이터 노드(`cl:formdata` / `cl:verticaldata` / `cl:flowlayoutdata` / `cl:xylayoutdata`).
@@ -245,7 +325,9 @@ body.content-wrapper                       (팝업: pop-content-wrapper)
 |---|---|
 | 팔레트에 컨트롤 추가 | `controlRegistry.module.js` 의 `TYPES` 에 1항목 + `CATEGORIES` 에 유형 키 + `clxSerializer.module.js` 의 `TAG_INFO` 에 1줄(고유 속성이 있으면 `controlEl` 의 `switch`) |
 | UDC 추가 | `clx-src/udc/**` 에 UDC 를 만들고 빌드 — 코드 수정 없음 |
-| 템플릿 패턴 추가 | `templatePlanner.module.js` 의 `CATALOG` + `decidePattern()` |
+| **UI 템플릿 추가** | 스튜디오에서 상용구를 만들고 `tools\dev.cmd`(또는 `SyncCatalog`) 실행 — 코드 수정 없음 |
+| UI 템플릿 컨트롤 유형 추가 | `templateBuilder.module.js` 의 `FACTORY` 에 1줄(캔버스 미리보기용). CLX 출력은 `TAG_INFO` 를 따른다 |
+| 템플릿 패턴 추가 | `templatePlanner.module.js` 의 `CATALOG` + `decidePattern()` + `skeleton()` 의 `switch` |
 | 뼈대(클래스·행 높이·스크린) 변경 | `clxSerializer.module.js` (`headEl` · `searchHeaderEl` · `sectionEl` · `footerEl`) |
 | AI 프롬프트·응답 스키마 | `geminiPlanner.module.js` (`SYSTEM_TEXT` · `buildResponseSchema`) |
 
@@ -255,16 +337,43 @@ body.content-wrapper                       (팝업: pop-content-wrapper)
 
 **검증한 것**
 
-- `Prototyper.clx` 와 모듈 6종: `e6-compiler.jar` 컴파일 문제 0건.
-- 브라우저에서 드롭 · 더블클릭 추가 · 이동 · 미리보기 · result 저장 동작.
+- `Prototyper.clx` 와 모듈 8종: `e6-compiler.jar` 컴파일 문제 0건.
+- 브라우저에서 드롭 · 더블클릭 추가 · 이동 · 팔레트 찾기 · 미리보기 · result 저장 동작.
 - 생성 CLX: 컨트롤 29종 + UDC 4종을 XY·템플릿 두 방식으로 내보내 컴파일 문제 0건. 일반/팝업/셔틀/탭/트리 시나리오의 실행 화면 구조 확인.
+- **UI 템플릿 116종 전부** — 캔버스 컨트롤 트리 생성 오류 0건, 한 화면에 모두 담아 내보낸 `.clx` 컴파일 오류 0건(`std:sid`·`id` 충돌 없음). `[폼] 조회 (1행)` 은 브라우저에서 사내 테마(`search-box` · `label required` · `btn-search`)가 그대로 나오는 것을 눈으로 확인.
+- **패턴 미리 배치 21개** — `skeleton() → planByRule() → resolve()` 왕복에서 고른 패턴 그대로 나오는 것 확인(자동 선택일 때 18/21은 그대로, 나머지 3개는 아래 5번). 900×580 과 1600×900 두 크기에서 21개 모두 사방 여백이 정확히 20px(넘침·빈 공간 0) 인 것 확인.
 - Gemini: 서버 프록시 경로로 실호출 성공(`gemini-2.5-flash`, 응답 스키마 통과).
 
 **알려진 제약 · 확인이 필요한 것** (상세: [clx-src/canvas/확인필요.md](clx-src/canvas/확인필요.md))
 
-1. **생성 CLX 는 eXCFrame 프로젝트 전제입니다.** 템플릿 클래스의 스타일과 UDC 가 요구하는 공통 모듈(`createCommonUtil`)이 이 프로젝트에는 없습니다. 여기서 실행하면 스타일이 없고 콘솔에 UDC 오류가 찍힙니다(캔버스의 UDC 도 비어 보일 수 있음 — 이름표로 구분).
-2. **스튜디오 디자인 편집기 표시**는 아직 확인하지 않았습니다. 컴파일은 통과했지만 생성한 `.clx` 를 스튜디오에서 열어 확인해 주세요.
-3. Tomcat 에서 result 저장을 쓰려면 `-Dexcanvas.src.dir` 설정이 필요합니다.
-4. 브라우저 직접 호출 방식은 API 키가 브라우저에 남습니다. 팀에 공개할 때는 서버 프록시를 쓰세요.
-5. P0(이너) 패턴과 카드 구성은 지원하지 않습니다. 아코디언·임베디드·쉘 안의 자식 컨트롤은 비워서 내보냅니다.
-6. 툴바가 길어 창 폭이 1440px 보다 좁으면 상태 메시지 칸이 좁아집니다(전체 내용은 툴팁).
+1. **CLI 컴파일러는 `theme/custom-theme.less` 에서 끝나지 않습니다.** 그래서 `BuildOnce` 가 `--exclude theme/**` 로 빌드하고 eXCFrame 테마는 이클립스 빌드 산출물(`clx-build/theme`)에서 가져옵니다.
+   → **테마 LESS(`clx-src/theme/**`)를 고쳤으면 이클립스가 한 번 빌드해야 반영됩니다.** Prototyper 전용 스타일은 테마 밖(`clx-src/style/prototyper.less`)에 있어 CLI 가 바로 컴파일합니다.
+   → 새로 만든 파일(`*.module.js` · `*.clx`)은 이클립스가 바로 못 볼 수 있으니 프로젝트 새로 고침(F5) 후 빌드하세요.
+2. **생성 CLX 는 eXCFrame 프로젝트 전제입니다.** UDC 가 요구하는 공통 모듈(`createCommonUtil`)이 이 프로젝트에는 없어 UDC 는 캔버스에서 이름표로 보입니다(파일 출력은 정상).
+3. **스튜디오 디자인 편집기 표시**는 아직 확인하지 않았습니다. 컴파일은 통과했지만 생성한 `.clx` 를 스튜디오에서 열어 확인해 주세요.
+4. 저장 폴더(File System Access API)는 Chrome · Edge 에서만 됩니다. Firefox · Safari 는 저장 서버가 없으면 브라우저 다운로드로 대체됩니다.
+5. 패턴 `P4-1` · `P4-3` · `P4-4` 는 `P1-6` · `P3-2` · `P3-1` 과 배치가 같아 **자동 선택**으로는 구분되지 않습니다(패턴을 직접 고르면 그대로 나갑니다).
+6. UI 템플릿의 폼 셀 세부(`halign` · 셀 `width` · `ignore-layout-spacing`)는 캔버스 미리보기에서는 생략하고 `.clx` 에만 넣습니다. 탭 아이콘용 `userAttributes`/표현식 바인딩은 옮기지 않습니다.
+7. 브라우저 직접 호출 방식은 API 키가 브라우저에 남습니다. 팀에 공개할 때는 서버 프록시를 쓰세요.
+8. P0(이너) 패턴은 지원하지 않습니다. 아코디언·임베디드·쉘 안의 자식 컨트롤은 비워서 내보냅니다.
+9. 툴바가 길어 창 폭이 1440px 보다 좁으면 상태 메시지 칸이 좁아집니다(전체 내용은 툴팁).
+
+---
+
+## 7. 변경 이력
+
+### 2026-09-20 · result 저장 경로 3단
+
+`[result 저장]` 이 늘 브라우저 다운로드로 빠지던 것을 고쳤습니다([4.6](#46-result-저장)).
+
+- 화면이 뜰 때 `GET …?probe=1` 로 저장 서버를 미리 확인하고, 속성창에 **저장 위치 (result)** 칸과 **[폴더 지정]** 버튼을 추가.
+- 저장 서버가 없으면 브라우저가 지정 폴더에 직접 쓰는 길(File System Access API)을 추가 — 서버 없이도 `result/<날짜>/` 에 저장됩니다.
+- `CanvasResultController` 가 `-Dexcanvas.src.dir` 없이도 `clx-src` 를 스스로 찾습니다(배포 경로 → 이클립스 WTP 워크스페이스 → 실행 폴더).
+- `DevServer` 도 실행 폴더가 어디든 `clx-src` 를 찾고, 저장할 때마다 실제 경로를 로그에 찍습니다.
+
+### 2026-09-20 · UI 템플릿 · 카탈로그 동기화 · 패턴 미리 배치
+
+- **UI 템플릿**([4.7](#47-ui-템플릿스튜디오-상용구)) — 스튜디오 상용구 116종을 팔레트에 올렸습니다. 사내 테마 클래스가 그대로 붙어 **브라우저에서 실제 모양으로** 보이고 같은 트리가 `.clx` 로 나갑니다. 팔레트 항목이 149개가 되어 **찾기 상자**를 함께 넣었습니다.
+- **카탈로그 동기화**([4.8](#48-카탈로그-동기화와-변경-감지)) — `tools/SyncCatalog.java` 가 상용구·UDC·화면 템플릿을 훑어 카탈로그 모듈과 `docs/catalog.md` 를 만들고, 지난 실행 대비 **추가/삭제/수정**을 보고합니다. `dev.cmd` 가 빌드 전에 자동으로 돌립니다.
+- **패턴 미리 배치**([4.9](#49-패턴-미리-배치)) — 툴바 **[미리 배치]** 를 켜고 패턴을 고르면 뼈대가 깔립니다. 캔버스 크기를 꽉 채웁니다(사방 20px 여백).
+- **빌드 파이프라인** — CLI 컴파일러가 `custom-theme.less` 에서 끝나지 않는 문제를 확인하고([6](#6-검증-현황과-알려진-제약) 제약 1번) `tools/BuildOnce.java` 로 우회했습니다. Prototyper 전용 스타일은 테마 밖 `clx-src/style/prototyper.less` 로 옮겨 CLI 가 직접 컴파일합니다.

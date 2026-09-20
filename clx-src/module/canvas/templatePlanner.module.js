@@ -117,6 +117,244 @@ exports.getCatalog = function() {
 	return CATALOG;
 };
 
+/* ---------------------------------------------------------------- 패턴 미리 배치 (skeleton)
+ *
+ * 패턴을 고르면 그 패턴이 나오도록 캔버스에 컨트롤을 미리 깔아 준다.
+ * 여기서 만든 좌표를 planByRule() 에 다시 넣으면 같은 패턴이 나오도록 맞춰 두었다
+ * (조회 조건은 데이터 컨트롤 위, 하단 버튼은 맨 아래 줄, 좌우 배치는 세로로 겹치게).
+ */
+
+var SK = {
+	/** 캔버스 크기를 모를 때 쓰는 기준값 */
+	width : 800,
+	height : 600,
+	/** 캔버스가 이보다 작아도 이 크기로는 깐다(가로·세로 스크롤로 본다) */
+	minWidth : 640,
+	minHeight : 420,
+	margin : 20,   // 캔버스 바깥 여백
+	gap : 20,      // 구획 사이 간격
+	rowHeight : 24,
+	titleGap : 10  // 구획 제목 줄과 본문 사이
+};
+
+function skItem(psType, psText, pnX, pnY, pnWidth, pnHeight) {
+	return {
+		type : psType,
+		text : psText,
+		x : pnX,
+		y : pnY,
+		width : Math.max(40, Math.round(pnWidth)),
+		height : Math.max(SK.rowHeight, Math.round(pnHeight))
+	};
+}
+
+/**
+ * 캔버스 크기에서 뼈대가 쓸 격자를 만든다.
+ * 오른쪽·아래 여백을 남기지 않도록 모든 폭·높이를 여기서 나눠 쓴다.
+ */
+function skGrid(poCanvas) {
+	var vnWidth = Math.max(SK.minWidth, Math.round((poCanvas && poCanvas.width) || SK.width));
+	var vnHeight = Math.max(SK.minHeight, Math.round((poCanvas && poCanvas.height) || SK.height));
+	var vnLeft = SK.margin;
+	var vnRight = vnWidth - SK.margin;
+	var vnFull = vnRight - vnLeft;
+	var vnHalf = Math.floor((vnFull - SK.gap) / 2);
+	return {
+		width : vnWidth,
+		height : vnHeight,
+		left : vnLeft,
+		right : vnRight,
+		full : vnFull,
+		half : vnHalf,
+		halfRight : vnLeft + vnHalf + SK.gap,
+		searchTop : SK.margin,
+		footerTop : vnHeight - SK.margin - SK.rowHeight
+	};
+}
+
+/** 오른쪽 끝에 붙는 버튼 묶음(가장 오른쪽 버튼이 캔버스 오른쪽 여백에 딱 닿는다) */
+function skRightButtons(paOut, poGrid, pnY, paTexts) {
+	var vnButtonWidth = 70;
+	var vnSpacing = 8;
+	var vnX = poGrid.right - paTexts.length * vnButtonWidth - (paTexts.length - 1) * vnSpacing;
+	paTexts.forEach(function(psText, pnIdx) {
+		paOut.push(skItem("button", psText, vnX + pnIdx * (vnButtonWidth + vnSpacing), pnY, vnButtonWidth, SK.rowHeight));
+	});
+}
+
+/** 조회 조건 한 줄 : [라벨 입력] × 2 + 오른쪽 끝 조회 · 초기화 */
+function skSearchRow(paOut, poGrid) {
+	var vnY = poGrid.searchTop;
+	// 조회 조건 영역은 버튼 묶음(148px)을 뺀 나머지를 반씩 나눠 쓴다.
+	var vnFieldArea = poGrid.full - 148 - SK.gap;
+	var vnField = Math.floor((vnFieldArea - SK.gap) / 2);
+	var vnLabel = 70;
+	paOut.push(skItem("output", "조회 조건", poGrid.left, vnY, vnLabel, SK.rowHeight));
+	paOut.push(skItem("inputbox", "", poGrid.left + vnLabel + 10, vnY, vnField - vnLabel - 10, SK.rowHeight));
+	var vnSecond = poGrid.left + vnField + SK.gap;
+	paOut.push(skItem("output", "기간", vnSecond, vnY, 50, SK.rowHeight));
+	paOut.push(skItem("dateinput", "", vnSecond + 60, vnY, vnField - 60, SK.rowHeight));
+	skRightButtons(paOut, poGrid, vnY, ["조회", "초기화"]);
+}
+
+/** 하단 버튼 줄 : 오른쪽 끝 저장 · 닫기 */
+function skFooter(paOut, poGrid) {
+	skRightButtons(paOut, poGrid, poGrid.footerTop, ["저장", "닫기"]);
+}
+
+/**
+ * 라벨·입력 표(form-base) 한 구획. 주어진 높이를 행으로 꽉 채운다.
+ * @param {Number} pnHeight 이 구획이 차지할 높이
+ * @param {Number} pnCols 한 행에 놓을 [라벨 입력] 쌍 수
+ */
+function skForm(paOut, pnX, pnY, pnWidth, pnHeight, pnCols) {
+	var vnCols = pnCols || 2;
+	var vnRowPitch = SK.rowHeight + 10;
+	var vnRows = Math.max(2, Math.floor((pnHeight + 10) / vnRowPitch));
+	// 남는 높이는 행 간격에 나눠 줘서 아래쪽이 비지 않게 한다.
+	var vnPitch = vnRows > 1 ? Math.floor((pnHeight - SK.rowHeight) / (vnRows - 1)) : vnRowPitch;
+	var vnColWidth = Math.floor((pnWidth - (vnCols - 1) * SK.gap) / vnCols);
+	var vnLabel = Math.min(80, Math.floor(vnColWidth * 0.35));
+	for (var vnRow = 0; vnRow < vnRows; vnRow++) {
+		for (var vnCol = 0; vnCol < vnCols; vnCol++) {
+			var vnLeft = pnX + vnCol * (vnColWidth + SK.gap);
+			var vnTop = pnY + vnRow * vnPitch;
+			paOut.push(skItem("output", "항목", vnLeft, vnTop, vnLabel, SK.rowHeight));
+			paOut.push(skItem("inputbox", "", vnLeft + vnLabel + 10, vnTop, vnColWidth - vnLabel - 10, SK.rowHeight));
+		}
+	}
+}
+
+/**
+ * 패턴 뼈대를 캔버스 좌표로 만든다. 캔버스 폭·높이를 꽉 채운다.
+ * @param {String} psPatternId "P1-1" …
+ * @param {{width:Number, height:Number}} poCanvas 캔버스 크기(없으면 800×600 기준)
+ * @return {Object[]} [{ type, text, x, y, width, height }]
+ */
+exports.skeleton = function(psPatternId, poCanvas) {
+	var vaOut = [];
+	var g = skGrid(poCanvas);
+	var vnLeft = g.left;
+	var vnFull = g.full;
+	var vnHalf = g.half;
+	var vnRight = g.halfRight;
+	var vnTop;
+
+	// P5-2(탭만)를 뺀 나머지는 조회 조건 줄로 시작한다.
+	if (psPatternId != "P5-2") {
+		skSearchRow(vaOut, g);
+		vnTop = g.searchTop + SK.rowHeight + SK.gap;
+	} else {
+		vnTop = g.searchTop;
+	}
+
+	// 데이터 영역 : 조회 조건 아래 ~ 하단 버튼 위. 이 높이를 남김없이 나눠 쓴다.
+	var vnDataHeight = g.footerTop - SK.gap - vnTop;
+	var vnTitleRow = SK.rowHeight + SK.titleGap;   // 구획 제목 줄이 먹는 높이
+	var vnBodyTop = vnTop + vnTitleRow;            // 제목 줄이 있는 패턴의 본문 시작
+	var vnBodyHeight = vnDataHeight - vnTitleRow;
+	var vnUpper = Math.floor((vnDataHeight - SK.gap) / 2);           // 위아래 반반
+	var vnLower = vnDataHeight - SK.gap - vnUpper;
+
+	switch (psPatternId) {
+		case "P1-2":
+			// 구획 제목 줄(제목 + 버튼 묶음) → 그 아래 그리드
+			vaOut.push(skItem("output", "목록", vnLeft, vnTop, 100, SK.rowHeight));
+			skRightButtons(vaOut, g, vnTop, ["등록", "삭제"]);
+			vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnBodyTop, vnFull, vnBodyHeight));
+			break;
+		case "P1-4":
+			vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnTop, vnFull, vnDataHeight - 40));
+			vaOut.push(skItem("pageindexer", "", vnLeft, vnTop + vnDataHeight - 30, vnFull, 30));
+			break;
+		case "P1-6":
+			skForm(vaOut, vnLeft, vnTop, vnFull, vnDataHeight, 2);
+			break;
+		case "P2-1":
+			vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop, vnFull, vnUpper));
+			vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower));
+			break;
+		case "P2-4":
+			vaOut.push(skItem("grid", "구분,명칭", vnLeft, vnTop, vnHalf, vnDataHeight));
+			vaOut.push(skItem("grid", "구분,명칭", vnRight, vnTop, vnHalf, vnDataHeight));
+			break;
+		case "P2-5":
+			vaOut.push(skItem("grid", "구분,명칭", vnLeft, vnTop, vnHalf, vnUpper));
+			vaOut.push(skItem("grid", "구분,명칭", vnRight, vnTop, vnHalf, vnUpper));
+			vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower));
+			break;
+		case "P3-1":
+		case "P4-4":
+			// 목록이 상세보다 넓게 : 위 55% / 아래 45%
+			var vnListHeight = Math.floor((vnDataHeight - SK.gap) * 0.55);
+			vaOut.push(skItem("grid", "사번,성명,부서", vnLeft, vnTop, vnFull, vnListHeight));
+			skForm(vaOut, vnLeft, vnTop + vnListHeight + SK.gap, vnFull, vnDataHeight - vnListHeight - SK.gap, 2);
+			break;
+		case "P3-2":
+		case "P4-3":
+			vaOut.push(skItem("grid", "사번,성명", vnLeft, vnTop, vnHalf, vnDataHeight));
+			skForm(vaOut, vnRight, vnTop, vnHalf, vnDataHeight, 1);
+			break;
+		case "P3-4":
+			vaOut.push(skItem("accordion", "기본 정보,상세 정보", vnLeft, vnTop, vnFull, vnDataHeight));
+			break;
+		case "P4-1":
+			skForm(vaOut, vnLeft, vnTop, vnFull, vnUpper, 2);
+			skForm(vaOut, vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower, 2);
+			break;
+		case "P5-1":
+		case "P5-2":
+			vaOut.push(skItem("tabfolder", "기본,상세,이력", vnLeft, vnTop, vnFull, vnDataHeight));
+			break;
+		case "P6-1":
+		case "P6-2":
+			// 왼쪽 트리는 폭의 1/4(최소 200 · 최대 300), 오른쪽이 나머지를 다 쓴다.
+			var vnTreeWidth = Math.min(300, Math.max(200, Math.floor(vnFull * 0.25)));
+			var vnRestX = vnLeft + vnTreeWidth + SK.gap;
+			var vnRestWidth = g.right - vnRestX;
+			vaOut.push(skItem("tree", "", vnLeft, vnTop, vnTreeWidth, vnDataHeight));
+			if (psPatternId == "P6-1") {
+				vaOut.push(skItem("grid", "사번,성명,부서", vnRestX, vnTop, vnRestWidth, vnDataHeight));
+			} else {
+				skForm(vaOut, vnRestX, vnTop, vnRestWidth, vnDataHeight, 2);
+			}
+			break;
+		case "P7-1":
+			// 그리드 | 이동 버튼(가운데) | 그리드
+			var vnShuttleWidth = 40;
+			var vnSideWidth = Math.floor((vnFull - vnShuttleWidth - SK.gap * 2) / 2);
+			var vnShuttleX = vnLeft + vnSideWidth + SK.gap;
+			var vnMiddle = vnTop + Math.floor(vnDataHeight / 2) - SK.rowHeight - 5;
+			vaOut.push(skItem("grid", "선택 가능", vnLeft, vnTop, vnSideWidth, vnDataHeight));
+			vaOut.push(skItem("button", "▶", vnShuttleX, vnMiddle, vnShuttleWidth, SK.rowHeight));
+			vaOut.push(skItem("button", "◀", vnShuttleX, vnMiddle + SK.rowHeight + 10, vnShuttleWidth, SK.rowHeight));
+			vaOut.push(skItem("grid", "선택됨", vnShuttleX + vnShuttleWidth + SK.gap, vnTop, g.right - (vnShuttleX + vnShuttleWidth + SK.gap), vnDataHeight));
+			break;
+		case "P7-2":
+			// 그리드 / 이동 버튼(가운데 줄) / 그리드
+			var vnShuttleRow = SK.rowHeight + SK.gap * 2;
+			var vnPane = Math.floor((vnDataHeight - vnShuttleRow) / 2);
+			var vnShuttleY = vnTop + vnPane + SK.gap;
+			var vnCenterX = vnLeft + Math.floor(vnFull / 2);
+			vaOut.push(skItem("grid", "선택 가능", vnLeft, vnTop, vnFull, vnPane));
+			vaOut.push(skItem("button", "▼", vnCenterX - 45, vnShuttleY, 40, SK.rowHeight));
+			vaOut.push(skItem("button", "▲", vnCenterX + 5, vnShuttleY, 40, SK.rowHeight));
+			vaOut.push(skItem("grid", "선택됨", vnLeft, vnTop + vnPane + vnShuttleRow, vnFull, vnDataHeight - vnPane - vnShuttleRow));
+			break;
+		case "P8-1":
+		case "P8-3":
+			vaOut.push(skItem("output", psPatternId == "P8-1" ? "차트 영역" : "외부 화면", vnLeft, vnTop, 100, SK.rowHeight));
+			vaOut.push(skItem(psPatternId == "P8-1" ? "uicontrolshell" : "embeddedpage", "", vnLeft, vnBodyTop, vnFull, vnBodyHeight));
+			break;
+		default: // P1-1 · 그 밖
+			vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnTop, vnFull, vnDataHeight));
+			break;
+	}
+
+	skFooter(vaOut, g);
+	return vaOut;
+};
+
 function findCatalog(psId) {
 	for (var i = 0; i < CATALOG.length; i++) {
 		if (CATALOG[i].id == psId) {
@@ -840,8 +1078,10 @@ exports.resolve = function(poRaw, poAst, poOpt) {
 			id : voNewId[psRef] || voNode.id,
 			text : pbClearText ? "" : voNode.text,
 			items : voNode.items,
-			cls : psCls || null,
+			// UI 템플릿은 자기 클래스를 이미 갖고 있으므로 계획이 클래스를 덮어쓰지 않는다.
+			cls : voNode.type == "uitpl" ? null : (psCls || null),
 			udcType : voNode.udcType,
+			tpl : voNode.tpl,
 			width : voNode.layoutData.width,
 			height : voNode.layoutData.height
 		};
@@ -855,7 +1095,7 @@ exports.resolve = function(poRaw, poAst, poOpt) {
 			if (voNode == null || voNode.role != "button") {
 				return;
 			}
-			var vsCls = voNode.type == "udc" ? null : ((poBtn || {}).cls || buttonClass(voNode.text, psPlace));
+			var vsCls = voNode.type == "udc" || voNode.type == "uitpl" ? null : ((poBtn || {}).cls || buttonClass(voNode.text, psPlace));
 			var voCtrl = take(vsRef, vsCls, (poBtn || {}).clearText === true);
 			if (voCtrl != null) {
 				vaResult.push(voCtrl);

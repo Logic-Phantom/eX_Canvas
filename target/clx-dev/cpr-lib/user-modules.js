@@ -80,6 +80,12 @@
 				if (voDef.udcType) {
 					voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 				}
+				if (voDef.uiTemplate) {
+					// UI 템플릿(스튜디오 상용구)은 컨트롤 트리를 통째로 들고 다닌다. 직렬화는 clxSerializer 가 트리대로 한다.
+					voNode.type = "uitpl";
+					voNode.tpl = voDef.uiTemplate;
+					voNode.text = voDef.uiTemplate.name;
+				}
 				if (voDef.textKind == "items" || voDef.textKind == "columns" || voDef.textKind == "tabs" || voDef.textKind == "sections") {
 					voNode.items = registry.splitCsv(vsText);
 				}
@@ -427,6 +433,10 @@
 		 * @param {Object[]} paExtraChildren 탭 아이템처럼 호출자가 만든 고유 자식
 		 */
 		function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
+			if (poCtrl.type == "uitpl" && poCtrl.tpl != null) {
+				// UI 템플릿은 카탈로그의 컨트롤 트리를 그대로 옮긴다(자리에 맞는 레이아웃 데이터만 갈아 끼운다).
+				return catalogNodeEl(poCtx, poCtrl.tpl.node, poLayoutData);
+			}
 			var vaInfo = TAG_INFO[poCtrl.type];
 			if (vaInfo == null) {
 				throw new Error("직렬화를 지원하지 않는 유형: " + poCtrl.type);
@@ -494,6 +504,120 @@
 					break;
 			}
 			return el(vaInfo[0], vaAttrs, vaChildren.concat(paExtraChildren || []).concat([voLayoutNode]));
+		}
+
+		/* ---------------------------------------------------------------- UI 템플릿(스튜디오 상용구) 트리 */
+
+		/** 레이아웃 종류별 CLX 태그. kind 는 SyncCatalog 가 붙인다. */
+		var LAYOUT_TAG = {
+			form : "cl:formlayout",
+			flow : "cl:flowlayout",
+			vertical : "cl:verticallayout",
+			xy : "cl:xylayout"
+		};
+		var LAYOUT_SID = {
+			form : "f-layout",
+			flow : "f-layout",
+			vertical : "v-layout",
+			xy : "xylayout"
+		};
+		var LAYOUT_DATA_TAG = {
+			form : "cl:formdata",
+			flow : "cl:flowlayoutdata",
+			vertical : "cl:verticaldata",
+			xy : "cl:xylayoutdata"
+		};
+		var LAYOUT_DATA_SID = {
+			form : "f-data",
+			flow : "f-data",
+			vertical : "v-data",
+			xy : "xy-data"
+		};
+
+		/** {kind, …} → [[이름, 값], …] (kind 는 빼고 나머지를 CLX 속성 그대로 쓴다) */
+		function catalogAttrs(poValues) {
+			var vaAttrs = [];
+			Object.keys(poValues || {}).forEach(function(psKey) {
+				if (psKey != "kind") {
+					vaAttrs.push([psKey, poValues[psKey]]);
+				}
+			});
+			return vaAttrs;
+		}
+
+		/** 카탈로그 노드의 ld → 레이아웃 데이터 XML 노드 */
+		function catalogLayoutData(poCtx, poLd) {
+			if (poLd == null) {
+				return null;
+			}
+			var vsKind = poLd.kind || "form";
+			return el(LAYOUT_DATA_TAG[vsKind] || "cl:formdata", [["std:sid", sid(poCtx, LAYOUT_DATA_SID[vsKind] || "f-data")]].concat(catalogAttrs(poLd)));
+		}
+
+		/** 카탈로그 노드의 layout/rows/columns → 레이아웃 XML 노드(컨테이너의 마지막 자식) */
+		function catalogLayout(poCtx, poNode) {
+			var voLayout = poNode.layout;
+			if (voLayout == null) {
+				return el("cl:xylayout", [["std:sid", sid(poCtx, "xylayout")]]);
+			}
+			var vsKind = voLayout.kind || "xy";
+			var vaTracks = [];
+			(poNode.rows || []).forEach(function(poRow) {
+				vaTracks.push(el("cl:rows", catalogAttrs(poRow)));
+			});
+			(poNode.columns || []).forEach(function(poColumn) {
+				vaTracks.push(el("cl:columns", catalogAttrs(poColumn)));
+			});
+			return el(LAYOUT_TAG[vsKind] || "cl:xylayout", [["std:sid", sid(poCtx, LAYOUT_SID[vsKind] || "xylayout")]].concat(catalogAttrs(voLayout)), vaTracks);
+		}
+
+		/** 컨테이너 유형(자식과 레이아웃을 갖는 것) */
+		function isCatalogContainer(psType) {
+			return psType == "group" || psType == "uicontrolshell";
+		}
+
+		/**
+		 * 카탈로그 노드 하나를 CLX 요소로 만든다(자식까지 재귀).
+		 * @param {Object} poCtx
+		 * @param {Object} poNode 카탈로그 노드 { type, cls, id, props, layout, rows, columns, ld, items, gridCols, children }
+		 * @param {Object} poLayoutDataOverride 이 노드가 놓일 자리의 레이아웃 데이터(최상위에서만 쓴다)
+		 */
+		function catalogNodeEl(poCtx, poNode, poLayoutDataOverride) {
+			if (poNode.type == "tabitem") {
+				var voContent = (poNode.children || [])[0];
+				return el("cl:tabitem", [["std:sid", sid(poCtx, "t-item")]].concat(catalogAttrs(poNode.props)),
+						[voContent == null ? null : catalogNodeEl(poCtx, voContent, null)]);
+			}
+
+			var vaInfo = TAG_INFO[poNode.type];
+			var vsTag = vaInfo != null ? vaInfo[0] : "cl:" + poNode.type;
+			var vsSidPrefix = vaInfo != null ? vaInfo[1] : poNode.type;
+
+			var vaAttrs = [["std:sid", sid(poCtx, vsSidPrefix)], ["id", uniqueId(poCtx, poNode.id)], ["class", poNode.cls || null]];
+			vaAttrs = vaAttrs.concat(catalogAttrs(poNode.props));
+
+			var voLayoutData = poLayoutDataOverride != null ? poLayoutDataOverride : catalogLayoutData(poCtx, poNode.ld);
+			var vaChildren = [voLayoutData];
+
+			if (poNode.items != null) {
+				poNode.items.forEach(function(poItem) {
+					vaChildren.push(el("cl:item", [["std:sid", sid(poCtx, "item")], ["label", poItem.label], ["value", poItem.value]]));
+				});
+			}
+			if (poNode.type == "grid") {
+				var vaHeaders = [];
+				for (var i = 0; i < (poNode.gridCols > 0 ? poNode.gridCols : 5); i++) {
+					vaHeaders.push("");
+				}
+				vaChildren = vaChildren.concat(gridParts(poCtx, vaHeaders));
+			}
+			(poNode.children || []).forEach(function(poChild) {
+				vaChildren.push(catalogNodeEl(poCtx, poChild, null));
+			});
+			if (isCatalogContainer(poNode.type)) {
+				vaChildren.push(catalogLayout(poCtx, poNode));
+			}
+			return el(vsTag, vaAttrs, vaChildren);
 		}
 
 		function groupEl(poCtx, psId, psClass, poLayoutData, paChildren, poLayout) {
@@ -1684,6 +1808,67 @@
 			};
 		}
 
+		/* ---------------------------------------------------------------- UI 템플릿(스튜디오 상용구) */
+
+		var UITPL_PREFIX = "uitpl:";
+
+		/** 캔버스에 처음 놓을 때의 최대 크기. 상용구는 1580px 기준이 많아 그대로 놓으면 캔버스를 벗어난다. */
+		var UITPL_MAX_WIDTH = 880;
+		var UITPL_MAX_HEIGHT = 420;
+
+		function uiTemplateCatalog() {
+			return cpr.core.Module.require("module/canvas/uiTemplateCatalog");
+		}
+
+		function templateBuilder() {
+			return cpr.core.Module.require("module/canvas/templateBuilder");
+		}
+
+		/**
+		 * UI 템플릿 유형 정의를 만든다(유형 키 = "uitpl:" + uuid).
+		 * 컨트롤 한 개짜리 템플릿도 있고 그룹·탭폴더처럼 트리를 가진 것도 있다 - 만드는 일은 templateBuilder 가 한다.
+		 */
+		function makeUiTemplateDef(poTemplate) {
+			var builder = templateBuilder();
+			return {
+				type : UITPL_PREFIX + poTemplate.uuid,
+				uiTemplate : poTemplate,
+				// 빈 프레임·카드처럼 안이 비어 보이는 템플릿은 캔버스에서 이름표를 함께 보여 준다.
+				ghost : poTemplate.node.type == "group" && (poTemplate.node.children == null || poTemplate.node.children.length == 0),
+				label : poTemplate.label,
+				tooltip : builder.summary(poTemplate),
+				role : builder.roleOf(poTemplate.group),
+				tag : "cl:group", // 실제 태그는 노드마다 다르다(직렬화는 clxSerializer.catalogNodeEl 이 한다).
+				sidPrefix : "group",
+				idPrefix : "tpl",
+				width : Math.min(poTemplate.width, UITPL_MAX_WIDTH),
+				height : Math.min(poTemplate.height, UITPL_MAX_HEIGHT),
+				defaultText : "",
+				textKind : "none",
+				create : function(psRuntimeId, psText) {
+					return builder.build(poTemplate);
+				}
+			};
+		}
+
+		/**
+		 * 팔레트에 보여 줄 UI 템플릿 목록(카탈로그 순서 = 묶음 → 이름).
+		 * @return {Object[]}
+		 */
+		exports.getUiTemplates = function() {
+			var voCatalog = uiTemplateCatalog();
+			if (voCatalog == null || voCatalog.TEMPLATES == null) {
+				return [];
+			}
+			return voCatalog.TEMPLATES.map(function(poTemplate) {
+				var vsType = UITPL_PREFIX + poTemplate.uuid;
+				if (TYPE_MAP[vsType] == null) {
+					TYPE_MAP[vsType] = makeUiTemplateDef(poTemplate);
+				}
+				return TYPE_MAP[vsType];
+			});
+		};
+
 		/**
 		 * 팔레트에 보여 줄 UDC 유형 목록.
 		 * @return {Object[]}
@@ -1719,6 +1904,20 @@
 					types : vaUdc
 				});
 			}
+			// UI 템플릿은 상용구 묶음("[버튼]", "[폼]" …)을 그대로 팔레트 묶음으로 쓴다.
+			var voGroups = {};
+			exports.getUiTemplates().forEach(function(poDef) {
+				var vsGroup = poDef.uiTemplate.group;
+				if (voGroups[vsGroup] == null) {
+					voGroups[vsGroup] = [];
+					vaResult.push({
+						id : "uitpl_" + vsGroup,
+						label : "UI 템플릿 · " + vsGroup,
+						types : voGroups[vsGroup]
+					});
+				}
+				voGroups[vsGroup].push(poDef);
+			});
 			return vaResult;
 		};
 
@@ -1740,6 +1939,9 @@
 				if (lookupUdcConstructor(vsName) != null) {
 					TYPE_MAP[psType] = makeUdcDef(vsName);
 				}
+			}
+			if (psType != null && TYPE_MAP[psType] == null && String(psType).indexOf(UITPL_PREFIX) == 0) {
+				exports.getUiTemplates(); // 카탈로그를 한 번 훑으면 TYPE_MAP 에 들어온다.
 			}
 			return TYPE_MAP[psType] || null;
 		};
@@ -1860,6 +2062,54 @@
 			return vnIdx > 0 ? vsPath.substring(0, vnIdx) : "";
 		}
 
+		function pad2(pnValue) {
+			return (pnValue < 10 ? "0" : "") + pnValue;
+		}
+
+		/** 오늘 날짜 폴더명(yyyyMMdd) — 서버 저장과 같은 규칙. */
+		function dateFolder(poNow) {
+			return "" + poNow.getFullYear() + pad2(poNow.getMonth() + 1) + pad2(poNow.getDate());
+		}
+
+		/** 같은 이름이 있을 때 붙이는 꼬리(_HHmmss) — 서버 저장과 같은 규칙. */
+		function timeSuffix(poNow) {
+			return "_" + pad2(poNow.getHours()) + pad2(poNow.getMinutes()) + pad2(poNow.getSeconds());
+		}
+
+		/**
+		 * 저장 서버(/canvas/saveResult.do)가 살아 있고 소스 경로를 찾았는지 확인한다.
+		 * 파일을 쓰지 않는 GET 조회이므로 앱 로드 때 1회 부르면 된다.
+		 * @param {function(Object)} pfDone 가능하면 {dir, path}, 아니면 null
+		 */
+		exports.probeServer = function(pfDone) {
+			var voXhr = new XMLHttpRequest();
+			try {
+				voXhr.open("GET", contextPath() + "/canvas/saveResult.do?probe=1", true);
+				voXhr.setRequestHeader("X-Requested-With", "eX-Canvas");
+			} catch (ex) {
+				pfDone(null);
+				return;
+			}
+			voXhr.timeout = 5000;
+			voXhr.onreadystatechange = function() {
+				if (voXhr.readyState != 4) {
+					return;
+				}
+				var voResult = null;
+				try {
+					voResult = JSON.parse(voXhr.responseText);
+				} catch (e) {
+					voResult = null;
+				}
+				pfDone(voXhr.status >= 200 && voXhr.status < 300 && voResult != null && voResult.ok ? voResult : null);
+			};
+			try {
+				voXhr.send();
+			} catch (ex2) {
+				pfDone(null);
+			}
+		};
+
 		/**
 		 * 생성물을 프로젝트 소스 경로 아래 result/<실행 날짜>/ 에 저장한다(서버가 파일을 쓴다).
 		 * 브라우저는 디스크의 임의 경로에 쓸 수 없으므로 서버 엔드포인트가 필요하다.
@@ -1892,6 +2142,243 @@
 				}
 			};
 			voXhr.send(psXml + SAVE_SEPARATOR + psScript);
+		};
+
+		/* ================================================================ 폴더에 직접 저장(File System Access API)
+		 *
+		 * 저장 서버가 없는 환경(스튜디오 내장 미리보기 · -Dexcanvas.src.dir 미설정 Tomcat)에서도
+		 * clx-src/result 를 한 번 지정해 두면 그 아래 <yyyyMMdd>/ 로 바로 쓴다.
+		 * 폴더 핸들은 IndexedDB 에 남겨 다음 실행에서도 다시 고르지 않는다(권한 확인만 다시 받는다).
+		 * Chrome · Edge 에서 동작하며, 안 되는 브라우저는 호출부가 브라우저 다운로드로 대체한다.
+		 */
+
+		var DB_NAME = "eX-Canvas";
+		var DB_STORE = "handle";
+		var DIR_KEY = "resultDir";
+
+		/** 이번 세션에서 확인한 폴더 핸들(권한은 별도) */
+		var moDirHandle = null;
+
+		function hasDirectoryPicker() {
+			return typeof window.showDirectoryPicker == "function" && !!window.indexedDB;
+		}
+
+		function openDb(pfDone, pfFail) {
+			var voReq;
+			try {
+				voReq = window.indexedDB.open(DB_NAME, 1);
+			} catch (ex) {
+				pfFail();
+				return;
+			}
+			voReq.onupgradeneeded = function() {
+				if (!voReq.result.objectStoreNames.contains(DB_STORE)) {
+					voReq.result.createObjectStore(DB_STORE);
+				}
+			};
+			voReq.onerror = pfFail;
+			voReq.onblocked = pfFail;
+			voReq.onsuccess = function() {
+				pfDone(voReq.result);
+			};
+		}
+
+		function readStoredHandle(pfDone) {
+			openDb(function(poDb) {
+				var voReq;
+				try {
+					voReq = poDb.transaction(DB_STORE, "readonly").objectStore(DB_STORE).get(DIR_KEY);
+				} catch (ex) {
+					poDb.close();
+					pfDone(null);
+					return;
+				}
+				voReq.onsuccess = function() {
+					poDb.close();
+					pfDone(voReq.result || null);
+				};
+				voReq.onerror = function() {
+					poDb.close();
+					pfDone(null);
+				};
+			}, function() {
+				pfDone(null);
+			});
+		}
+
+		function writeStoredHandle(poHandle) {
+			openDb(function(poDb) {
+				try {
+					var voTx = poDb.transaction(DB_STORE, "readwrite");
+					voTx.objectStore(DB_STORE).put(poHandle, DIR_KEY);
+					voTx.oncomplete = function() {
+						poDb.close();
+					};
+					voTx.onerror = function() {
+						poDb.close();
+					};
+				} catch (ex) {
+					poDb.close();
+				}
+			}, function() {
+				// 저장소를 쓸 수 없으면 이번 세션에만 기억한다.
+			});
+		}
+
+		function pickDirectory(pfSuccess, pfError) {
+			var voPromise;
+			try {
+				voPromise = window.showDirectoryPicker({
+					id : "excanvas-result",
+					mode : "readwrite"
+				});
+			} catch (ex) {
+				pfError("폴더 선택 창을 열지 못했습니다 : " + ex);
+				return;
+			}
+			voPromise.then(function(poHandle) {
+				moDirHandle = poHandle;
+				writeStoredHandle(poHandle);
+				pfSuccess(poHandle);
+			}, function(poError) {
+				pfError(poError && poError.name == "AbortError" ? "폴더 선택을 취소했습니다." : "폴더를 열지 못했습니다 : " + poError);
+			});
+		}
+
+		exports.hasDirectoryPicker = hasDirectoryPicker;
+
+		/** 지금 지정된 저장 폴더 이름(없으면 빈 문자열) */
+		exports.savedDirectoryName = function() {
+			return moDirHandle != null ? moDirHandle.name : "";
+		};
+
+		/**
+		 * 지난 실행에서 고른 폴더를 불러온다(클릭 없이 조회만 한다).
+		 * @param {function(Object)} pfDone {name, granted} 또는 null
+		 */
+		exports.preloadSaveDirectory = function(pfDone) {
+			if (!hasDirectoryPicker()) {
+				pfDone(null);
+				return;
+			}
+			readStoredHandle(function(poHandle) {
+				if (poHandle == null) {
+					pfDone(null);
+					return;
+				}
+				moDirHandle = poHandle;
+				if (typeof poHandle.queryPermission != "function") {
+					pfDone({
+						name : poHandle.name,
+						granted : false
+					});
+					return;
+				}
+				poHandle.queryPermission({
+					mode : "readwrite"
+				}).then(function(psState) {
+					// 권한이 "prompt" 면 저장 버튼(사용자 제스처) 안에서 다시 요청한다.
+					pfDone({
+						name : poHandle.name,
+						granted : psState == "granted"
+					});
+				}, function() {
+					pfDone({
+						name : poHandle.name,
+						granted : false
+					});
+				});
+			});
+		};
+
+		/**
+		 * 저장 폴더를 확보한다. 폴더 선택·권한 요청은 브라우저가 사용자 제스처를 요구하므로
+		 * 반드시 click 핸들러 안에서(비동기 작업보다 먼저) 호출해야 한다.
+		 * @param {boolean} pbForcePick 이미 지정돼 있어도 다시 고르게 한다
+		 * @param {function(Object)} pfSuccess 폴더 핸들
+		 * @param {function(String)} pfError
+		 */
+		exports.ensureSaveDirectory = function(pbForcePick, pfSuccess, pfError) {
+			if (!hasDirectoryPicker()) {
+				pfError("이 브라우저는 폴더에 바로 저장하는 기능을 지원하지 않습니다(Chrome · Edge 에서 됩니다).");
+				return;
+			}
+			if (pbForcePick || moDirHandle == null || typeof moDirHandle.requestPermission != "function") {
+				pickDirectory(pfSuccess, pfError);
+				return;
+			}
+			var voHandle = moDirHandle;
+			voHandle.requestPermission({
+				mode : "readwrite"
+			}).then(function(psState) {
+				if (psState == "granted") {
+					pfSuccess(voHandle);
+				} else {
+					// 권한을 거절했거나 폴더가 사라진 경우 → 다시 고르게 한다.
+					pickDirectory(pfSuccess, pfError);
+				}
+			}, function() {
+				pickDirectory(pfSuccess, pfError);
+			});
+		};
+
+		function writeFileTo(poDir, psFileName, psContent) {
+			return poDir.getFileHandle(psFileName, {
+				create : true
+			}).then(function(poFile) {
+				return poFile.createWritable().then(function(poWritable) {
+					return poWritable.write(psContent).then(function() {
+						return poWritable.close();
+					});
+				});
+			});
+		}
+
+		/**
+		 * 지정한 폴더 아래 <yyyyMMdd>/<화면명>.clx · .js 로 쓴다(서버 저장과 같은 규칙).
+		 * @param {Object} poDir ensureSaveDirectory 로 얻은 폴더 핸들
+		 * @param {String} psAppName 확장자 없는 화면명
+		 * @param {String} psXml
+		 * @param {String} psScript
+		 * @param {function({dir:String, name:String})} pfSuccess
+		 * @param {function(String)} pfError
+		 */
+		exports.saveToDirectory = function(poDir, psAppName, psXml, psScript, pfSuccess, pfError) {
+			var vsName = sanitizeFileName(psAppName, "prototype");
+			var voNow = new Date();
+			var vsDate = dateFolder(voNow);
+
+			poDir.getDirectoryHandle(vsDate, {
+				create : true
+			}).then(function(poDay) {
+				// 같은 이름이 있으면 덮어쓰지 않고 _HHmmss 를 붙인다.
+				return poDay.getFileHandle(vsName + ".clx", {
+					create : false
+				}).then(function() {
+					return {
+						day : poDay,
+						name : vsName + timeSuffix(voNow)
+					};
+				}, function() {
+					return {
+						day : poDay,
+						name : vsName
+					};
+				});
+			}).then(function(voTarget) {
+				return writeFileTo(voTarget.day, voTarget.name + ".clx", psXml).then(function() {
+					return writeFileTo(voTarget.day, voTarget.name + ".js", psScript);
+				}).then(function() {
+					return voTarget;
+				});
+			}).then(function(voTarget) {
+				pfSuccess({
+					dir : poDir.name + "/" + vsDate,
+					name : voTarget.name
+				});
+			}, function(poError) {
+				pfError("폴더에 쓰지 못했습니다 : " + (poError && poError.message ? poError.message : poError));
+			});
 		};
 
 		exports.downloadText = downloadText;
@@ -2219,6 +2706,428 @@
 	});
 })();
 /// end - module/canvas/geminiPlanner
+/// start - module/canvas/templateBuilder
+/*
+ * Module URI: module/canvas/templateBuilder
+ * SRC: module/canvas/templateBuilder.module.js
+ *
+ * This file was generated by eXbuilder6 compiler, Don't edit manually.
+ */
+(function(){
+	cpr.core.Module.define("module/canvas/templateBuilder", function(exports, globals, module){
+		/************************************************
+		 * templateBuilder.module.js
+		 * Created at 2026. 9. 20.
+		 *
+		 * eX-Canvas(Web Prototyper) - UI 템플릿(스튜디오 상용구) 카탈로그 노드를 다룬다.
+		 *
+		 *  - build(node)   : 실제 cpr.controls.* 트리로 만든다 → 캔버스에서 테마 스타일 그대로 보인다.
+		 *  - summary(tpl)  : 팔레트·속성창에 보여 줄 한 줄 설명.
+		 *  - roleOf(group) : 템플릿 묶음 이름으로 화면 계획에서의 역할을 추정한다.
+		 * CLX 직렬화는 clxSerializer.catalogNodeEl() 이 같은 노드를 보고 한다(한 노드, 두 출력).
+		 *
+		 * 카탈로그는 tools/SyncCatalog.java 가 만드는 uiTemplateCatalog.module.js 다.
+		 * 노드 = { type, cls, id, props, layout, rows, columns, ld, items, gridCols, children }
+		 ************************************************/
+
+		/** 카탈로그 노드의 type → 컨트롤 생성자. 없는 유형은 이름표 아웃풋으로 대신한다. */
+		var FACTORY = {
+			output : function() {
+				return new cpr.controls.Output();
+			},
+			inputbox : function() {
+				return new cpr.controls.InputBox();
+			},
+			button : function() {
+				return new cpr.controls.Button();
+			},
+			combobox : function() {
+				return new cpr.controls.ComboBox();
+			},
+			dateinput : function() {
+				return new cpr.controls.DateInput();
+			},
+			numbereditor : function() {
+				return new cpr.controls.NumberEditor();
+			},
+			searchinput : function() {
+				return new cpr.controls.SearchInput();
+			},
+			maskeditor : function() {
+				return new cpr.controls.MaskEditor();
+			},
+			checkbox : function() {
+				return new cpr.controls.CheckBox();
+			},
+			checkboxgroup : function() {
+				return new cpr.controls.CheckBoxGroup();
+			},
+			radiobutton : function() {
+				return new cpr.controls.RadioButton();
+			},
+			listbox : function() {
+				return new cpr.controls.ListBox();
+			},
+			textarea : function() {
+				return new cpr.controls.TextArea();
+			},
+			fileinput : function() {
+				return new cpr.controls.FileInput();
+			},
+			slider : function() {
+				return new cpr.controls.Slider();
+			},
+			progress : function() {
+				return new cpr.controls.Progress();
+			},
+			img : function() {
+				return new cpr.controls.Image();
+			},
+			grid : function() {
+				return new cpr.controls.Grid();
+			},
+			tree : function() {
+				return new cpr.controls.Tree();
+			},
+			tabfolder : function() {
+				return new cpr.controls.TabFolder();
+			},
+			group : function() {
+				return new cpr.controls.Container();
+			}
+		};
+
+		/** props 중에서 실제 컨트롤에 그대로 옮기는 것(보이는 모양에 영향을 주는 것만). */
+		var PROP_MAP = {
+			"value" : "value",
+			"text" : "text",
+			"placeholder" : "placeholder",
+			"format" : "format",
+			"mask" : "mask",
+			"maxlength" : "maxLength",
+			"inputfilter" : "inputFilter",
+			"colcount" : "colCount",
+			"fixedwidth" : "fixedWidth",
+			"tooltip" : "tooltip",
+			"iconalign" : "iconAlign",
+			"secret" : "secret"
+		};
+
+		/** 템플릿 묶음 이름 → 화면 계획에서의 역할(템플릿 변환이 어느 자리에 둘지 정할 때 본다). */
+		var GROUP_ROLE = {
+			"버튼" : "button",
+			"아웃풋" : "label",
+			"폼" : "input",
+			"인풋박스" : "input",
+			"서치인풋" : "input",
+			"넘버에디터" : "input",
+			"데이트인풋" : "input",
+			"파일인풋" : "input",
+			"콤보박스" : "input",
+			"체크박스" : "input",
+			"체크박스그룹" : "input",
+			"라디오버튼" : "input",
+			"텍스트에리어" : "input",
+			"콘텐츠" : "data",
+			"카드" : "data",
+			"탭폴더" : "data",
+			"프레임" : "data"
+		};
+
+		/**
+		 * "110" + "PIXEL" → "110px", "1" + "FRACTION" → "1fr"
+		 * @param {Object} poTrack { length, unit }
+		 * @return {String}
+		 */
+		function trackSize(poTrack) {
+			var vsLength = poTrack.length == null ? "1" : String(poTrack.length);
+			return poTrack.unit == "FRACTION" ? vsLength + "fr" : vsLength + "px";
+		}
+
+		function toNumber(pvValue, pnDefault) {
+			var vnValue = parseFloat(pvValue);
+			return isNaN(vnValue) ? pnDefault : vnValue;
+		}
+
+		/** "0px" 처럼 단위가 붙은 값을 그대로, 숫자만 있으면 px 를 붙여 돌려준다. */
+		function toSize(pvValue, psDefault) {
+			if (pvValue == null || pvValue === "") {
+				return psDefault;
+			}
+			return /^-?[0-9.]+$/.test(String(pvValue)) ? pvValue + "px" : String(pvValue);
+		}
+
+		/* ---------------------------------------------------------------- 레이아웃 */
+
+		function makeLayout(poNode) {
+			var voDef = poNode.layout;
+			if (voDef == null) {
+				return null;
+			}
+			if (voDef.kind == "form") {
+				var voForm = new cpr.controls.layouts.FormLayout();
+				voForm.scrollable = voDef.scrollable == "true";
+				voForm.topMargin = toSize(voDef["top-margin"], "0px");
+				voForm.rightMargin = toSize(voDef["right-margin"], "0px");
+				voForm.bottomMargin = toSize(voDef["bottom-margin"], "0px");
+				voForm.leftMargin = toSize(voDef["left-margin"], "0px");
+				voForm.horizontalSpacing = toSize(voDef.hspace, "8px");
+				voForm.verticalSpacing = toSize(voDef.vspace, "8px");
+				voForm.setRows((poNode.rows || [{
+					length : "1",
+					unit : "FRACTION"
+				}]).map(trackSize));
+				voForm.setColumns((poNode.columns || [{
+					length : "1",
+					unit : "FRACTION"
+				}]).map(trackSize));
+				return voForm;
+			}
+			if (voDef.kind == "flow") {
+				var voFlow = new cpr.controls.layouts.FlowLayout();
+				voFlow.scrollable = voDef.scrollable == "true";
+				voFlow.horizontalSpacing = toNumber(voDef.hspacing, 4);
+				voFlow.verticalSpacing = toNumber(voDef.vspacing, 0);
+				if (voDef.halign != null) {
+					voFlow.horizontalAlign = voDef.halign;
+				}
+				if (voDef.valign != null) {
+					voFlow.verticalAlign = voDef.valign;
+				}
+				voFlow.lineWrap = voDef.linewrap != "false";
+				return voFlow;
+			}
+			if (voDef.kind == "vertical") {
+				var voVertical = new cpr.controls.layouts.VerticalLayout();
+				voVertical.scrollable = voDef.scrollable == "true";
+				voVertical.spacing = toNumber(voDef.spacing, 0);
+				return voVertical;
+			}
+			return new cpr.controls.layouts.XYLayout();
+		}
+
+		/**
+		 * 자식이 부모 레이아웃에 붙을 때 쓰는 제약.
+		 * 확인된 키만 넘긴다(폼 셀의 width·halign·간격 무시는 미리보기에서 생략, 내보내는 CLX 에는 그대로 들어간다).
+		 */
+		function makeConstraint(poChild, psParentKind) {
+			var voLd = poChild.ld || {};
+			if (psParentKind == "form") {
+				var voConstraint = {
+					"rowIndex" : toNumber(voLd.row, 0),
+					"colIndex" : toNumber(voLd.col, 0)
+				};
+				if (voLd.rowspan != null) {
+					voConstraint.rowSpan = toNumber(voLd.rowspan, 1);
+				}
+				if (voLd.colspan != null) {
+					voConstraint.colSpan = toNumber(voLd.colspan, 1);
+				}
+				return voConstraint;
+			}
+			if (psParentKind == "flow" || psParentKind == "vertical") {
+				return {
+					"width" : toSize(voLd.width, "100%"),
+					"height" : toSize(voLd.height, "26px"),
+					"autoSize" : voLd.autosize || "none"
+				};
+			}
+			// XY : 카탈로그에는 좌표가 없으므로 세로로 쌓는다.
+			return null;
+		}
+
+		/* ---------------------------------------------------------------- 컨트롤 */
+
+		function applyProps(pcControl, poNode) {
+			if (poNode.cls != null) {
+				pcControl.style.setClasses(poNode.cls.split(/\s+/));
+			}
+			var voProps = poNode.props || {};
+			Object.keys(voProps).forEach(function(psKey) {
+				var vsTarget = PROP_MAP[psKey];
+				if (vsTarget == null) {
+					return; // 데이터셋·표현식에 달린 속성(datatype · displayexp …)은 초안에서 쓰지 않는다.
+				}
+				try {
+					pcControl[vsTarget] = psKey == "secret" || psKey == "fixedwidth" ? voProps[psKey] == "true" : voProps[psKey];
+				} catch (ex) {
+					// 컨트롤이 갖지 않는 속성은 넘어간다(미리보기 품질 문제일 뿐이다).
+				}
+			});
+			if (poNode.items != null && typeof pcControl.addItem == "function") {
+				poNode.items.forEach(function(poItem) {
+					pcControl.addItem(new cpr.controls.Item(poItem.label, poItem.value));
+				});
+			}
+		}
+
+		/** 상용구의 그리드는 컬럼 수만 의미가 있다. 머리글·본문 1행씩 표준으로 만든다. */
+		function fillGrid(pcGrid, pnColumns) {
+			var vnCount = pnColumns > 0 ? pnColumns : 5;
+			var vaColumns = [];
+			var vaHeaderCells = [];
+			var vaDetailCells = [];
+			for (var i = 0; i < vnCount; i++) {
+				vaColumns.push({
+					"width" : "100px"
+				});
+				vaHeaderCells.push({
+					"constraint" : {
+						"rowIndex" : 0,
+						"colIndex" : i
+					},
+					"configurator" : function(cell) {
+					}
+				});
+				vaDetailCells.push({
+					"constraint" : {
+						"rowIndex" : 0,
+						"colIndex" : i
+					},
+					"configurator" : function(cell) {
+					}
+				});
+			}
+			pcGrid.init({
+				"columns" : vaColumns,
+				"header" : {
+					"rows" : [{
+						"height" : "30px"
+					}],
+					"cells" : vaHeaderCells
+				},
+				"detail" : {
+					"rows" : [{
+						"height" : "30px"
+					}],
+					"cells" : vaDetailCells
+				}
+			});
+		}
+
+		/** UDC 는 공통 모듈(createCommonUtil)을 요구하는 것이 있어 실패할 수 있다 → 이름표로 대신한다. */
+		function makeUdc(poNode) {
+			var vsType = poNode.props && poNode.props.type ? poNode.props.type : "";
+			var vaPath = vsType.split(".");
+			var voNamespace = window;
+			for (var i = 0; i < vaPath.length && voNamespace != null; i++) {
+				voNamespace = voNamespace[vaPath[i]];
+			}
+			if (typeof voNamespace == "function") {
+				try {
+					return new voNamespace();
+				} catch (ex) {
+					// 아래 이름표로 대신한다.
+				}
+			}
+			var vcGhost = new cpr.controls.Output();
+			vcGhost.value = vaPath.length > 0 ? vaPath[vaPath.length - 1] : "UDC";
+			vcGhost.style.setClasses(["pt-tpl-ghost"]);
+			return vcGhost;
+		}
+
+		/**
+		 * 카탈로그 노드 하나를 실제 컨트롤로 만든다(자식까지 재귀).
+		 * @param {Object} poNode 카탈로그 노드
+		 * @return {cpr.controls.UIControl}
+		 */
+		function buildNode(poNode) {
+			if (poNode.type == "udc") {
+				var vcUdc = makeUdc(poNode);
+				applyProps(vcUdc, poNode);
+				return vcUdc;
+			}
+
+			var vfFactory = FACTORY[poNode.type];
+			var vcControl;
+			if (vfFactory == null) {
+				// 모르는 유형은 이름표로 자리만 잡는다(내보내는 CLX 에는 원래 유형 그대로 들어간다).
+				vcControl = new cpr.controls.Output();
+				vcControl.value = poNode.type;
+				vcControl.style.setClasses(["pt-tpl-ghost"]);
+				return vcControl;
+			}
+			vcControl = vfFactory();
+			applyProps(vcControl, poNode);
+
+			if (poNode.type == "grid") {
+				fillGrid(vcControl, poNode.gridCols);
+				return vcControl;
+			}
+			if (poNode.type == "tabfolder") {
+				buildTabItems(vcControl, poNode);
+				return vcControl;
+			}
+			if (poNode.type == "group") {
+				var voLayout = makeLayout(poNode);
+				var vsKind = poNode.layout != null ? poNode.layout.kind : "xy";
+				if (voLayout == null) {
+					voLayout = new cpr.controls.layouts.VerticalLayout();
+					vsKind = "vertical";
+				}
+				vcControl.setLayout(voLayout);
+				(poNode.children || []).forEach(function(poChild) {
+					var vcChild = buildNode(poChild);
+					var voConstraint = makeConstraint(poChild, vsKind);
+					if (voConstraint == null) {
+						vcControl.addChild(vcChild);
+					} else {
+						vcControl.addChild(vcChild, voConstraint);
+					}
+				});
+			}
+			return vcControl;
+		}
+
+		function buildTabItems(pcTabFolder, poNode) {
+			var vcFirst = null;
+			(poNode.children || []).forEach(function(poItem) {
+				var voTabItem = new cpr.controls.TabItem();
+				voTabItem.text = poItem.props && poItem.props.text ? poItem.props.text : "아이템";
+				var poContent = (poItem.children || [])[0];
+				var vcContent;
+				if (poContent != null) {
+					vcContent = buildNode(poContent);
+				} else {
+					vcContent = new cpr.controls.Container();
+					vcContent.setLayout(new cpr.controls.layouts.XYLayout());
+				}
+				voTabItem.content = vcContent;
+				pcTabFolder.addTabItem(voTabItem);
+				if (vcFirst == null) {
+					vcFirst = voTabItem;
+				}
+			});
+			if (vcFirst != null && typeof pcTabFolder.setSelectedTabItem == "function") {
+				pcTabFolder.setSelectedTabItem(vcFirst);
+			}
+		}
+
+		/* ---------------------------------------------------------------- 공개 */
+
+		/**
+		 * 템플릿을 캔버스에 놓을 컨트롤로 만든다.
+		 * 최상위가 컨테이너가 아니면(버튼 한 개 등) 그대로 돌려준다.
+		 * @param {Object} poTemplate 카탈로그 항목
+		 * @return {cpr.controls.UIControl}
+		 */
+		exports.build = function(poTemplate) {
+			return buildNode(poTemplate.node);
+		};
+
+		/** 팔레트 항목·툴팁에 쓰는 설명 */
+		exports.summary = function(poTemplate) {
+			var vsDesc = poTemplate.desc || "";
+			return poTemplate.name + (vsDesc === "" ? "" : "\n" + vsDesc);
+		};
+
+		/** 템플릿 묶음 이름 → 화면 계획에서의 역할 */
+		exports.roleOf = function(psGroup) {
+			return GROUP_ROLE[psGroup] || "input";
+		};
+	});
+})();
+/// end - module/canvas/templateBuilder
 /// start - module/canvas/templatePlanner
 /*
  * Module URI: module/canvas/templatePlanner
@@ -2345,6 +3254,244 @@
 
 		exports.getCatalog = function() {
 			return CATALOG;
+		};
+
+		/* ---------------------------------------------------------------- 패턴 미리 배치 (skeleton)
+		 *
+		 * 패턴을 고르면 그 패턴이 나오도록 캔버스에 컨트롤을 미리 깔아 준다.
+		 * 여기서 만든 좌표를 planByRule() 에 다시 넣으면 같은 패턴이 나오도록 맞춰 두었다
+		 * (조회 조건은 데이터 컨트롤 위, 하단 버튼은 맨 아래 줄, 좌우 배치는 세로로 겹치게).
+		 */
+
+		var SK = {
+			/** 캔버스 크기를 모를 때 쓰는 기준값 */
+			width : 800,
+			height : 600,
+			/** 캔버스가 이보다 작아도 이 크기로는 깐다(가로·세로 스크롤로 본다) */
+			minWidth : 640,
+			minHeight : 420,
+			margin : 20,   // 캔버스 바깥 여백
+			gap : 20,      // 구획 사이 간격
+			rowHeight : 24,
+			titleGap : 10  // 구획 제목 줄과 본문 사이
+		};
+
+		function skItem(psType, psText, pnX, pnY, pnWidth, pnHeight) {
+			return {
+				type : psType,
+				text : psText,
+				x : pnX,
+				y : pnY,
+				width : Math.max(40, Math.round(pnWidth)),
+				height : Math.max(SK.rowHeight, Math.round(pnHeight))
+			};
+		}
+
+		/**
+		 * 캔버스 크기에서 뼈대가 쓸 격자를 만든다.
+		 * 오른쪽·아래 여백을 남기지 않도록 모든 폭·높이를 여기서 나눠 쓴다.
+		 */
+		function skGrid(poCanvas) {
+			var vnWidth = Math.max(SK.minWidth, Math.round((poCanvas && poCanvas.width) || SK.width));
+			var vnHeight = Math.max(SK.minHeight, Math.round((poCanvas && poCanvas.height) || SK.height));
+			var vnLeft = SK.margin;
+			var vnRight = vnWidth - SK.margin;
+			var vnFull = vnRight - vnLeft;
+			var vnHalf = Math.floor((vnFull - SK.gap) / 2);
+			return {
+				width : vnWidth,
+				height : vnHeight,
+				left : vnLeft,
+				right : vnRight,
+				full : vnFull,
+				half : vnHalf,
+				halfRight : vnLeft + vnHalf + SK.gap,
+				searchTop : SK.margin,
+				footerTop : vnHeight - SK.margin - SK.rowHeight
+			};
+		}
+
+		/** 오른쪽 끝에 붙는 버튼 묶음(가장 오른쪽 버튼이 캔버스 오른쪽 여백에 딱 닿는다) */
+		function skRightButtons(paOut, poGrid, pnY, paTexts) {
+			var vnButtonWidth = 70;
+			var vnSpacing = 8;
+			var vnX = poGrid.right - paTexts.length * vnButtonWidth - (paTexts.length - 1) * vnSpacing;
+			paTexts.forEach(function(psText, pnIdx) {
+				paOut.push(skItem("button", psText, vnX + pnIdx * (vnButtonWidth + vnSpacing), pnY, vnButtonWidth, SK.rowHeight));
+			});
+		}
+
+		/** 조회 조건 한 줄 : [라벨 입력] × 2 + 오른쪽 끝 조회 · 초기화 */
+		function skSearchRow(paOut, poGrid) {
+			var vnY = poGrid.searchTop;
+			// 조회 조건 영역은 버튼 묶음(148px)을 뺀 나머지를 반씩 나눠 쓴다.
+			var vnFieldArea = poGrid.full - 148 - SK.gap;
+			var vnField = Math.floor((vnFieldArea - SK.gap) / 2);
+			var vnLabel = 70;
+			paOut.push(skItem("output", "조회 조건", poGrid.left, vnY, vnLabel, SK.rowHeight));
+			paOut.push(skItem("inputbox", "", poGrid.left + vnLabel + 10, vnY, vnField - vnLabel - 10, SK.rowHeight));
+			var vnSecond = poGrid.left + vnField + SK.gap;
+			paOut.push(skItem("output", "기간", vnSecond, vnY, 50, SK.rowHeight));
+			paOut.push(skItem("dateinput", "", vnSecond + 60, vnY, vnField - 60, SK.rowHeight));
+			skRightButtons(paOut, poGrid, vnY, ["조회", "초기화"]);
+		}
+
+		/** 하단 버튼 줄 : 오른쪽 끝 저장 · 닫기 */
+		function skFooter(paOut, poGrid) {
+			skRightButtons(paOut, poGrid, poGrid.footerTop, ["저장", "닫기"]);
+		}
+
+		/**
+		 * 라벨·입력 표(form-base) 한 구획. 주어진 높이를 행으로 꽉 채운다.
+		 * @param {Number} pnHeight 이 구획이 차지할 높이
+		 * @param {Number} pnCols 한 행에 놓을 [라벨 입력] 쌍 수
+		 */
+		function skForm(paOut, pnX, pnY, pnWidth, pnHeight, pnCols) {
+			var vnCols = pnCols || 2;
+			var vnRowPitch = SK.rowHeight + 10;
+			var vnRows = Math.max(2, Math.floor((pnHeight + 10) / vnRowPitch));
+			// 남는 높이는 행 간격에 나눠 줘서 아래쪽이 비지 않게 한다.
+			var vnPitch = vnRows > 1 ? Math.floor((pnHeight - SK.rowHeight) / (vnRows - 1)) : vnRowPitch;
+			var vnColWidth = Math.floor((pnWidth - (vnCols - 1) * SK.gap) / vnCols);
+			var vnLabel = Math.min(80, Math.floor(vnColWidth * 0.35));
+			for (var vnRow = 0; vnRow < vnRows; vnRow++) {
+				for (var vnCol = 0; vnCol < vnCols; vnCol++) {
+					var vnLeft = pnX + vnCol * (vnColWidth + SK.gap);
+					var vnTop = pnY + vnRow * vnPitch;
+					paOut.push(skItem("output", "항목", vnLeft, vnTop, vnLabel, SK.rowHeight));
+					paOut.push(skItem("inputbox", "", vnLeft + vnLabel + 10, vnTop, vnColWidth - vnLabel - 10, SK.rowHeight));
+				}
+			}
+		}
+
+		/**
+		 * 패턴 뼈대를 캔버스 좌표로 만든다. 캔버스 폭·높이를 꽉 채운다.
+		 * @param {String} psPatternId "P1-1" …
+		 * @param {{width:Number, height:Number}} poCanvas 캔버스 크기(없으면 800×600 기준)
+		 * @return {Object[]} [{ type, text, x, y, width, height }]
+		 */
+		exports.skeleton = function(psPatternId, poCanvas) {
+			var vaOut = [];
+			var g = skGrid(poCanvas);
+			var vnLeft = g.left;
+			var vnFull = g.full;
+			var vnHalf = g.half;
+			var vnRight = g.halfRight;
+			var vnTop;
+
+			// P5-2(탭만)를 뺀 나머지는 조회 조건 줄로 시작한다.
+			if (psPatternId != "P5-2") {
+				skSearchRow(vaOut, g);
+				vnTop = g.searchTop + SK.rowHeight + SK.gap;
+			} else {
+				vnTop = g.searchTop;
+			}
+
+			// 데이터 영역 : 조회 조건 아래 ~ 하단 버튼 위. 이 높이를 남김없이 나눠 쓴다.
+			var vnDataHeight = g.footerTop - SK.gap - vnTop;
+			var vnTitleRow = SK.rowHeight + SK.titleGap;   // 구획 제목 줄이 먹는 높이
+			var vnBodyTop = vnTop + vnTitleRow;            // 제목 줄이 있는 패턴의 본문 시작
+			var vnBodyHeight = vnDataHeight - vnTitleRow;
+			var vnUpper = Math.floor((vnDataHeight - SK.gap) / 2);           // 위아래 반반
+			var vnLower = vnDataHeight - SK.gap - vnUpper;
+
+			switch (psPatternId) {
+				case "P1-2":
+					// 구획 제목 줄(제목 + 버튼 묶음) → 그 아래 그리드
+					vaOut.push(skItem("output", "목록", vnLeft, vnTop, 100, SK.rowHeight));
+					skRightButtons(vaOut, g, vnTop, ["등록", "삭제"]);
+					vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnBodyTop, vnFull, vnBodyHeight));
+					break;
+				case "P1-4":
+					vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnTop, vnFull, vnDataHeight - 40));
+					vaOut.push(skItem("pageindexer", "", vnLeft, vnTop + vnDataHeight - 30, vnFull, 30));
+					break;
+				case "P1-6":
+					skForm(vaOut, vnLeft, vnTop, vnFull, vnDataHeight, 2);
+					break;
+				case "P2-1":
+					vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop, vnFull, vnUpper));
+					vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower));
+					break;
+				case "P2-4":
+					vaOut.push(skItem("grid", "구분,명칭", vnLeft, vnTop, vnHalf, vnDataHeight));
+					vaOut.push(skItem("grid", "구분,명칭", vnRight, vnTop, vnHalf, vnDataHeight));
+					break;
+				case "P2-5":
+					vaOut.push(skItem("grid", "구분,명칭", vnLeft, vnTop, vnHalf, vnUpper));
+					vaOut.push(skItem("grid", "구분,명칭", vnRight, vnTop, vnHalf, vnUpper));
+					vaOut.push(skItem("grid", "구분,명칭,값", vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower));
+					break;
+				case "P3-1":
+				case "P4-4":
+					// 목록이 상세보다 넓게 : 위 55% / 아래 45%
+					var vnListHeight = Math.floor((vnDataHeight - SK.gap) * 0.55);
+					vaOut.push(skItem("grid", "사번,성명,부서", vnLeft, vnTop, vnFull, vnListHeight));
+					skForm(vaOut, vnLeft, vnTop + vnListHeight + SK.gap, vnFull, vnDataHeight - vnListHeight - SK.gap, 2);
+					break;
+				case "P3-2":
+				case "P4-3":
+					vaOut.push(skItem("grid", "사번,성명", vnLeft, vnTop, vnHalf, vnDataHeight));
+					skForm(vaOut, vnRight, vnTop, vnHalf, vnDataHeight, 1);
+					break;
+				case "P3-4":
+					vaOut.push(skItem("accordion", "기본 정보,상세 정보", vnLeft, vnTop, vnFull, vnDataHeight));
+					break;
+				case "P4-1":
+					skForm(vaOut, vnLeft, vnTop, vnFull, vnUpper, 2);
+					skForm(vaOut, vnLeft, vnTop + vnUpper + SK.gap, vnFull, vnLower, 2);
+					break;
+				case "P5-1":
+				case "P5-2":
+					vaOut.push(skItem("tabfolder", "기본,상세,이력", vnLeft, vnTop, vnFull, vnDataHeight));
+					break;
+				case "P6-1":
+				case "P6-2":
+					// 왼쪽 트리는 폭의 1/4(최소 200 · 최대 300), 오른쪽이 나머지를 다 쓴다.
+					var vnTreeWidth = Math.min(300, Math.max(200, Math.floor(vnFull * 0.25)));
+					var vnRestX = vnLeft + vnTreeWidth + SK.gap;
+					var vnRestWidth = g.right - vnRestX;
+					vaOut.push(skItem("tree", "", vnLeft, vnTop, vnTreeWidth, vnDataHeight));
+					if (psPatternId == "P6-1") {
+						vaOut.push(skItem("grid", "사번,성명,부서", vnRestX, vnTop, vnRestWidth, vnDataHeight));
+					} else {
+						skForm(vaOut, vnRestX, vnTop, vnRestWidth, vnDataHeight, 2);
+					}
+					break;
+				case "P7-1":
+					// 그리드 | 이동 버튼(가운데) | 그리드
+					var vnShuttleWidth = 40;
+					var vnSideWidth = Math.floor((vnFull - vnShuttleWidth - SK.gap * 2) / 2);
+					var vnShuttleX = vnLeft + vnSideWidth + SK.gap;
+					var vnMiddle = vnTop + Math.floor(vnDataHeight / 2) - SK.rowHeight - 5;
+					vaOut.push(skItem("grid", "선택 가능", vnLeft, vnTop, vnSideWidth, vnDataHeight));
+					vaOut.push(skItem("button", "▶", vnShuttleX, vnMiddle, vnShuttleWidth, SK.rowHeight));
+					vaOut.push(skItem("button", "◀", vnShuttleX, vnMiddle + SK.rowHeight + 10, vnShuttleWidth, SK.rowHeight));
+					vaOut.push(skItem("grid", "선택됨", vnShuttleX + vnShuttleWidth + SK.gap, vnTop, g.right - (vnShuttleX + vnShuttleWidth + SK.gap), vnDataHeight));
+					break;
+				case "P7-2":
+					// 그리드 / 이동 버튼(가운데 줄) / 그리드
+					var vnShuttleRow = SK.rowHeight + SK.gap * 2;
+					var vnPane = Math.floor((vnDataHeight - vnShuttleRow) / 2);
+					var vnShuttleY = vnTop + vnPane + SK.gap;
+					var vnCenterX = vnLeft + Math.floor(vnFull / 2);
+					vaOut.push(skItem("grid", "선택 가능", vnLeft, vnTop, vnFull, vnPane));
+					vaOut.push(skItem("button", "▼", vnCenterX - 45, vnShuttleY, 40, SK.rowHeight));
+					vaOut.push(skItem("button", "▲", vnCenterX + 5, vnShuttleY, 40, SK.rowHeight));
+					vaOut.push(skItem("grid", "선택됨", vnLeft, vnTop + vnPane + vnShuttleRow, vnFull, vnDataHeight - vnPane - vnShuttleRow));
+					break;
+				case "P8-1":
+				case "P8-3":
+					vaOut.push(skItem("output", psPatternId == "P8-1" ? "차트 영역" : "외부 화면", vnLeft, vnTop, 100, SK.rowHeight));
+					vaOut.push(skItem(psPatternId == "P8-1" ? "uicontrolshell" : "embeddedpage", "", vnLeft, vnBodyTop, vnFull, vnBodyHeight));
+					break;
+				default: // P1-1 · 그 밖
+					vaOut.push(skItem("grid", "사번,성명,부서,직급,입사일", vnLeft, vnTop, vnFull, vnDataHeight));
+					break;
+			}
+
+			skFooter(vaOut, g);
+			return vaOut;
 		};
 
 		function findCatalog(psId) {
@@ -3070,8 +4217,10 @@
 					id : voNewId[psRef] || voNode.id,
 					text : pbClearText ? "" : voNode.text,
 					items : voNode.items,
-					cls : psCls || null,
+					// UI 템플릿은 자기 클래스를 이미 갖고 있으므로 계획이 클래스를 덮어쓰지 않는다.
+					cls : voNode.type == "uitpl" ? null : (psCls || null),
 					udcType : voNode.udcType,
+					tpl : voNode.tpl,
 					width : voNode.layoutData.width,
 					height : voNode.layoutData.height
 				};
@@ -3085,7 +4234,7 @@
 					if (voNode == null || voNode.role != "button") {
 						return;
 					}
-					var vsCls = voNode.type == "udc" ? null : ((poBtn || {}).cls || buttonClass(voNode.text, psPlace));
+					var vsCls = voNode.type == "udc" || voNode.type == "uitpl" ? null : ((poBtn || {}).cls || buttonClass(voNode.text, psPlace));
 					var voCtrl = take(vsRef, vsCls, (poBtn || {}).clearText === true);
 					if (voCtrl != null) {
 						vaResult.push(voCtrl);
@@ -3362,3 +4511,3264 @@
 	});
 })();
 /// end - module/canvas/templatePlanner
+/// start - module/canvas/uiTemplateCatalog
+/*
+ * Module URI: module/canvas/uiTemplateCatalog
+ * SRC: module/canvas/uiTemplateCatalog.module.js
+ *
+ * This file was generated by eXbuilder6 compiler, Don't edit manually.
+ */
+(function(){
+	cpr.core.Module.define("module/canvas/uiTemplateCatalog", function(exports, globals, module){
+		/************************************************
+		 * uiTemplateCatalog.module.js
+		 *
+		 * !! 자동 생성 파일 - 손으로 고치지 말 것 !!
+		 * 만드는 도구 : tools/SyncCatalog.java  (실행 : java tools\SyncCatalog.java)
+		 * 원본        : eXBuilder6 스튜디오 상용구(canned-templates.xmi)
+		 *
+		 * 항목 하나 = { uuid, name, group, label, desc, width, height, node }
+		 * node      = { type, cls, id, props, layout, rows, columns, ld, children }
+		 *   type    : CLX 태그 키(clxSerializer.TAG_INFO 와 같다). tabitem 은 탭 한 칸.
+		 *   props   : CLX 속성명 그대로. ld = 부모 레이아웃에 붙는 데이터.
+		 ************************************************/
+
+		exports.GENERATED_AT = "2026-09-20 18:22";
+		exports.SOURCE = "C:\\eclipse_AI\\workspace\\eX-Canvas\\.settings\\canned-templates.xmi";
+
+		/** 팔레트에서 쓰는 묶음 순서 */
+		exports.GROUPS = ["넘버에디터", "데이트인풋", "라디오버튼", "버튼", "서치인풋", "아웃풋", "인풋박스", "체크박스", "체크박스그룹", "카드", "콘텐츠", "콤보박스", "탭폴더", "텍스트에리어", "파일인풋", "폼", "프레임"];
+
+		exports.TEMPLATES = [
+			{
+				uuid : "a351beff-d6e3-4186-af22-69f9939a964a",
+				name : "[넘버에디터] 컨트롤 그룹 (1)",
+				group : "넘버에디터",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 넘버에디터 + 아웃풋",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "30", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "numbereditor",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "원" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "80d29e6d-f550-49bf-ba64-363774bc6350",
+				name : "[넘버에디터] 컨트롤 그룹 (2)",
+				group : "넘버에디터",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] displayExp : text + \" 원\"",
+				width : 200,
+				height : 26,
+				node : {
+					type : "numbereditor",
+					props : { "displayexp" : "text + \" 원\"" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "6b396fea-295d-4868-8d31-da46c2b416af",
+				name : "[데이트인풋] 데이터 포맷 (1)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (1)",
+				desc : "연-월-일",
+				width : 110,
+				height : 26,
+				node : {
+					type : "dateinput",
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "1", "width" : "110" }
+				}
+			},
+			{
+				uuid : "124a9e07-bda4-4b7e-a57e-39e6c5572f9f",
+				name : "[데이트인풋] 데이터 포맷 (2)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (2)",
+				desc : "연-월",
+				width : 110,
+				height : 26,
+				node : {
+					type : "dateinput",
+					props : { "calendartype" : "yearmonth", "format" : "YYYYMM", "mask" : "YYYY-MM" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "2", "width" : "110" }
+				}
+			},
+			{
+				uuid : "499790e4-87af-4d8e-aa18-5ed628cde29e",
+				name : "[데이트인풋] 데이터 포맷 (3)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (3)",
+				desc : "연도",
+				width : 110,
+				height : 26,
+				node : {
+					type : "dateinput",
+					props : { "calendartype" : "year", "format" : "YYYY", "mask" : "YYYY" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "3", "width" : "110" }
+				}
+			},
+			{
+				uuid : "5040fb5a-6733-4e69-a6a7-f8a8a63b2816",
+				name : "[데이트인풋] 데이터 포맷 (4)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (4)",
+				desc : "시:분:초",
+				width : 80,
+				height : 26,
+				node : {
+					type : "dateinput",
+					cls : "timepicker",
+					props : { "format" : "HHmmss", "hidebutton" : "true", "mask" : "HH:mm:ss", "value" : "235959" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "4", "width" : "80" }
+				}
+			},
+			{
+				uuid : "47e27fba-bdba-400c-8123-5fbdadac95c0",
+				name : "[데이트인풋] 데이터 포맷 (5)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (5)",
+				desc : "연-월-일 시:분:초",
+				width : 170,
+				height : 26,
+				node : {
+					type : "dateinput",
+					props : { "format" : "YYYYMMDDHHmmss", "mask" : "YYYY-MM-DD HH:mm:ss", "value" : "20240101123456" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "5", "width" : "170" }
+				}
+			},
+			{
+				uuid : "82df0947-feb3-4833-9087-dbc0d5bc7783",
+				name : "[데이트인풋] 데이터 포맷 (6)",
+				group : "데이트인풋",
+				label : "데이터 포맷 (6)",
+				desc : "스핀버튼이 보이는 데이트 인풋",
+				width : 130,
+				height : 26,
+				node : {
+					type : "dateinput",
+					props : { "spinbutton" : "true", "value" : "20240101" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "6", "width" : "130" }
+				}
+			},
+			{
+				uuid : "b63e0b62-db52-408e-8c55-1602b9fad09b",
+				name : "[데이트인풋] 컨트롤 그룹",
+				group : "데이트인풋",
+				label : "컨트롤 그룹",
+				desc : "[form-control] 시작일자 ~ 종료일자",
+				width : 276,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "halign" : "FILL", "row" : "7", "width" : "236" },
+					children : [
+						{
+							type : "dateinput",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "dateinput",
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "d80bd3eb-e3a4-4be1-a3ca-006a831790cf",
+				name : "[라디오버튼] 고정 아이템",
+				group : "라디오버튼",
+				label : "고정 아이템",
+				desc : "colCount=0, fixedWidth=true",
+				width : 400,
+				height : 26,
+				node : {
+					type : "radiobutton",
+					props : { "colcount" : "0", "fixedwidth" : "true" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+				}
+			},
+			{
+				uuid : "fccda1a1-9fc8-4ae2-b84e-c0560190bf95",
+				name : "[라디오버튼] 컨트롤 그룹 (1)",
+				group : "라디오버튼",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 라디오버튼 + 라디오버튼",
+				width : 400,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "radiobutton",
+							props : { "colcount" : "0", "fixedwidth" : "true" },
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "200px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "radiobutton",
+							props : { "colcount" : "0", "fixedwidth" : "true" },
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "130px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }]
+						}
+					]
+				}
+			},
+			{
+				uuid : "155ca2e4-7915-471b-9777-71456ea22ec9",
+				name : "[라디오버튼] 컨트롤 그룹 (2)",
+				group : "라디오버튼",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 라디오버튼 + 버튼",
+				width : 400,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" },
+					children : [
+						{
+							type : "radiobutton",
+							props : { "colcount" : "0", "fixedwidth" : "true" },
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "200px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "64px" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "d561b7ca-80d2-4205-904c-189774953c2c",
+				name : "[버튼] 등록 버튼",
+				group : "버튼",
+				label : "등록 버튼",
+				desc : "[btn-add]",
+				width : 63,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-add",
+					props : { "icon" : "0", "value" : "등록" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "63px" }
+				}
+			},
+			{
+				uuid : "f4b3d120-1a38-49ec-9ef8-8012620e980d",
+				name : "[버튼] 보조 버튼",
+				group : "버튼",
+				label : "보조 버튼",
+				desc : "[btn-base]",
+				width : 46,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-base",
+					props : { "value" : "버튼" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "46px" }
+				}
+			},
+			{
+				uuid : "d86d6ff8-4f88-430f-9ff0-807e7a9fa4c4",
+				name : "[버튼] 삭제 버튼",
+				group : "버튼",
+				label : "삭제 버튼",
+				desc : "[btn-remove]",
+				width : 63,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-remove",
+					props : { "icon" : "0", "value" : "삭제" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "63px" }
+				}
+			},
+			{
+				uuid : "db10345c-44b9-4a61-8aab-f11ff191fd16",
+				name : "[버튼] 엑셀다운로드 버튼",
+				group : "버튼",
+				label : "엑셀다운로드 버튼",
+				desc : "[btn-excel]",
+				width : 108,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-excel",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "엑셀다운로드" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "108px" }
+				}
+			},
+			{
+				uuid : "ed2b3e9d-4954-42e1-a447-7a9c901874cc",
+				name : "[버튼] 엑셀업로드 버튼",
+				group : "버튼",
+				label : "엑셀업로드 버튼",
+				desc : "[btn-excel]",
+				width : 97,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-excel",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "엑셀업로드" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "97px" }
+				}
+			},
+			{
+				uuid : "56a10b6f-c4af-4a01-ae46-d7b177098ddc",
+				name : "[버튼] 인라인 버튼",
+				group : "버튼",
+				label : "인라인 버튼",
+				desc : "[btn-inline]",
+				width : 46,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-base",
+					props : { "value" : "버튼" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "46px" }
+				}
+			},
+			{
+				uuid : "321f1a24-6834-4c71-96f2-1dcb09258548",
+				name : "[버튼] 저장 버튼",
+				group : "버튼",
+				label : "저장 버튼",
+				desc : "[btn-save]",
+				width : 63,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-save",
+					props : { "icon" : "0", "value" : "저장" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "63px" }
+				}
+			},
+			{
+				uuid : "9fa6535a-9935-44c1-9b7e-45c015ccd25c",
+				name : "[버튼] 조회 버튼",
+				group : "버튼",
+				label : "조회 버튼",
+				desc : "[btn-search]",
+				width : 63,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-search",
+					props : { "icon" : "0", "value" : "조회" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "63px" }
+				}
+			},
+			{
+				uuid : "2ee12e50-2c3c-4e5d-b2db-1a6294a66dc5",
+				name : "[버튼] 주요 버튼",
+				group : "버튼",
+				label : "주요 버튼",
+				desc : "[btn-submit]",
+				width : 46,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-submit",
+					props : { "value" : "버튼" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "46px" }
+				}
+			},
+			{
+				uuid : "c26dffd9-8a0e-4604-84f0-ec332c238ae8",
+				name : "[버튼] 초기화 버튼",
+				group : "버튼",
+				label : "초기화 버튼",
+				desc : "[btn-reset]",
+				width : 74,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-reset",
+					props : { "icon" : "0", "value" : "초기화" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "74px" }
+				}
+			},
+			{
+				uuid : "cbe95027-edd9-46a5-9e25-2ca0fa78d5e3",
+				name : "[버튼] 초기화 아이콘 버튼",
+				group : "버튼",
+				label : "초기화 아이콘 버튼",
+				desc : "[btn-i-only btn-reset] 초기화 아이콘 버튼",
+				width : 28,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-reset btn-i-only",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "tooltip" : "초기화", "value" : "" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "28px" }
+				}
+			},
+			{
+				uuid : "33c49c66-0a4a-4db5-be3b-4d61f163454e",
+				name : "[버튼] 출력 버튼",
+				group : "버튼",
+				label : "출력 버튼",
+				desc : "[btn-print]",
+				width : 63,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-print",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "출력" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "63px" }
+				}
+			},
+			{
+				uuid : "cac1b6c6-647f-450c-8a08-9bf99b5be1b2",
+				name : "[버튼] 타이틀 버튼 그룹",
+				group : "버튼",
+				label : "타이틀 버튼 그룹",
+				desc : "[title-button-group] 타이틀 버튼 그룹. content-title-group 내 우측에 배치, 우측 정렬(horizontalSpacing = 4px), 다른 유형의 컨트롤 배치 시 사이에 간격 아웃풋 배치",
+				width : 1580,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "title-button-group",
+					layout : { "kind" : "flow", "halign" : "right", "scrollable" : "false" },
+					ld : { "kind" : "vertical", "height" : "26px", "width" : "600px" },
+					children : [
+						{
+							type : "udc",
+							id : "udccomgridcudbtns1",
+							props : { "type" : "udc.com.udcComGridCudBtns" },
+							ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "230px" }
+						},
+						{
+							type : "button",
+							cls : "btn-save",
+							props : { "icon" : "0", "value" : "저장" },
+							ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "63px" }
+						},
+						{
+							type : "output",
+							cls : "spacing",
+							ld : { "kind" : "flow", "height" : "26px", "width" : "8px" }
+						},
+						{
+							type : "button",
+							cls : "btn-submit",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "47px" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "9d752cfd-7966-4a1e-ab83-a52b363afb0b",
+				name : "[버튼] 파일 다운로드 버튼",
+				group : "버튼",
+				label : "파일 다운로드 버튼",
+				desc : "[btn-download]",
+				width : 85,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-download",
+					props : { "icon" : "0", "value" : "다운로드" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "85px" }
+				}
+			},
+			{
+				uuid : "f7ec4f03-fce6-43f1-a499-583b33ea6ae7",
+				name : "[버튼] 파일 업로드 버튼",
+				group : "버튼",
+				label : "파일 업로드 버튼",
+				desc : "[btn-upload]",
+				width : 74,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-upload",
+					props : { "icon" : "0", "value" : "업로드" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "74px" }
+				}
+			},
+			{
+				uuid : "7ee9442b-6574-46ff-87bf-118378559e92",
+				name : "[버튼] 팝업 호출 버튼",
+				group : "버튼",
+				label : "팝업 호출 버튼",
+				desc : "[btn-pop]",
+				width : 85,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-pop",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "팝업호출" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "85px" }
+				}
+			},
+			{
+				uuid : "fbff0210-ac88-4699-b32a-bf65c7b35a21",
+				name : "[버튼] 푸터 버튼 그룹",
+				group : "버튼",
+				label : "푸터 버튼 그룹",
+				desc : "[footer-button-group] 푸터 버튼 그룹. content-footer 내 배치, 좌측 버튼 그룹과 우측 버튼 그룹으로 분리하여 배치(각각 width=\"765px\", autoSizing=\"true\", minLength=\"0\")",
+				width : 600,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "footer-button-group",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "1fr", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "autoSizing" : "true", "length" : "300", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "300", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "group",
+							layout : { "kind" : "flow", "halign" : "left" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" },
+							children : [
+								{
+									type : "button",
+									cls : "btn-base",
+									props : { "value" : "버튼" },
+									ld : { "kind" : "flow", "autosize" : "width", "height" : "32px", "width" : "48px" }
+								},
+								{
+									type : "button",
+									cls : "btn-base",
+									props : { "value" : "버튼" },
+									ld : { "kind" : "flow", "autosize" : "width", "height" : "32px", "width" : "48px" }
+								}
+							]
+						},
+						{
+							type : "group",
+							layout : { "kind" : "flow", "halign" : "right" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" },
+							children : [
+								{
+									type : "button",
+									cls : "btn-submit",
+									props : { "value" : "버튼" },
+									ld : { "kind" : "flow", "autosize" : "width", "height" : "32px", "width" : "48px" }
+								},
+								{
+									type : "button",
+									cls : "btn-submit",
+									props : { "value" : "버튼" },
+									ld : { "kind" : "flow", "autosize" : "width", "height" : "32px", "width" : "48px" }
+								},
+								{
+									type : "button",
+									cls : "btn-base",
+									props : { "value" : "버튼" },
+									ld : { "kind" : "flow", "autosize" : "width", "height" : "32px", "width" : "48px" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "28436a20-e048-4f7d-b4bd-cdb970437579",
+				name : "[버튼] 행삭제 버튼",
+				group : "버튼",
+				label : "행삭제 버튼",
+				desc : "[btn-delete]",
+				width : 74,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-delete",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "행삭제" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "74px" }
+				}
+			},
+			{
+				uuid : "c147804b-9c47-4431-b8bd-a1d06e3ba592",
+				name : "[버튼] 행추가 버튼",
+				group : "버튼",
+				label : "행추가 버튼",
+				desc : "[btn-insert]",
+				width : 74,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-insert",
+					props : { "icon" : "0", "value" : "행추가" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "74px" }
+				}
+			},
+			{
+				uuid : "35600121-63aa-46f7-8a72-ad054634930e",
+				name : "[버튼] 행취소 버튼",
+				group : "버튼",
+				label : "행취소 버튼",
+				desc : "[btn-revert]",
+				width : 74,
+				height : 26,
+				node : {
+					type : "button",
+					cls : "btn-revert",
+					props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "행취소" },
+					ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "74px" }
+				}
+			},
+			{
+				uuid : "1a7c92dd-1428-47d5-becf-b16863735f46",
+				name : "[서치인풋] 컨트롤 그룹 (1)",
+				group : "서치인풋",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 서치인풋 + 초기화 버튼",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "30", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "searchinput",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "button",
+							cls : "btn-reset btn-i-only",
+							props : { "icon" : "0", "tooltip" : "초기화", "value" : "" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "77d4bf6a-85d7-4cac-afc4-b45077aa5fff",
+				name : "[서치인풋] 컨트롤 그룹 (2)",
+				group : "서치인풋",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 주소",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "searchinput",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "29150d37-80f5-4d99-bc4e-48c14bc3de4e",
+				name : "[아웃풋] h1 타이틀",
+				group : "아웃풋",
+				label : "h1 타이틀",
+				desc : "[tit h1] h1 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h1",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "8" }
+				}
+			},
+			{
+				uuid : "d43d3803-cc6c-41b8-9b2b-d6cb6c15840c",
+				name : "[아웃풋] h2 타이틀",
+				group : "아웃풋",
+				label : "h2 타이틀",
+				desc : "[tit h2] h2 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h2",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "9" }
+				}
+			},
+			{
+				uuid : "95e7aa60-138f-4e03-88d2-df85b0d21d4d",
+				name : "[아웃풋] h3 타이틀",
+				group : "아웃풋",
+				label : "h3 타이틀",
+				desc : "[tit h3] h3 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h3",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "10" }
+				}
+			},
+			{
+				uuid : "64dab3a0-2aa7-4ece-b202-afb09318e873",
+				name : "[아웃풋] h4 타이틀",
+				group : "아웃풋",
+				label : "h4 타이틀",
+				desc : "[tit h4] h4 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h4",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "11" }
+				}
+			},
+			{
+				uuid : "029e4628-1dd1-4d9b-a9b5-dd2717eeb854",
+				name : "[아웃풋] h5 타이틀",
+				group : "아웃풋",
+				label : "h5 타이틀",
+				desc : "[tit h5] h5 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h5",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "12" }
+				}
+			},
+			{
+				uuid : "a0f108c0-58d4-4f85-b876-192221bb18a9",
+				name : "[아웃풋] h6 타이틀",
+				group : "아웃풋",
+				label : "h6 타이틀",
+				desc : "[tit h6] h6 제목 수준 타이틀",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "tit h6",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "13" }
+				}
+			},
+			{
+				uuid : "b73557d3-4d7b-4227-a5a0-06227da4b33f",
+				name : "[아웃풋] 가로 중앙 정렬",
+				group : "아웃풋",
+				label : "가로 중앙 정렬",
+				desc : "[text-center] 문자열 정형 데이터에 적용하는 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-center",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" }
+				}
+			},
+			{
+				uuid : "0d664027-f2ae-4fdc-bdbc-7c3a86b83c74",
+				name : "[아웃풋] 간격 지정 컨트롤",
+				group : "아웃풋",
+				label : "간격 지정 컨트롤",
+				desc : "[spacing] 버튼 영역, 정보 영역 등에서 기본 간격 이외에 컨트롤 간 간격을 지정할 때 사용. 해당 컨트롤 다음으로 오는 컨트롤은 allowNewLine=false 처리할 것",
+				width : 8,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "spacing",
+					id : "opt2",
+					props : { "comment" : "간격 지정 컨트롤. 다음으로 오는 컨트롤은 allowNewLine=false로 처리할 것", "value" : "" },
+					ld : { "kind" : "form", "col" : "1", "halign" : "LEFT", "row" : "1", "width" : "8" }
+				}
+			},
+			{
+				uuid : "5c57edc3-08ef-454b-a496-e0d06d58bc39",
+				name : "[아웃풋] 날짜 포맷 (1)",
+				group : "아웃풋",
+				label : "날짜 포맷 (1)",
+				desc : "YYYY-MM-DD",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "datatype" : "date", "format" : "YYYY-MM-DD", "value" : "20221231" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "58a9418e-aab5-49ab-8b7a-992b54d99eb2",
+				name : "[아웃풋] 날짜 포맷 (2)",
+				group : "아웃풋",
+				label : "날짜 포맷 (2)",
+				desc : "YYYY-MM",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "datatype" : "date", "format" : "YYYY-MM", "value" : "202212" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "3b540d80-5bc6-464f-9452-09438de17745",
+				name : "[아웃풋] 날짜 포맷 (3)",
+				group : "아웃풋",
+				label : "날짜 포맷 (3)",
+				desc : "YYYY",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "datatype" : "date", "format" : "YYYY", "value" : "2022" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" }
+				}
+			},
+			{
+				uuid : "9387a0f3-3bb6-4911-a783-8c0df8d0ab63",
+				name : "[아웃풋] 날짜 포맷 (4)",
+				group : "아웃풋",
+				label : "날짜 포맷 (4)",
+				desc : "YYYY-MM-DD HH:mm:ss",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "datatype" : "date", "format" : "YYYY-MM-DD HH:mm:ss", "value" : "20221231121212" },
+					ld : { "kind" : "form", "col" : "1", "row" : "4" }
+				}
+			},
+			{
+				uuid : "81948831-28fc-4919-b214-866c1aaea251",
+				name : "[아웃풋] 날짜 포맷 (5)",
+				group : "아웃풋",
+				label : "날짜 포맷 (5)",
+				desc : "YYYY-MM-DD (ddd)",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "datatype" : "date", "format" : "YYYY-MM-DD (ddd)", "value" : "20220101" },
+					ld : { "kind" : "form", "col" : "1", "row" : "5" }
+				}
+			},
+			{
+				uuid : "1bd7d761-a884-4746-8d7d-096a5b9c98a1",
+				name : "[아웃풋] 단위 포맷",
+				group : "아웃풋",
+				label : "단위 포맷",
+				desc : "단위를 변경할 경우 displayExp 속성을 통해 수정",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "displayexp" : "text + \"단위\"", "value" : "00" },
+					ld : { "kind" : "form", "col" : "1", "row" : "18" }
+				}
+			},
+			{
+				uuid : "f2270d48-df22-4dba-9232-fc5a3c278a69",
+				name : "[아웃풋] 마스킹 문자열 포맷",
+				group : "아웃풋",
+				label : "마스킹 문자열 포맷",
+				desc : "",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					id : "opt66",
+					props : { "format" : "000000-0******", "value" : "0000000000000" },
+					ld : { "kind" : "form", "col" : "1", "row" : "20" }
+				}
+			},
+			{
+				uuid : "bf561763-3ae6-497e-8c67-9519feb10866",
+				name : "[아웃풋] 밑줄",
+				group : "아웃풋",
+				label : "밑줄",
+				desc : "[underline] 텍스트 밑줄",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "underline",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "14" }
+				}
+			},
+			{
+				uuid : "0acf360c-96c7-4eee-8f1f-bf800bc83cb4",
+				name : "[아웃풋] 밑줄 해제",
+				group : "아웃풋",
+				label : "밑줄 해제",
+				desc : "[no-underline] 텍스트 밑줄 해제",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "no-underline",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "17" }
+				}
+			},
+			{
+				uuid : "51988901-befd-4368-8487-21ccb2828d3d",
+				name : "[아웃풋] 빈값",
+				group : "아웃풋",
+				label : "빈값",
+				desc : "",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					props : { "value" : "" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "2fedbbde-9cb6-42cc-b3db-cdecffaaccce",
+				name : "[아웃풋] 상측 정렬",
+				group : "아웃풋",
+				label : "상측 정렬",
+				desc : "[align-top] 상측 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "align-top",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "5" }
+				}
+			},
+			{
+				uuid : "51209a27-edd3-46ad-ba64-a7e92eeda661",
+				name : "[아웃풋] 상태",
+				group : "아웃풋",
+				label : "상태",
+				desc : "[state-cell] 그리드에서 상태 컬럼으로 사용되는 컬럼의 디테일 셀에 행의 상태를 표시",
+				width : 300,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "state-cell",
+					props : { "value" : "" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "de843ab2-c354-47a7-b10b-06bf2d7611bc",
+				name : "[아웃풋] 세로 중앙 정렬",
+				group : "아웃풋",
+				label : "세로 중앙 정렬",
+				desc : "[align-middle] 세로 중앙 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "align-middle",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "6" }
+				}
+			},
+			{
+				uuid : "88350e32-912a-4848-bc42-ee66cdd0918e",
+				name : "[아웃풋] 숫자 포맷 (1)",
+				group : "아웃풋",
+				label : "숫자 포맷 (1)",
+				desc : "[text-right] s#,##0",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					props : { "datatype" : "number", "format" : "s#,##0", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "0ed268e2-e9af-4a7f-8c51-26af3b60ee89",
+				name : "[아웃풋] 숫자 포맷 (2)",
+				group : "아웃풋",
+				label : "숫자 포맷 (2)",
+				desc : "[text-right] s#,##9",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					props : { "datatype" : "number", "format" : "s#,##9", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "08cc7ab1-9bd9-4e28-ba3a-026bdcde0c62",
+				name : "[아웃풋] 숫자 포맷 (3)",
+				group : "아웃풋",
+				label : "숫자 포맷 (3)",
+				desc : "[text-right] s#,##0.00",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					id : "opt54",
+					props : { "datatype" : "number", "format" : "s#,##0.00", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" }
+				}
+			},
+			{
+				uuid : "a4cf7ab9-2a08-4889-82aa-868674b9904e",
+				name : "[아웃풋] 숫자 포맷 (4)",
+				group : "아웃풋",
+				label : "숫자 포맷 (4)",
+				desc : "[text-right] s#,##9.99",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					id : "opt55",
+					props : { "datatype" : "number", "format" : "s#,##9.99", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "4" }
+				}
+			},
+			{
+				uuid : "6af7e61d-8a4b-4a41-973a-df22c1587d66",
+				name : "[아웃풋] 숫자 포맷 (5)",
+				group : "아웃풋",
+				label : "숫자 포맷 (5)",
+				desc : "[text-right] displayExp : text + \" 원\", 단위를 변경할 경우 displayExp 속성을 통해 수정",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					props : { "datatype" : "number", "displayexp" : "text + \" 원\"", "format" : "s#,##0", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "5" }
+				}
+			},
+			{
+				uuid : "36f9faf7-5af3-4358-9236-7a5d0a45d8c2",
+				name : "[아웃풋] 숫자 포맷 (6)",
+				group : "아웃풋",
+				label : "숫자 포맷 (6)",
+				desc : "[text-right] displayExp : \"₩ \" + text",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					id : "opt138",
+					props : { "datatype" : "number", "displayexp" : "\"₩ \" + text", "format" : "s#,##0", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "6" }
+				}
+			},
+			{
+				uuid : "9ef508eb-05be-4b5a-94c8-a264864de481",
+				name : "[아웃풋] 숫자 포맷 (7)",
+				group : "아웃풋",
+				label : "숫자 포맷 (7)",
+				desc : "[text-right] displayExp : \"$ \" + text",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					id : "opt139",
+					props : { "datatype" : "number", "displayexp" : "\"$ \" + text", "format" : "s#,##0", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "7" }
+				}
+			},
+			{
+				uuid : "f185d7d5-87c5-4803-934a-b20166854cf8",
+				name : "[아웃풋] 숫자 포맷 (8)",
+				group : "아웃풋",
+				label : "숫자 포맷 (8)",
+				desc : "[text-right] displayExp : text + \" %\"",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					props : { "datatype" : "number", "displayexp" : "text + \" %\"", "format" : "#,##0", "value" : "0" },
+					ld : { "kind" : "form", "col" : "1", "row" : "8" }
+				}
+			},
+			{
+				uuid : "7e78a81b-a1e9-43e9-adc5-ca4c31380182",
+				name : "[아웃풋] 우측 정렬",
+				group : "아웃풋",
+				label : "우측 정렬",
+				desc : "[text-right] 숫자형 데이터에 적용하는 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-right",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "4" }
+				}
+			},
+			{
+				uuid : "600d11aa-950f-490c-a07c-b5bdc5d3cc0e",
+				name : "[아웃풋] 윗줄",
+				group : "아웃풋",
+				label : "윗줄",
+				desc : "[overline] 텍스트 윗줄",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "overline",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "15" }
+				}
+			},
+			{
+				uuid : "cc987a0f-6c38-402f-a708-0ea4edc4f551",
+				name : "[아웃풋] 좌측 정렬",
+				group : "아웃풋",
+				label : "좌측 정렬",
+				desc : "[text-left] 문자열 비정형 데이터에 적용하는 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "text-left",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "6ca4b38b-25a1-4bf6-aedc-32cb7108302a",
+				name : "[아웃풋] 주민등록번호 포맷",
+				group : "아웃풋",
+				label : "주민등록번호 포맷",
+				desc : "",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					id : "opt60",
+					props : { "format" : "000000-0000000", "value" : "0000000000000" },
+					ld : { "kind" : "form", "col" : "1", "row" : "19" }
+				}
+			},
+			{
+				uuid : "5d481d88-f429-4d17-885f-c3fc135625b6",
+				name : "[아웃풋] 지시문/안내문 (1)",
+				group : "아웃풋",
+				label : "지시문/안내문 (1)",
+				desc : "[info-txt] 일반",
+				width : 300,
+				height : 20,
+				node : {
+					type : "output",
+					cls : "info-txt",
+					props : { "value" : "지시문/안내문은 \"info-txt\" 클래스를 적용합니다." },
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "20px", "width" : "1223px" }
+				}
+			},
+			{
+				uuid : "70485a00-35ae-49aa-8a1c-4d70db2a7f4a",
+				name : "[아웃풋] 지시문/안내문 (2)",
+				group : "아웃풋",
+				label : "지시문/안내문 (2)",
+				desc : "[info-txt-highlighted] 강조",
+				width : 300,
+				height : 20,
+				node : {
+					type : "output",
+					cls : "info-txt-highlighted",
+					props : { "value" : "지시문/안내문은 \"info-txt\" 클래스를 적용합니다." },
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "20px", "width" : "1223px" }
+				}
+			},
+			{
+				uuid : "4512654d-80e6-4bd4-88cb-722f8dd03b3d",
+				name : "[아웃풋] 취소선",
+				group : "아웃풋",
+				label : "취소선",
+				desc : "[line-through] 텍스트 취소선",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "line-through",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "16" }
+				}
+			},
+			{
+				uuid : "2a189c03-7c9f-4f1c-af4f-5bc14e1206e0",
+				name : "[아웃풋] 하측 정렬",
+				group : "아웃풋",
+				label : "하측 정렬",
+				desc : "[align-bottom] 하측 정렬",
+				width : 120,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "align-bottom",
+					props : { "value" : "텍스트" },
+					ld : { "kind" : "form", "col" : "1", "row" : "7" }
+				}
+			},
+			{
+				uuid : "180d4529-7bf8-457d-a2a5-5a8f8bccbbe1",
+				name : "[인풋박스] 컨트롤 그룹 (1)",
+				group : "인풋박스",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 이메일",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "@" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "3cb09572-a0ee-47e9-921c-dc152c0c9d22",
+				name : "[인풋박스] 컨트롤 그룹 (2)",
+				group : "인풋박스",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 전화번호",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "inputbox",
+							props : { "inputfilter" : "[0-9]", "maxlength" : "4" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							props : { "inputfilter" : "[0-9]", "maxlength" : "4" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							props : { "inputfilter" : "[0-9]", "maxlength" : "4" },
+							ld : { "kind" : "form", "col" : "4", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "d0a501f0-a273-42ba-923f-dd5f2cfd514f",
+				name : "[인풋박스] 컨트롤 그룹 (3)",
+				group : "인풋박스",
+				label : "컨트롤 그룹 (3)",
+				desc : "[form-control] 주민등록번호",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "3" },
+					children : [
+						{
+							type : "inputbox",
+							props : { "inputfilter" : "[0-9]", "maxlength" : "6" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							props : { "inputfilter" : "[0-9]", "maxlength" : "7", "secret" : "true" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "a8cdfbbd-1169-45cc-834f-150ff9628521",
+				name : "[인풋박스] 컨트롤 그룹 (4)",
+				group : "인풋박스",
+				label : "컨트롤 그룹 (4)",
+				desc : "[form-control] 이어지는 텍스트",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "4" },
+					children : [
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "c3482941-102e-4f07-82f8-f69a5e92bda9",
+				name : "[인풋박스] 컨트롤 그룹 (6)",
+				group : "인풋박스",
+				label : "컨트롤 그룹 (6)",
+				desc : "[form-control] 인풋박스 + 버튼",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "35", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "5" },
+					children : [
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "9a6a9b23-9613-45aa-a93b-29f8c3b97b58",
+				name : "[체크박스] 빈값",
+				group : "체크박스",
+				label : "빈값",
+				desc : "",
+				width : 200,
+				height : 26,
+				node : {
+					type : "checkbox",
+					props : { "text" : "" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "e84f4651-0d5f-442c-98ba-aca79799cfa9",
+				name : "[체크박스] 중앙정렬",
+				group : "체크박스",
+				label : "중앙정렬",
+				desc : "[text-center] 폼에서 사용 (그리드 내 체크박스 및 체크박스그룹은 CSS에 의해 자동으로 중앙정렬됨)",
+				width : 200,
+				height : 26,
+				node : {
+					type : "checkbox",
+					cls : "text-center",
+					props : { "text" : "" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "22a07f29-fef6-44a8-83dc-4623c5721390",
+				name : "[체크박스] 컨트롤 그룹 (1)",
+				group : "체크박스",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 체크박스 + 체크박스",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" },
+					children : [
+						{
+							type : "checkbox",
+							props : { "text" : "체크박스" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "65px" }
+						},
+						{
+							type : "checkbox",
+							props : { "text" : "체크박스" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "65px" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "072537e7-74df-4ae6-9985-a888da151119",
+				name : "[체크박스] 컨트롤 그룹 (2)",
+				group : "체크박스",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 체크박스 + 버튼",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "4" },
+					children : [
+						{
+							type : "checkbox",
+							props : { "text" : "체크박스" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "65px" }
+						},
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "64px" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "4ea77f30-3ba3-4611-a362-1b3fb221046b",
+				name : "[체크박스그룹] 고정 아이템",
+				group : "체크박스그룹",
+				label : "고정 아이템",
+				desc : "colCount=0, fixedWidth=true",
+				width : 400,
+				height : 26,
+				node : {
+					type : "checkboxgroup",
+					props : { "colcount" : "0", "fixedwidth" : "true" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+				}
+			},
+			{
+				uuid : "cf8acdb7-eb0f-455e-80f3-248818b5f6fc",
+				name : "[체크박스그룹] 컨트롤 그룹 (1)",
+				group : "체크박스그룹",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 체크박스그룹 + 체크박스그룹",
+				width : 400,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "checkboxgroup",
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "200px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "checkboxgroup",
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "130px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }]
+						}
+					]
+				}
+			},
+			{
+				uuid : "ab986a32-30d2-4615-88d2-9896543228df",
+				name : "[체크박스그룹] 컨트롤 그룹 (2)",
+				group : "체크박스그룹",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 체크박스그룹 + 버튼",
+				width : 400,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "hspacing" : "10", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" },
+					children : [
+						{
+							type : "checkboxgroup",
+							ld : { "kind" : "flow", "autosize" : "both", "height" : "26px", "minheight" : "20", "width" : "200px" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "flow", "autosize" : "width", "height" : "26px", "width" : "64px" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "9c06a577-2fc0-4c34-b5fd-4fd37911c5ef",
+				name : "[카드] 일반",
+				group : "카드",
+				label : "일반",
+				desc : "[card]",
+				width : 1091,
+				height : 150,
+				node : {
+					type : "group",
+					cls : "card",
+					layout : { "kind" : "vertical", "scrollable" : "false" },
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "150px", "width" : "1091px" }
+				}
+			},
+			{
+				uuid : "eb5323ac-ca81-448f-b148-620d31527e47",
+				name : "[콘텐츠] 그리드",
+				group : "콘텐츠",
+				label : "그리드",
+				desc : "[content]",
+				width : 1580,
+				height : 234,
+				node : {
+					type : "group",
+					cls : "content",
+					layout : { "kind" : "vertical", "scrollable" : "false" },
+					ld : { "kind" : "vertical", "height" : "234px", "width" : "1064px" },
+					children : [
+						{
+							type : "group",
+							cls : "content-title-box",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "0px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "autoSizing" : "true", "length" : "200", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+							ld : { "kind" : "vertical", "autosize" : "none", "height" : "26px", "width" : "1064px" },
+							children : [
+								{
+									type : "udc",
+									id : "udccomgridtitle2",
+									props : { "type" : "udc.com.udcComGridTitle" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "group",
+									cls : "title-button-group",
+									layout : { "kind" : "flow", "halign" : "right", "scrollable" : "false" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" },
+									children : [
+										{
+											type : "udc",
+											id : "udccomgridcudbtns3",
+											props : { "type" : "udc.com.udcComGridCudBtns" },
+											ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "230px" }
+										}
+									]
+								}
+							]
+						},
+						{
+							type : "grid",
+							ld : { "kind" : "vertical", "autosize" : "none", "height" : "200px", "width" : "1064px" },
+							gridCols : 5
+						}
+					]
+				}
+			},
+			{
+				uuid : "b116bc97-03fd-44a4-9134-81b17ddff2b4",
+				name : "[콘텐츠] 그리드 타이틀",
+				group : "콘텐츠",
+				label : "그리드 타이틀",
+				desc : "[content-title-box]",
+				width : 1580,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "content-title-box",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "autoSizing" : "true", "length" : "200", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "vertical", "height" : "26px", "width" : "1064px" },
+					children : [
+						{
+							type : "udc",
+							id : "udccomgridtitle1",
+							props : { "type" : "udc.com.udcComGridTitle" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "group",
+							cls : "title-button-group",
+							layout : { "kind" : "flow", "halign" : "right", "scrollable" : "false" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" },
+							children : [
+								{
+									type : "udc",
+									id : "udccomgridcudbtns1",
+									props : { "type" : "udc.com.udcComGridCudBtns" },
+									ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "230px" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "ccc8e728-c055-4019-927c-1b5885565986",
+				name : "[콘텐츠] 폼",
+				group : "콘텐츠",
+				label : "폼",
+				desc : "[content]",
+				width : 1580,
+				height : 191,
+				node : {
+					type : "group",
+					cls : "content",
+					layout : { "kind" : "vertical", "scrollable" : "false" },
+					ld : { "kind" : "vertical", "height" : "191px", "width" : "1064px" },
+					children : [
+						{
+							type : "group",
+							cls : "content-title-box",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "0px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "autoSizing" : "true", "length" : "200", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+							ld : { "kind" : "vertical", "autosize" : "none", "height" : "26px", "width" : "1064px" },
+							children : [
+								{
+									type : "udc",
+									id : "udccomformtitle3",
+									props : { "type" : "udc.com.udcComFormTitle" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "group",
+									cls : "title-button-group",
+									layout : { "kind" : "flow", "halign" : "right", "scrollable" : "false" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" },
+									children : [
+										{
+											type : "udc",
+											id : "udccomgridcudbtns5",
+											props : { "type" : "udc.com.udcComGridCudBtns" },
+											ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "230px" }
+										}
+									]
+								}
+							]
+						},
+						{
+							type : "group",
+							cls : "form-base",
+							layout : { "kind" : "form", "bottom-margin" : "6px", "hseparatortype" : "BY_CLASS", "hseparatorwidth" : "1", "hspace" : "17px", "left-margin" : "8px", "right-margin" : "8px", "scrollable" : "false", "top-margin" : "6px", "vspace" : "13px" },
+							rows : [{ "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }],
+							columns : [{ "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+							ld : { "kind" : "vertical", "autosize" : "none", "height" : "157px", "width" : "1064px" },
+							children : [
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "데이터" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "0" }
+								},
+								{
+									type : "output",
+									cls : "text-right",
+									props : { "datatype" : "number", "format" : "s#,##0", "value" : "1234567890" },
+									ld : { "kind" : "form", "col" : "3", "row" : "0" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "datatype" : "date", "format" : "YYYY-MM-DD", "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "5", "row" : "0" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "1" }
+								},
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "1", "row" : "1" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "1" }
+								},
+								{
+									type : "group",
+									cls : "form-control",
+									layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+									rows : [{ "length" : "1", "unit" : "FRACTION" }],
+									columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "80", "syncminlength" : "false", "unit" : "PIXEL" }],
+									ld : { "kind" : "form", "col" : "3", "row" : "1" },
+									children : [
+										{
+											type : "inputbox",
+											ld : { "kind" : "form", "col" : "0", "row" : "0" }
+										},
+										{
+											type : "checkbox",
+											props : { "text" : "체크박스" },
+											ld : { "kind" : "form", "col" : "1", "row" : "0" }
+										}
+									]
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "1" }
+								},
+								{
+									type : "group",
+									cls : "form-control",
+									layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+									rows : [{ "length" : "1", "unit" : "FRACTION" }],
+									columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "66", "syncminlength" : "false", "unit" : "PIXEL" }],
+									ld : { "kind" : "form", "col" : "5", "row" : "1" },
+									children : [
+										{
+											type : "inputbox",
+											ld : { "kind" : "form", "col" : "0", "row" : "0" }
+										},
+										{
+											type : "button",
+											cls : "btn-inline",
+											props : { "value" : "테이블버튼" },
+											ld : { "kind" : "form", "col" : "1", "row" : "0" }
+										}
+									]
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "2" }
+								},
+								{
+									type : "numbereditor",
+									ld : { "kind" : "form", "col" : "1", "row" : "2" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "2" }
+								},
+								{
+									type : "dateinput",
+									props : { "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "3", "halign" : "LEFT", "row" : "2", "width" : "110" }
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "2" }
+								},
+								{
+									type : "group",
+									cls : "form-control",
+									layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+									rows : [{ "length" : "1", "unit" : "FRACTION" }],
+									columns : [{ "length" : "110", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "50", "syncminlength" : "false", "unit" : "PIXEL" }],
+									ld : { "kind" : "form", "col" : "5", "row" : "2" },
+									children : [
+										{
+											type : "numbereditor",
+											ld : { "kind" : "form", "col" : "0", "row" : "0" }
+										},
+										{
+											type : "output",
+											props : { "value" : "원" },
+											ld : { "kind" : "form", "col" : "1", "row" : "0" }
+										}
+									]
+								},
+								{
+									type : "output",
+									cls : "label",
+									props : { "value" : "항목" },
+									ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "3" }
+								},
+								{
+									type : "group",
+									cls : "form-control",
+									layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+									rows : [{ "length" : "1", "unit" : "FRACTION" }],
+									columns : [{ "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "length" : "1", "unit" : "FRACTION" }],
+									ld : { "kind" : "form", "col" : "1", "colspan" : "5", "row" : "3", "rowspan" : "1" },
+									children : [
+										{
+											type : "searchinput",
+											ld : { "kind" : "form", "col" : "0", "row" : "0" }
+										},
+										{
+											type : "inputbox",
+											ld : { "kind" : "form", "col" : "1", "row" : "0" }
+										},
+										{
+											type : "inputbox",
+											ld : { "kind" : "form", "col" : "2", "row" : "0" }
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "59042279-5672-436a-9140-2aece17954cd",
+				name : "[콘텐츠] 폼 타이틀",
+				group : "콘텐츠",
+				label : "폼 타이틀",
+				desc : "[content-title-box]",
+				width : 1580,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "content-title-box",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "autoSizing" : "true", "length" : "200", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "vertical", "height" : "26px", "width" : "1064px" },
+					children : [
+						{
+							type : "udc",
+							id : "udccomformtitle1",
+							props : { "type" : "udc.com.udcComFormTitle" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "group",
+							cls : "title-button-group",
+							layout : { "kind" : "flow", "halign" : "right", "scrollable" : "false" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" },
+							children : [
+								{
+									type : "udc",
+									id : "udccomgridcudbtns2",
+									props : { "type" : "udc.com.udcComGridCudBtns" },
+									ld : { "kind" : "flow", "allownewline" : "false", "autosize" : "width", "height" : "26px", "width" : "230px" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "53d4207d-7537-430b-bd46-1371cddbcfc5",
+				name : "[콤보박스] 컨트롤 그룹",
+				group : "콤보박스",
+				label : "컨트롤 그룹",
+				desc : "[form-control]",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "false", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "combobox",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "combobox",
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "a2d665a6-8cae-4b64-8c8d-51e5f113c1be",
+				name : "[탭폴더] 아이콘 탭",
+				group : "탭폴더",
+				label : "아이콘 탭",
+				desc : "[tab]",
+				width : 1045,
+				height : 200,
+				node : {
+					type : "tabfolder",
+					cls : "tab",
+					props : { "headerarrowvisible" : "show" },
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "tabitem",
+							props : { "text" : "아이템", "selected" : "true" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "6df393fb-8121-42d4-b59f-8cdd788d628c",
+				name : "[탭폴더] 일반",
+				group : "탭폴더",
+				label : "일반",
+				desc : "",
+				width : 1045,
+				height : 200,
+				node : {
+					type : "tabfolder",
+					props : { "headerarrowvisible" : "show" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "tabitem",
+							props : { "text" : "아이템", "selected" : "true" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						},
+						{
+							type : "tabitem",
+							props : { "text" : "아이템" },
+							children : [
+								{
+									type : "group",
+									layout : { "kind" : "vertical", "spacing" : "12" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "26018776-4707-4c5f-831f-5f44e3f4c483",
+				name : "[텍스트에리어] 길이 제한 텍스트에리어",
+				group : "텍스트에리어",
+				label : "길이 제한 텍스트에리어",
+				desc : "[form-control]",
+				width : 469,
+				height : 81,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "60", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "18", "syncminlength" : "false", "unit" : "PIXEL" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "0" },
+					children : [
+						{
+							type : "textarea",
+							id : "txa",
+							props : { "maxlength" : "80" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "txt-byte text-right",
+							id : "optTxt",
+							props : { "displayexp" : "#txa.length + \"/\" + #txa.maxLength + \" Bytes\"", "value" : "Output" },
+							ld : { "kind" : "form", "col" : "0", "row" : "1" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "46410091-7999-46c5-87bf-be4baffd1552",
+				name : "[파일인풋] 컨트롤 그룹",
+				group : "파일인풋",
+				label : "컨트롤 그룹",
+				desc : "[form-control]",
+				width : 300,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "autoSizing" : "false", "hidden" : "false", "length" : "1", "minlength" : "0", "shadecolor" : "#000000", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "hidden" : "false", "length" : "63", "minlength" : "0", "shadecolor" : "#000000", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "hidden" : "false", "length" : "108", "minlength" : "0", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "fileinput",
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "파일찾기" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "button",
+							cls : "btn-excel",
+							props : { "icon" : "0", "value" : "엑셀다운로드" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "eed3d45b-9210-4163-bb90-350094815165",
+				name : "[폼] 라벨",
+				group : "폼",
+				label : "라벨",
+				desc : "[label] 폼의 라벨",
+				width : 120,
+				height : 38,
+				node : {
+					type : "output",
+					cls : "label",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "c1b08fd3-c5c2-4e14-86cc-afb4be24ed3e",
+				name : "[폼] 서브 라벨",
+				group : "폼",
+				label : "서브 라벨",
+				desc : "[sub-label] 폼의 서브 라벨",
+				width : 120,
+				height : 38,
+				node : {
+					type : "output",
+					cls : "sub-label",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "c27293ac-7f6d-4c87-80a0-6727ace8bceb",
+				name : "[폼] 입력행 (1행)",
+				group : "폼",
+				label : "입력행 (1행)",
+				desc : "[form-base]",
+				width : 1091,
+				height : 40,
+				node : {
+					type : "group",
+					cls : "form-base",
+					layout : { "kind" : "form", "bottom-margin" : "6px", "hseparatortype" : "BY_CLASS", "hseparatorwidth" : "1", "hspace" : "17px", "left-margin" : "8px", "right-margin" : "8px", "scrollable" : "false", "top-margin" : "6px", "vspace" : "13px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "vertical", "autosize" : "none", "height" : "40px", "width" : "1042px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "데이터" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "text-right",
+							props : { "datatype" : "number", "format" : "s#,##0", "value" : "1234567890" },
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "datatype" : "date", "format" : "YYYY-MM-DD", "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "5", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "366dae4c-60bb-4dca-a4b9-e7518d1fec2b",
+				name : "[폼] 입력행 (2행)",
+				group : "폼",
+				label : "입력행 (2행)",
+				desc : "[form-base]",
+				width : 1091,
+				height : 79,
+				node : {
+					type : "group",
+					cls : "form-base",
+					layout : { "kind" : "form", "bottom-margin" : "6px", "hseparatortype" : "BY_CLASS", "hseparatorwidth" : "1", "hspace" : "17px", "left-margin" : "8px", "right-margin" : "8px", "scrollable" : "false", "top-margin" : "6px", "vspace" : "13px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "vertical", "autosize" : "none", "height" : "79px", "width" : "1042px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "데이터" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "text-right",
+							props : { "datatype" : "number", "format" : "s#,##0", "value" : "1234567890" },
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "datatype" : "date", "format" : "YYYY-MM-DD", "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "5", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "1", "row" : "1" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "group",
+							cls : "form-control",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "80", "syncminlength" : "false", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "3", "row" : "1" },
+							children : [
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "checkbox",
+									props : { "text" : "체크박스" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "group",
+							cls : "form-control",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "66", "syncminlength" : "false", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "1" },
+							children : [
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "button",
+									cls : "btn-inline",
+									props : { "value" : "테이블버튼" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "087f0a79-d176-4fa0-8c73-6ddcb366a9bb",
+				name : "[폼] 입력행 (3행)",
+				group : "폼",
+				label : "입력행 (3행)",
+				desc : "[search-box]",
+				width : 1091,
+				height : 118,
+				node : {
+					type : "group",
+					cls : "form-base",
+					layout : { "kind" : "form", "bottom-margin" : "6px", "hseparatortype" : "BY_CLASS", "hseparatorwidth" : "1", "hspace" : "17px", "left-margin" : "8px", "right-margin" : "8px", "scrollable" : "false", "top-margin" : "6px", "vspace" : "13px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "120", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "vertical", "autosize" : "none", "height" : "118px", "width" : "1042px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "value" : "데이터" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "text-right",
+							props : { "datatype" : "number", "format" : "s#,##0", "value" : "1234567890" },
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "0" }
+						},
+						{
+							type : "output",
+							props : { "datatype" : "date", "format" : "YYYY-MM-DD", "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "5", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "inputbox",
+							ld : { "kind" : "form", "col" : "1", "row" : "1" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "group",
+							cls : "form-control",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "80", "syncminlength" : "false", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "3", "row" : "1" },
+							children : [
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "checkbox",
+									props : { "text" : "체크박스" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "1" }
+						},
+						{
+							type : "group",
+							cls : "form-control",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "66", "syncminlength" : "false", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "1" },
+							children : [
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "button",
+									cls : "btn-inline",
+									props : { "value" : "테이블버튼" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "0", "ignore-layout-spacing" : "true", "row" : "2" }
+						},
+						{
+							type : "numbereditor",
+							ld : { "kind" : "form", "col" : "1", "row" : "2" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "2", "ignore-layout-spacing" : "true", "row" : "2" }
+						},
+						{
+							type : "dateinput",
+							props : { "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "3", "halign" : "LEFT", "row" : "2", "width" : "110" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "항목" },
+							ld : { "kind" : "form", "col" : "4", "ignore-layout-spacing" : "true", "row" : "2" }
+						},
+						{
+							type : "group",
+							cls : "form-control",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "110", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "50", "syncminlength" : "false", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "2" },
+							children : [
+								{
+									type : "numbereditor",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "원" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						}
+					]
+				}
+			},
+			{
+				uuid : "9d275920-2a28-43f5-af8d-db35540278fa",
+				name : "[폼] 조회 (1행)",
+				group : "폼",
+				label : "조회 (1행)",
+				desc : "[search-box]",
+				width : 1580,
+				height : 50,
+				node : {
+					type : "group",
+					cls : "search-box",
+					id : "grpSearch",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "8px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "8px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "minlength" : "0", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "minlength" : "0", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "63", "syncminlength" : "true", "unit" : "PIXEL" }],
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "50px", "width" : "1580px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "인풋박스" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "콤보박스" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						},
+						{
+							type : "combobox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "주민등록번호" },
+							ld : { "kind" : "form", "col" : "4", "row" : "0" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "100", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "6", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "100", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "0" },
+							children : [
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "6" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "-" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "7" },
+									ld : { "kind" : "form", "col" : "2", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "데이트인풋" },
+							ld : { "kind" : "form", "col" : "6", "row" : "0" }
+						},
+						{
+							type : "dateinput",
+							props : { "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "7", "halign" : "LEFT", "row" : "0", "width" : "110" }
+						},
+						{
+							type : "button",
+							cls : "btn-search",
+							id : "btnSearch",
+							props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "조회" },
+							ld : { "kind" : "form", "col" : "8", "row" : "0", "width" : "63" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "e96b2545-9dc1-416b-b5b1-8dca8c8f086a",
+				name : "[폼] 조회 (2행)",
+				group : "폼",
+				label : "조회 (2행)",
+				desc : "[search-box]",
+				width : 1580,
+				height : 84,
+				node : {
+					type : "group",
+					cls : "search-box",
+					id : "grpSearch",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "8px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "8px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "63", "syncminlength" : "true", "unit" : "PIXEL" }],
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "84px", "width" : "1580px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "인풋박스" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "콤보박스" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						},
+						{
+							type : "combobox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "주민등록번호" },
+							ld : { "kind" : "form", "col" : "4", "row" : "0" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "100", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "6", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "100", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "0" },
+							children : [
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "6" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "-" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "7" },
+									ld : { "kind" : "form", "col" : "2", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "데이트인풋" },
+							ld : { "kind" : "form", "col" : "6", "row" : "0" }
+						},
+						{
+							type : "dateinput",
+							props : { "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "7", "halign" : "LEFT", "row" : "0", "width" : "110" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "서치인풋" },
+							ld : { "kind" : "form", "col" : "0", "row" : "1" }
+						},
+						{
+							type : "searchinput",
+							ld : { "kind" : "form", "col" : "1", "row" : "1" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "라디오버튼" },
+							ld : { "kind" : "form", "col" : "2", "row" : "1" }
+						},
+						{
+							type : "radiobutton",
+							props : { "value" : "value1" },
+							ld : { "kind" : "form", "col" : "3", "row" : "1" },
+							items : [{ "label" : "예", "value" : "value1" }, { "label" : "아니오", "value" : "value2" }]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "체크박스그룹" },
+							ld : { "kind" : "form", "col" : "4", "row" : "1" }
+						},
+						{
+							type : "checkboxgroup",
+							ld : { "kind" : "form", "col" : "5", "row" : "1" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "데이트인풋" },
+							ld : { "kind" : "form", "col" : "6", "row" : "1" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "110", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "6", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "110", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "7", "row" : "1" },
+							children : [
+								{
+									type : "dateinput",
+									props : { "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "-" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "dateinput",
+									props : { "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "2", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "button",
+							cls : "btn-search",
+							id : "btnSearch",
+							props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "조회" },
+							ld : { "kind" : "form", "col" : "8", "row" : "1", "width" : "63" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "262f53ee-6273-4f4f-841e-c14efad28f44",
+				name : "[폼] 조회 (3행)",
+				group : "폼",
+				label : "조회 (3행)",
+				desc : "[search-box]",
+				width : 1580,
+				height : 118,
+				node : {
+					type : "group",
+					cls : "search-box",
+					id : "grpSearch",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "8px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "8px" },
+					rows : [{ "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }, { "length" : "26", "unit" : "PIXEL" }],
+					columns : [{ "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "shadecolor" : "transparent", "shadetype" : "NONE", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "110", "minlength" : "70", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "63", "syncminlength" : "true", "unit" : "PIXEL" }],
+					ld : { "kind" : "vertical", "autosize" : "height", "height" : "118px", "width" : "1580px" },
+					children : [
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "인풋박스" },
+							ld : { "kind" : "form", "col" : "0", "row" : "0" }
+						},
+						{
+							type : "inputbox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label required",
+							props : { "value" : "콤보박스" },
+							ld : { "kind" : "form", "col" : "2", "row" : "0" }
+						},
+						{
+							type : "combobox",
+							cls : "required",
+							ld : { "kind" : "form", "col" : "3", "row" : "0" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "주민등록번호" },
+							ld : { "kind" : "form", "col" : "4", "row" : "0" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "100", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "6", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "100", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "5", "row" : "0" },
+							children : [
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "6" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "-" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "inputbox",
+									props : { "inputfilter" : "[0-9]", "maxlength" : "7" },
+									ld : { "kind" : "form", "col" : "2", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "데이트인풋" },
+							ld : { "kind" : "form", "col" : "6", "row" : "0" }
+						},
+						{
+							type : "dateinput",
+							props : { "value" : "20241231" },
+							ld : { "kind" : "form", "col" : "7", "halign" : "LEFT", "row" : "0", "width" : "110" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "서치인풋" },
+							ld : { "kind" : "form", "col" : "0", "row" : "1" }
+						},
+						{
+							type : "searchinput",
+							ld : { "kind" : "form", "col" : "1", "row" : "1" }
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "라디오버튼" },
+							ld : { "kind" : "form", "col" : "2", "row" : "1" }
+						},
+						{
+							type : "radiobutton",
+							props : { "value" : "value1" },
+							ld : { "kind" : "form", "col" : "3", "row" : "1" },
+							items : [{ "label" : "예", "value" : "value1" }, { "label" : "아니오", "value" : "value2" }]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "체크박스그룹" },
+							ld : { "kind" : "form", "col" : "4", "row" : "1" }
+						},
+						{
+							type : "checkboxgroup",
+							ld : { "kind" : "form", "col" : "5", "row" : "1" },
+							items : [{ "label" : "아이템", "value" : "value1" }, { "label" : "아이템", "value" : "value2" }, { "label" : "아이템", "value" : "value3" }]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "데이트인풋" },
+							ld : { "kind" : "form", "col" : "6", "row" : "1" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "110", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "6", "syncminlength" : "false", "unit" : "PIXEL" }, { "length" : "110", "unit" : "PIXEL" }],
+							ld : { "kind" : "form", "col" : "7", "row" : "1" },
+							children : [
+								{
+									type : "dateinput",
+									props : { "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "output",
+									props : { "value" : "-" },
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								},
+								{
+									type : "dateinput",
+									props : { "value" : "20241231" },
+									ld : { "kind" : "form", "col" : "2", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "검색어" },
+							ld : { "kind" : "form", "col" : "0", "row" : "2" }
+						},
+						{
+							type : "group",
+							layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "4px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "4px" },
+							rows : [{ "length" : "1", "unit" : "FRACTION" }],
+							columns : [{ "length" : "200", "unit" : "PIXEL" }, { "length" : "1", "unit" : "FRACTION" }],
+							ld : { "kind" : "form", "col" : "1", "colspan" : "5", "row" : "2", "rowspan" : "1" },
+							children : [
+								{
+									type : "combobox",
+									ld : { "kind" : "form", "col" : "0", "row" : "0" }
+								},
+								{
+									type : "inputbox",
+									ld : { "kind" : "form", "col" : "1", "row" : "0" }
+								}
+							]
+						},
+						{
+							type : "output",
+							cls : "label",
+							props : { "value" : "체크박스" },
+							ld : { "kind" : "form", "col" : "6", "row" : "2" }
+						},
+						{
+							type : "checkbox",
+							props : { "text" : "" },
+							ld : { "kind" : "form", "col" : "7", "row" : "2" }
+						},
+						{
+							type : "button",
+							cls : "btn-search",
+							id : "btnSearch",
+							props : { "icon" : "../theme/images/controls/button/ic_btn_blank.svg", "value" : "조회" },
+							ld : { "kind" : "form", "col" : "8", "row" : "2", "width" : "63" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "9ba09bfe-ffa4-4573-95cb-8435162cf52d",
+				name : "[폼] 조회 폼 라벨",
+				group : "폼",
+				label : "조회 폼 라벨",
+				desc : "[label] 조회 폼의 라벨",
+				width : 60,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "label",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "2cd8ddd3-b315-4794-ae24-f99747d0a0b0",
+				name : "[폼] 조회 폼 서브 라벨",
+				group : "폼",
+				label : "조회 폼 서브 라벨",
+				desc : "[sub-label] 조회 폼의 서브 라벨",
+				width : 60,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "sub-label",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "58f8f851-b51b-45a4-9d8e-8a19664dc543",
+				name : "[폼] 조회 폼 필수 라벨",
+				group : "폼",
+				label : "조회 폼 필수 라벨",
+				desc : "[label required] 조회 폼의 라벨 또는 서브 라벨필수입력값",
+				width : 60,
+				height : 26,
+				node : {
+					type : "output",
+					cls : "label required",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "22a9fe8c-82b7-42fb-8db7-6e324501d6ef",
+				name : "[폼] 필수 라벨",
+				group : "폼",
+				label : "필수 라벨",
+				desc : "[label required] 폼의 라벨 또는 서브 라벨 필수입력값",
+				width : 120,
+				height : 38,
+				node : {
+					type : "output",
+					cls : "label required",
+					props : { "value" : "항목" },
+					ld : { "kind" : "form", "col" : "0", "row" : "0" }
+				}
+			},
+			{
+				uuid : "81e5333f-697c-4a47-abcd-19963f9d5416",
+				name : "[프레임] 버티컬 레이아웃",
+				group : "프레임",
+				label : "버티컬 레이아웃",
+				desc : "[form-control] \"form-control\" 클래스가 적용된 그룹",
+				width : 958,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "vertical", "scrollable" : "false", "spacing" : "4" },
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "19d38982-1f54-4923-ab5a-736a56db327f",
+				name : "[프레임] 분할 배치",
+				group : "프레임",
+				label : "분할 배치",
+				desc : "[division-group] \"division-group\" 클래스가 적용된 그룹",
+				width : 958,
+				height : 300,
+				node : {
+					type : "group",
+					cls : "division-group",
+					props : { "clipcontent" : "true" },
+					layout : { "kind" : "form", "bottom-margin" : "0px", "hspace" : "16px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px", "vspace" : "16px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" }
+				}
+			},
+			{
+				uuid : "0acf4130-7586-43ff-a1df-b731e604df62",
+				name : "[프레임] 컨트롤 그룹 (1)",
+				group : "프레임",
+				label : "컨트롤 그룹 (1)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 단위\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "30", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "1" },
+					children : [
+						{
+							type : "output",
+							props : { "value" : "단위" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "3bf13d0a-f558-4031-9001-4cf6f17ba355",
+				name : "[프레임] 컨트롤 그룹 (2)",
+				group : "프레임",
+				label : "컨트롤 그룹 (2)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 버튼\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "66", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "2" },
+					children : [
+						{
+							type : "button",
+							cls : "btn-inline",
+							props : { "value" : "버튼" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "ec46a9d8-1177-4555-8a99-a41c1c89336c",
+				name : "[프레임] 컨트롤 그룹 (3)",
+				group : "프레임",
+				label : "컨트롤 그룹 (3)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 체크박스\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "80", "syncminlength" : "false", "unit" : "PIXEL" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "3" },
+					children : [
+						{
+							type : "checkbox",
+							props : { "text" : "텍스트", "value" : "" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "918cbf94-1e15-4444-88ed-e829aed08e1f",
+				name : "[프레임] 컨트롤 그룹 (4)",
+				group : "프레임",
+				label : "컨트롤 그룹 (4)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 컨트롤\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "4" }
+				}
+			},
+			{
+				uuid : "9fe64964-7337-4bec-8724-ae10c45cef24",
+				name : "[프레임] 컨트롤 그룹 (5)",
+				group : "프레임",
+				label : "컨트롤 그룹 (5)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 컨트롤 + 컨트롤\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "5" }
+				}
+			},
+			{
+				uuid : "64a81f8d-ec4e-4a4d-a8fb-408fc5d6d23c",
+				name : "[프레임] 컨트롤 그룹 (6)",
+				group : "프레임",
+				label : "컨트롤 그룹 (6)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 기호 + 컨트롤\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "autoSizing" : "true", "length" : "10", "shadecolor" : "transparent", "shadetype" : "NONE", "syncminlength" : "false", "unit" : "PIXEL" }, { "autoSizing" : "true", "length" : "1", "syncminlength" : "true", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "6" },
+					children : [
+						{
+							type : "output",
+							props : { "value" : "-" },
+							ld : { "kind" : "form", "col" : "1", "row" : "0" }
+						}
+					]
+				}
+			},
+			{
+				uuid : "9a24b1cb-2975-4579-8f77-24e591ac8878",
+				name : "[프레임] 컨트롤 그룹 (7)",
+				group : "프레임",
+				label : "컨트롤 그룹 (7)",
+				desc : "[form-control] 폼 레이아웃이 적용된 \"컨트롤 + 기호 + 컨트롤\" 형태의 프레임",
+				width : 200,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "7" }
+				}
+			},
+			{
+				uuid : "e349a579-5a7d-41f4-a831-5fa800baf526",
+				name : "[프레임] 폼 레이아웃",
+				group : "프레임",
+				label : "폼 레이아웃",
+				desc : "[form-control] \"form-control\" 클래스가 적용된 그룹",
+				width : 958,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "form", "bottom-margin" : "0px", "left-margin" : "0px", "right-margin" : "0px", "scrollable" : "false", "top-margin" : "0px" },
+					rows : [{ "length" : "1", "unit" : "FRACTION" }],
+					columns : [{ "length" : "1", "unit" : "FRACTION" }, { "length" : "1", "unit" : "FRACTION" }],
+					ld : { "kind" : "form", "col" : "1", "row" : "2" }
+				}
+			},
+			{
+				uuid : "cd5c4752-40ea-4d51-8b98-4dbaa32114a1",
+				name : "[프레임] 플로우 레이아웃",
+				group : "프레임",
+				label : "플로우 레이아웃",
+				desc : "[form-control] \"form-control\" 클래스가 적용된 그룹",
+				width : 958,
+				height : 26,
+				node : {
+					type : "group",
+					cls : "form-control",
+					layout : { "kind" : "flow", "scrollable" : "false" },
+					ld : { "kind" : "form", "col" : "1", "row" : "3" }
+				}
+			}
+		];
+	});
+})();
+/// end - module/canvas/uiTemplateCatalog
