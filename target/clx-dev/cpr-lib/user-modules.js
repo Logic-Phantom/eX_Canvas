@@ -5162,7 +5162,7 @@
 		 * uiTemplateCatalog.module.js
 		 *
 		 * !! 자동 생성 파일 - 손으로 고치지 말 것 !!
-		 * 만드는 도구 : tools/SyncCatalog.java  (실행 : java tools\SyncCatalog.java)
+		 * 만드는 도구 : tools/SyncCatalog.java  (실행 : java tools/SyncCatalog.java)
 		 * 원본        : eXBuilder6 스튜디오 상용구(canned-templates.xmi)
 		 *
 		 * 항목 하나 = { uuid, name, group, label, desc, width, height, node }
@@ -5171,8 +5171,8 @@
 		 *   props   : CLX 속성명 그대로. ld = 부모 레이아웃에 붙는 데이터.
 		 ************************************************/
 
-		exports.GENERATED_AT = "2026-09-20 18:22";
-		exports.SOURCE = "C:\\eclipse_AI\\workspace\\eX-Canvas\\.settings\\canned-templates.xmi";
+		exports.GENERATED_AT = "2026-09-22 08:16";
+		exports.SOURCE = "/Users/lim/Desktop/eclipse/eX_Canvas/.settings/canned-templates.xmi";
 
 		/** 팔레트에서 쓰는 묶음 순서 */
 		exports.GROUPS = ["넘버에디터", "데이트인풋", "라디오버튼", "버튼", "서치인풋", "아웃풋", "인풋박스", "체크박스", "체크박스그룹", "카드", "콘텐츠", "콤보박스", "탭폴더", "텍스트에리어", "파일인풋", "폼", "프레임"];

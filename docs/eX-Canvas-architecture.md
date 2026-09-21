@@ -105,7 +105,7 @@ body.content-wrapper (팝업: pop-content-wrapper, EXB-POP active, 앱 헤더 hi
 
 | 방법 | 절차 |
 |---|---|
-| 개발 서버(Tomcat 불필요) | `tools\dev.cmd` → ① `SyncCatalog`(카탈로그 갱신·변경 보고) ② `BuildOnce`(빌드+테마) ③ `DevServer` → http://127.0.0.1:8090/ (+ 공유 릴레이 ws://127.0.0.1:8091) |
+| 개발 서버(Tomcat 불필요) | `tools\dev.cmd`(Windows) / `tools/dev.sh`(macOS·Linux) → ① `SyncCatalog`(카탈로그 갱신·변경 보고) ② `BuildOnce`(빌드+테마) ③ `DevServer` → http://127.0.0.1:8090/ (+ 공유 릴레이 ws://127.0.0.1:8091) |
 | eXBuilder6 스튜디오/Tomcat | 프로젝트 빌드 후 `…/eX-Canvas/ui/canvas/Prototyper.clx` (공유는 같은 서버의 `/ws/crdt-sync.do`) |
 
 `BuildOnce` 는 `e6-compiler` 를 `--exclude theme/**` 로 돌리고 eXCFrame 테마는 이클립스 산출물(`clx-build/theme`)에서 가져온다.

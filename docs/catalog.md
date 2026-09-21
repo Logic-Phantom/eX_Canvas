@@ -1,15 +1,15 @@
 # eX-Canvas 카탈로그
 
 `tools/SyncCatalog.java` 가 만드는 목록입니다(손으로 고치면 다음 실행에 지워집니다).
-갱신 : `java tools\SyncCatalog.java` · `tools\dev.cmd` 는 빌드 전에 자동으로 돌립니다.
+갱신 : `java tools/SyncCatalog.java` · `tools\dev.cmd`(Windows) / `tools/dev.sh`(macOS/Linux) 는 빌드 전에 자동으로 돌립니다.
 
 | 항목 | 개수 | 원본 |
 |---|---|---|
-| UI 템플릿 | 116 | `C:\eclipse_AI\workspace\eX-Canvas\.settings\canned-templates.xmi` |
+| UI 템플릿 | 116 | `/Users/lim/Desktop/eclipse/eX_Canvas/.settings/canned-templates.xmi` |
 | UDC | 4 | `clx-src/udc/**` |
 | 화면 템플릿 | 77 | `templates/**` |
 
-마지막 갱신 : 2026-09-20 18:22
+마지막 갱신 : 2026-09-22 08:16
 
 ## UI 템플릿 (팔레트 "UI 템플릿" 묶음)
 
@@ -225,6 +225,12 @@
 ## 화면 템플릿
 
 - Inner Pattern_P0-1 — `templates/P0_Inner Pattern/Inner Pattern_P0-1.clx`
+- Single Pattern P1-1 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-1.clx`
+- Single Pattern P1-2 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-2.clx`
+- Single Pattern P1-3 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-3.clx`
+- Single Pattern P1-4 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-4.clx`
+- Single Pattern P1-5 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-5.clx`
+- Single Pattern P1-6 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-6.clx`
 - Single Pattern P1-1_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-1_P.clx`
 - Single Pattern P1-2_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-2_P.clx`
 - Single Pattern P1-3_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-3_P.clx`
@@ -233,12 +239,12 @@
 - Single Pattern P1-6_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-6_P.clx`
 - Single Pattern P1-7_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-7_P.clx`
 - Single Pattern P1-8_P — `templates/P1_Single Pattern/버티컬/popup/Single Pattern P1-8_P.clx`
-- Single Pattern P1-1 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-1.clx`
-- Single Pattern P1-2 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-2.clx`
-- Single Pattern P1-3 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-3.clx`
-- Single Pattern P1-4 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-4.clx`
-- Single Pattern P1-5 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-5.clx`
-- Single Pattern P1-6 — `templates/P1_Single Pattern/버티컬/Single Pattern P1-6.clx`
+- Single Pattern P1-1 — `templates/P1_Single Pattern/폼/Single Pattern P1-1.clx`
+- Single Pattern P1-2 — `templates/P1_Single Pattern/폼/Single Pattern P1-2.clx`
+- Single Pattern P1-3 — `templates/P1_Single Pattern/폼/Single Pattern P1-3.clx`
+- Single Pattern P1-4 — `templates/P1_Single Pattern/폼/Single Pattern P1-4.clx`
+- Single Pattern P1-5 — `templates/P1_Single Pattern/폼/Single Pattern P1-5.clx`
+- Single Pattern P1-6 — `templates/P1_Single Pattern/폼/Single Pattern P1-6.clx`
 - Single Pattern P1-1_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-1_P.clx`
 - Single Pattern P1-2_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-2_P.clx`
 - Single Pattern P1-3_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-3_P.clx`
@@ -247,12 +253,6 @@
 - Single Pattern P1-6_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-6_P.clx`
 - Single Pattern P1-7_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-7_P.clx`
 - Single Pattern P1-8_P — `templates/P1_Single Pattern/폼/popup/Single Pattern P1-8_P.clx`
-- Single Pattern P1-1 — `templates/P1_Single Pattern/폼/Single Pattern P1-1.clx`
-- Single Pattern P1-2 — `templates/P1_Single Pattern/폼/Single Pattern P1-2.clx`
-- Single Pattern P1-3 — `templates/P1_Single Pattern/폼/Single Pattern P1-3.clx`
-- Single Pattern P1-4 — `templates/P1_Single Pattern/폼/Single Pattern P1-4.clx`
-- Single Pattern P1-5 — `templates/P1_Single Pattern/폼/Single Pattern P1-5.clx`
-- Single Pattern P1-6 — `templates/P1_Single Pattern/폼/Single Pattern P1-6.clx`
 - Multi Pattern P2-1 — `templates/P2_Multi Pattern/Multi Pattern P2-1.clx`
 - Multi Pattern P2-2 — `templates/P2_Multi Pattern/Multi Pattern P2-2.clx`
 - Multi Pattern P2-3 — `templates/P2_Multi Pattern/Multi Pattern P2-3.clx`
@@ -281,23 +281,23 @@
 - Master Detail Pattern P4-4_P — `templates/P4_Master Detail Pattern/popup/Master Detail Pattern P4-4_P.clx`
 - Master Detail Pattern P4-5_P — `templates/P4_Master Detail Pattern/popup/Master Detail Pattern P4-5_P.clx`
 - Master Detail Pattern P4-6_P — `templates/P4_Master Detail Pattern/popup/Master Detail Pattern P4-6_P.clx`
-- Tab Pattern P5-1_P — `templates/P5_Tab Pattern/popup/Tab Pattern P5-1_P.clx`
-- Tab Pattern P5-2_P — `templates/P5_Tab Pattern/popup/Tab Pattern P5-2_P.clx`
 - Tab Pattern P5-1 — `templates/P5_Tab Pattern/Tab Pattern P5-1.clx`
 - Tab Pattern P5-2 — `templates/P5_Tab Pattern/Tab Pattern P5-2.clx`
-- Tree Pattern P6-1_P — `templates/P6_Tree Pattern/popup/Tree Pattern P6-1_P.clx`
+- Tab Pattern P5-1_P — `templates/P5_Tab Pattern/popup/Tab Pattern P5-1_P.clx`
+- Tab Pattern P5-2_P — `templates/P5_Tab Pattern/popup/Tab Pattern P5-2_P.clx`
 - Tree Pattern P6-1 — `templates/P6_Tree Pattern/Tree Pattern P6-1.clx`
 - Tree Pattern P6-2 — `templates/P6_Tree Pattern/Tree Pattern P6-2.clx`
 - Tree Pattern P6-3 — `templates/P6_Tree Pattern/Tree Pattern P6-3.clx`
-- Shuttle Pattern P7-1_P — `templates/P7_Shuttle Pattern/popup/Shuttle Pattern P7-1_P.clx`
+- Tree Pattern P6-1_P — `templates/P6_Tree Pattern/popup/Tree Pattern P6-1_P.clx`
 - Shuttle Pattern P7-1 — `templates/P7_Shuttle Pattern/Shuttle Pattern P7-1.clx`
 - Shuttle Pattern P7-2 — `templates/P7_Shuttle Pattern/Shuttle Pattern P7-2.clx`
 - Shuttle Pattern P7-3 — `templates/P7_Shuttle Pattern/Shuttle Pattern P7-3.clx`
-- Thirdparty Pattern P8-1_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-1_P.clx`
-- Thirdparty Pattern P8-2_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-2_P.clx`
-- Thirdparty Pattern P8-3_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-3_P.clx`
-- Thirdparty Pattern P8-4_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-4_P.clx`
+- Shuttle Pattern P7-1_P — `templates/P7_Shuttle Pattern/popup/Shuttle Pattern P7-1_P.clx`
 - Thirdparty Pattern P8-1 — `templates/P8_Thirdparty Pattern/Thirdparty Pattern P8-1.clx`
 - Thirdparty Pattern P8-2 — `templates/P8_Thirdparty Pattern/Thirdparty Pattern P8-2.clx`
 - Thirdparty Pattern P8-3 — `templates/P8_Thirdparty Pattern/Thirdparty Pattern P8-3.clx`
 - Thirdparty Pattern P8-4 — `templates/P8_Thirdparty Pattern/Thirdparty Pattern P8-4.clx`
+- Thirdparty Pattern P8-1_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-1_P.clx`
+- Thirdparty Pattern P8-2_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-2_P.clx`
+- Thirdparty Pattern P8-3_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-3_P.clx`
+- Thirdparty Pattern P8-4_P — `templates/P8_Thirdparty Pattern/popup/Thirdparty Pattern P8-4_P.clx`

@@ -97,7 +97,7 @@ public class SyncCatalog {
 			diff.added.forEach(s -> System.out.println("  + " + s));
 			diff.removed.forEach(s -> System.out.println("  - " + s));
 			diff.changed.forEach(s -> System.out.println("  ~ " + s));
-			System.out.println("빌드를 다시 하면 팔레트에 반영됩니다 : tools\\dev.cmd");
+			System.out.println("빌드를 다시 하면 팔레트에 반영됩니다 : tools\\dev.cmd (Windows) · tools/dev.sh (macOS/Linux)");
 		}
 	}
 
@@ -576,7 +576,7 @@ public class SyncCatalog {
 		sb.append(" * uiTemplateCatalog.module.js\n");
 		sb.append(" *\n");
 		sb.append(" * !! 자동 생성 파일 - 손으로 고치지 말 것 !!\n");
-		sb.append(" * 만드는 도구 : tools/SyncCatalog.java  (실행 : java tools\\SyncCatalog.java)\n");
+		sb.append(" * 만드는 도구 : tools/SyncCatalog.java  (실행 : java tools/SyncCatalog.java)\n");
 		sb.append(" * 원본        : eXBuilder6 스튜디오 상용구(canned-templates.xmi)\n");
 		sb.append(" *\n");
 		sb.append(" * 항목 하나 = { uuid, name, group, label, desc, width, height, node }\n");
@@ -667,7 +667,7 @@ public class SyncCatalog {
 		StringBuilder sb = new StringBuilder();
 		sb.append("# eX-Canvas 카탈로그\n\n");
 		sb.append("`tools/SyncCatalog.java` 가 만드는 목록입니다(손으로 고치면 다음 실행에 지워집니다).\n");
-		sb.append("갱신 : `java tools\\SyncCatalog.java` · `tools\\dev.cmd` 는 빌드 전에 자동으로 돌립니다.\n\n");
+		sb.append("갱신 : `java tools/SyncCatalog.java` · `tools\\dev.cmd`(Windows) / `tools/dev.sh`(macOS/Linux) 는 빌드 전에 자동으로 돌립니다.\n\n");
 		sb.append("| 항목 | 개수 | 원본 |\n|---|---|---|\n");
 		sb.append("| UI 템플릿 | ").append(templates.size()).append(" | ").append(xmi == null ? "(없음)" : "`" + xmi + "`").append(" |\n");
 		sb.append("| UDC | ").append(udcs.size()).append(" | `clx-src/udc/**` |\n");

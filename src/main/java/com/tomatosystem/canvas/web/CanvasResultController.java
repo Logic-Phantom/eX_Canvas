@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  *   1. JVM 옵션 -Dexcanvas.src.dir=C:/eclipse_AI/workspace/eX-Canvas/clx-src (또는 환경 변수 EXCANVAS_SRC_DIR)
  *   2. 배포 폴더에서 위로 올라가며 clx-src 가 있는 프로젝트 폴더 찾기 (프로젝트 안에서 바로 서비스하는 경우)
  *   3. 이클립스 WTP 배포 경로(…/.metadata/…/wtpwebapps/<컨텍스트>)에서 워크스페이스를 거슬러 <컨텍스트>/clx-src
+ *      (프로젝트가 워크스페이스 밖에 있으면 .metadata/…/.projects/<컨텍스트>/.location 이 가리키는 폴더)
  *   4. 서버 실행 폴더(user.dir)에서 위로 올라가며 clx-src 찾기
  * 그래도 못 찾으면 503 을 돌려준다(화면은 지정한 폴더에 직접 쓰거나 브라우저 다운로드로 대체한다).
  *
@@ -192,10 +193,43 @@ public class CanvasResultController {
 			if (Files.isDirectory(candidate)) {
 				return candidate.toAbsolutePath().normalize();
 			}
+			// 프로젝트가 워크스페이스 밖에 있으면(Import 한 경우) .metadata 의 .location 파일이 실제 위치를 가리킨다.
+			candidate = importedProjectSrc(workspace, projectName.toString());
+			if (candidate != null) {
+				return candidate;
+			}
 			// 프로젝트 이름과 컨텍스트 이름이 다를 수 있다 → 워크스페이스에서 clx-src 를 가진 프로젝트가 하나면 그것.
 			return onlyProjectWithSrc(workspace);
 		}
 		return null;
+	}
+
+	/**
+	 * 워크스페이스 밖에 있는 프로젝트의 실제 폴더를 .metadata 에서 읽는다.
+	 * .metadata/.plugins/org.eclipse.core.resources/.projects/&lt;프로젝트&gt;/.location 안에 "URI//file:/…" 가 들어 있다.
+	 */
+	private static Path importedProjectSrc(Path workspace, String projectName) {
+		Path location = workspace.resolve(".metadata/.plugins/org.eclipse.core.resources/.projects").resolve(projectName).resolve(".location");
+		if (!Files.isRegularFile(location)) {
+			return null;
+		}
+		try {
+			String text = new String(Files.readAllBytes(location), StandardCharsets.ISO_8859_1);
+			int at = text.indexOf("URI//");
+			if (at < 0) {
+				return null;
+			}
+			int end = at + 5;
+			while (end < text.length() && text.charAt(end) >= 0x20) {
+				end++;
+			}
+			String uri = text.substring(at + 5, end);
+			Path project = Paths.get(new java.net.URI(uri));
+			Path candidate = project.resolve("clx-src");
+			return Files.isDirectory(candidate) ? candidate.toAbsolutePath().normalize() : null;
+		} catch (IOException | RuntimeException | java.net.URISyntaxException ex) {
+			return null;
+		}
 	}
 
 	private static Path onlyProjectWithSrc(Path workspace) {

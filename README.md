@@ -21,10 +21,11 @@ React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.
 
 ### Tomcat 없이 실행 (권장 · Java 11 이상)
 
-프로젝트 루트에서:
+프로젝트 루트에서 — Windows 와 macOS/Linux 는 실행 스크립트만 다릅니다(하는 일은 같습니다).
 
 ```bash
-tools\dev.cmd
+tools\dev.cmd        # Windows (cmd · PowerShell)
+sh tools/dev.sh      # macOS · Linux
 ```
 
 ① 카탈로그 갱신(`SyncCatalog`) → ② 빌드(`BuildOnce` → `e6-compiler.jar`) → ③ 개발 서버가 뜹니다 → 브라우저에서 **http://127.0.0.1:8090/**
@@ -32,18 +33,35 @@ tools\dev.cmd
 
 | 하고 싶은 것 | 방법 |
 |---|---|
-| Gemini 를 서버 프록시로 쓰기 | 실행 전에 `set GEMINI_API_KEY=발급받은키` (브라우저에 키를 두지 않는 경로) |
-| 상용구 파일 위치 지정 | 실행 전에 `set EXCANVAS_CANNED_XMI=…\.settings\canned-templates.xmi` |
-| 카탈로그만 갱신(변경점 보기) | `java -Dfile.encoding=UTF-8 tools\SyncCatalog.java` |
-| 빌드만 하기 | `java -Dfile.encoding=UTF-8 tools\BuildOnce.java target\clx-dev canvas/Prototyper` |
-| 서버만 띄우기 | `java tools\DevServer.java target\clx-dev 8090` |
-| 공유 릴레이 포트 바꾸기 / 끄기 | `java -Dexcanvas.collab.port=9001 …` / `-Dexcanvas.collab.port=0` |
+| Gemini 를 서버 프록시로 쓰기 | 실행 전에 `set GEMINI_API_KEY=발급받은키` (Windows) / `export GEMINI_API_KEY=발급받은키` (macOS) — 브라우저에 키를 두지 않는 경로 |
+| 상용구 파일 위치 지정 | 실행 전에 `set EXCANVAS_CANNED_XMI=…\.settings\canned-templates.xmi` / `export EXCANVAS_CANNED_XMI=…/.settings/canned-templates.xmi` (이 프로젝트 `.settings` 에 사본이 있어 보통 필요 없음) |
+| 카탈로그만 갱신(변경점 보기) | `java -Dfile.encoding=UTF-8 tools/SyncCatalog.java` |
+| 빌드만 하기 | `java -Dfile.encoding=UTF-8 tools/BuildOnce.java target/clx-dev canvas/Prototyper` |
+| 서버만 띄우기 | `java tools/DevServer.java target/clx-dev 8090` |
+| 공유 릴레이 포트 바꾸기 / 끄기 | `java -Dexcanvas.collab.port=9001 …` / `-Dexcanvas.collab.port=0` (macOS 스크립트는 `export EXCANVAS_JAVA_OPTS="-D…"` 로도 전달) |
+
+> Java 도구 세 개(`SyncCatalog` · `BuildOnce` · `DevServer`)와 `e6-compiler.jar` 는 OS 를 가리지 않습니다(`java.nio.file.Path` 만 사용). 경로 구분자는 Windows 에서 `\` 대신 `/` 를 써도 됩니다.
+
+#### 개발 환경 (Windows ↔ macOS)
+
+| 항목 | Windows(노트북) | macOS |
+|---|---|---|
+| JDK | 11 이상 | Oracle JDK 11 (`/Library/Java/JavaVirtualMachines/jdk-11.jdk`) — `~/.zshrc` 에 `JAVA_HOME` 설정 |
+| 이클립스 + eXBuilder6 플러그인 | `C:/eclipse_AI` | `/Applications/Eclipse.app` (2026-09 · eXBuilder 플러그인 6190 · 내장 JRE 25) · 워크스페이스 `~/Desktop/eclipse/workspace` |
+| Tomcat 9 | 이클립스 서버 | `~/Desktop/eclipse/apache-tomcat-9.0.122` (이클립스 "Apache Tomcat v9.0" 런타임으로 등록됨) |
+| 프로젝트 위치 | `C:/eclipse_AI/workspace/eX-Canvas` | `~/Desktop/eclipse/eX_Canvas` (워크스페이스 밖 · 이클립스에 import 되어 있음) |
+
+macOS 에서 처음 쓸 때 한 번만:
+
+- Tomcat 을 터미널에서 직접 띄우려면 zip 을 풀면서 실행 권한이 빠지므로 `chmod +x ~/Desktop/eclipse/apache-tomcat-9.0.122/bin/*.sh` (이클립스에서 띄울 때는 불필요).
+- 이클립스에서 `clx-build`(사내 테마 산출물)가 없으면 프로젝트를 한 번 빌드합니다(`BuildOnce` 가 여기서 테마를 가져옵니다). 저장소에 이미 들어 있어 보통 그대로 됩니다.
+- 파일은 모두 UTF-8 · LF 이고 `core.autocrlf` 는 쓰지 않습니다. Windows 쪽 git 도 같은 설정이면 줄 끝 차이로 인한 diff 가 생기지 않습니다.
 | 다른 PC 와 공유하기(사내망 실습) | 릴레이를 `-Dexcanvas.collab.host=0.0.0.0` 로 열고, 상대는 **자기 PC 에서 화면을 띄운 뒤** 속성창 **서버** 칸에 `ws://<내 IP>:8091/ws/crdt-sync.do` 를 넣습니다. (개발 서버의 HTTP 는 127.0.0.1 전용이라 화면 자체는 각자 띄웁니다. 한 번에 여럿이 쓰려면 Tomcat 배포가 낫습니다) |
 
 ### eXBuilder6 스튜디오 / Tomcat 에서 실행
 
 프로젝트를 빌드·배포한 뒤 `…/eX-Canvas/ui/canvas/Prototyper.clx` 를 엽니다.
-`result` 저장은 서버가 배포 경로에서 `clx-src` 를 스스로 찾습니다. 못 찾으면(다른 워크스페이스 등) Tomcat JVM 옵션에 `-Dexcanvas.src.dir=C:/eclipse_AI/workspace/eX-Canvas/clx-src` 를 추가하세요.
+`result` 저장은 서버가 배포 경로에서 `clx-src` 를 스스로 찾습니다. 못 찾으면(다른 워크스페이스 등) Tomcat JVM 옵션에 `-Dexcanvas.src.dir=C:/eclipse_AI/workspace/eX-Canvas/clx-src`(Windows) / `-Dexcanvas.src.dir=/Users/<나>/Desktop/eclipse/eX_Canvas/clx-src`(macOS) 를 추가하세요.
 저장 서버가 아예 없는 환경(스튜디오 내장 미리보기 등)에서는 속성창 맨 아래 **[폴더 지정]** 으로 `clx-src/result` 를 한 번 고르면 브라우저가 그 아래 날짜 폴더에 직접 씁니다. 화면 오른쪽 **저장 위치 (result)** 칸이 지금 어디에 저장되는지 알려 줍니다.
 
 ### 사용 순서
@@ -152,7 +170,7 @@ eX-Canvas/
 │  ├ CanvasResultController.java     ← /canvas/saveResult.do (Tomcat 용 result 저장 · GET 은 가능 여부 확인)
 │  └ CrdtRelayEndpoint.java          ← /ws/crdt-sync.do      (Tomcat 용 공유 릴레이 · javax.websocket)
 ├ tools/
-│  ├ dev.cmd                         ← 카탈로그 갱신 + 빌드 + 개발 서버 실행
+│  ├ dev.cmd · dev.sh                ← 카탈로그 갱신 + 빌드 + 개발 서버 실행 (Windows · macOS/Linux)
 │  ├ SyncCatalog.java                ← 상용구 XMI·UDC·화면 템플릿 훑기 → 카탈로그 모듈 · docs/catalog.md · 변경 보고
 │  ├ catalog-index.txt               ← 자동 생성: 변경 감지용 지문(항목별 해시)
 │  ├ BuildOnce.java                  ← e6-compiler 실행 + eXCFrame 테마(clx-build/theme) 반영
@@ -275,7 +293,7 @@ body.content-wrapper                       (팝업: pop-content-wrapper)
 | 3 | 브라우저 다운로드 | 위 둘 다 안 될 때 | 브라우저 기본 다운로드 폴더 |
 
 - **저장 서버** — 본문은 `clx + "\n=====eX-Canvas-JS=====\n" + js`, `X-Requested-With: eX-Canvas` 헤더가 없으면 403.
-  소스 경로(`clx-src`)는 ① `-Dexcanvas.src.dir` / `EXCANVAS_SRC_DIR` ② 배포 폴더에서 위로 올라가며 탐색 ③ 이클립스 WTP 배포 경로 → 워크스페이스의 같은 이름 프로젝트 ④ 서버 실행 폴더 순으로 찾습니다. DevServer 는 실행 폴더·빌드 폴더에서 거슬러 찾으므로 어느 폴더에서 실행해도 됩니다(시작 로그에 저장 경로를 찍습니다).
+  소스 경로(`clx-src`)는 ① `-Dexcanvas.src.dir` / `EXCANVAS_SRC_DIR` ② 배포 폴더에서 위로 올라가며 탐색 ③ 이클립스 WTP 배포 경로 → 워크스페이스의 같은 이름 프로젝트(워크스페이스 밖에 있는 프로젝트는 `.metadata` 의 `.location` 으로 실제 위치를 찾음) ④ 서버 실행 폴더 순으로 찾습니다. DevServer 는 실행 폴더·빌드 폴더에서 거슬러 찾으므로 어느 폴더에서 실행해도 됩니다(시작 로그에 저장 경로를 찍습니다).
 - **저장 폴더** — 고른 폴더는 IndexedDB 에 남아 다음 실행에도 이어집니다(권한만 저장할 때 다시 확인). 폴더 선택·권한 창은 브라우저가 클릭 안에서만 열어 주므로 CLX 를 만들기 **전에** 먼저 확보합니다.
 - 현재 어디에 저장되는지는 속성창 **저장 위치 (result)** 칸에 나옵니다.
 
@@ -299,7 +317,7 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 
 ### 4.8 카탈로그 동기화와 변경 감지
 
-`tools\dev.cmd` 가 빌드 전에 `SyncCatalog` 를 돌립니다(수동: `java -Dfile.encoding=UTF-8 tools\SyncCatalog.java`).
+`tools\dev.cmd` / `tools/dev.sh` 가 빌드 전에 `SyncCatalog` 를 돌립니다(수동: `java -Dfile.encoding=UTF-8 tools/SyncCatalog.java`).
 
 | 보는 곳 | 무엇을 |
 |---|---|
@@ -408,7 +426,7 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 |---|---|
 | 팔레트에 컨트롤 추가 | `controlRegistry.module.js` 의 `TYPES` 에 1항목 + `CATEGORIES` 에 유형 키 + `clxSerializer.module.js` 의 `TAG_INFO` 에 1줄(고유 속성이 있으면 `controlEl` 의 `switch`) |
 | UDC 추가 | `clx-src/udc/**` 에 UDC 를 만들고 빌드 — 코드 수정 없음 |
-| **UI 템플릿 추가** | 스튜디오에서 상용구를 만들고 `tools\dev.cmd`(또는 `SyncCatalog`) 실행 — 코드 수정 없음 |
+| **UI 템플릿 추가** | 스튜디오에서 상용구를 만들고 `tools\dev.cmd` / `tools/dev.sh`(또는 `SyncCatalog`) 실행 — 코드 수정 없음 |
 | UI 템플릿 컨트롤 유형 추가 | `templateBuilder.module.js` 의 `FACTORY` 에 1줄(캔버스 미리보기용). CLX 출력은 `TAG_INFO` 를 따른다 |
 | 템플릿 패턴 추가 | `templatePlanner.module.js` 의 `CATALOG` + `decidePattern()` + `skeleton()` 의 `switch` |
 | 뼈대(클래스·행 높이·스크린) 변경 | `clxSerializer.module.js` (`headEl` · `searchHeaderEl` · `sectionEl` · `footerEl`) |
@@ -452,7 +470,8 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 9. 툴바가 길어 창 폭이 1500px 보다 좁으면 상태 메시지 칸이 좁아집니다(전체 내용은 툴팁).
 10. **공유는 개발·협업 도구입니다.** 인증이 없어 같은 방 이름을 아는 사람은 누구나 들어옵니다. 릴레이 기본 바인딩은 `127.0.0.1` 이며, 사내망에 열 때만 `-Dexcanvas.collab.host` 를 쓰세요. 운영 서버에는 배포하지 않습니다.
 11. **공유 서버는 캔버스를 저장하지 않습니다.** 방에 아무도 없으면 내용이 사라집니다 — 결과는 평소대로 **[result 저장]** 으로 남기세요.
-12. Tomcat 배포에서 공유를 쓰려면 **JSR-356(javax.websocket)을 지원하는 컨테이너**가 필요합니다(Tomcat 8/9 확인 대상). Tomcat 10+ 는 `CrdtRelayEndpoint` 의 `javax.websocket` → `jakarta.websocket` 으로 바꿔야 합니다. **이 PC 에서는 Tomcat 을 띄우지 못해 개발 서버 릴레이로만 확인했습니다.**
+12. Tomcat 배포에서 공유를 쓰려면 **JSR-356(javax.websocket)을 지원하는 컨테이너**가 필요합니다. Tomcat 10+ 는 `CrdtRelayEndpoint` 의 `javax.websocket` → `jakarta.websocket` 으로 바꿔야 합니다. **Tomcat 9.0.122(macOS · 이클립스 배포)에서 탭 2개로 항목·커서 동기화를 확인했습니다**(2026-09-22). Safari 18 도 라이브러리 로드·웹소켓 접속이 됩니다.
+    **같이 고치려면 두 사람이 같은 서버에 붙어야 합니다** — 한쪽은 개발 서버(`:8090`, 릴레이 `:8091`), 다른 쪽은 Tomcat(`:8080`) 이면 방 이름이 같아도 서로 보이지 않습니다(속성창 **서버** 칸의 주소가 같은지 보세요). 이클립스 Tomcat 은 파일이 바뀌면 자동 재배포(context reload)되어 접속이 모두 끊깁니다 — 3번 재시도 뒤 체크가 꺼지므로 다시 켜야 합니다.
 13. 공유 중에 두 사람이 **동시에 같은 유형을 추가하면** 둘 다 `btn1` 같은 같은 `id` 를 가질 수 있습니다(모두의 화면에 똑같이 보입니다). 내보낼 때 직렬화기가 번호를 붙여 유일하게 만들지만, 원하는 이름이면 속성창에서 고치세요.
 14. 화면명·팝업·변환 방식 같은 **툴바 설정은 공유하지 않습니다**(각자 값). 공유되는 것은 캔버스 항목뿐입니다.
 15. CRDT 라이브러리를 인터넷(esm.sh)에서 받습니다. 막힌 망에서는 [5](#5-확장하는-법) 의 주소 설정으로 사본을 쓰세요.

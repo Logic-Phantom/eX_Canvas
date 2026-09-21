@@ -90,7 +90,7 @@ public class DevServer {
 		server.start();
 		System.out.println("eX-Canvas dev server : http://127.0.0.1:" + port + "/  (build: " + buildDir + ")");
 		System.out.println("Gemini proxy        : " + (System.getenv("GEMINI_API_KEY") == null ? "OFF (GEMINI_API_KEY 미설정)" : "ON"));
-		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result") + "\\<yyyyMMdd>"));
+		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result").resolve("<yyyyMMdd>")));
 		System.out.println("공유 릴레이         : " + (collab == null ? "OFF" : "ws://" + collab.host + ":" + collab.port + CollabRelay.WS_PATH));
 	}
 
