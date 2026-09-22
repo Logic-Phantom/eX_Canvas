@@ -20,13 +20,15 @@ body(.pt-root)  formlayout  rows 46px / 1fr / 190px   cols 190px / 1fr / 300px
 
 - **래퍼 구조의 이유**: 실제 `cpr.controls.*` 를 그대로 두면 디자인 중에 콤보가 열리고 인풋에 포커스가 간다.
   투명 덮개(Output)가 클릭(선택)·드래그(이동)를 받고, 실제 컨트롤은 표시만 한다. 컨트롤 내부 DOM 은 건드리지 않는다.
-- 메타 정보는 래퍼의 사용자 속성(`pt-type` · `pt-id` · `pt-text`), 위치·크기는 캔버스의 XY 제약이 단일 원본이다.
+- 메타 정보는 래퍼의 사용자 속성(`pt-type` · `pt-id` · `pt-text` · `pt-style`), 위치·크기는 캔버스의 XY 제약이 단일 원본이다.
+  `pt-style` 은 버튼의 스타일 계열(`primary` | `secondary` | 빈 값=자동). 캔버스에서는 `pt-style-*` 클래스로 보이고, 내보낼 때 `templatePlanner.buttonClass(text, place, style)` 이 자리별 템플릿 클래스로 바꾼다.
 - `pt-type` 은 유형 키 그대로다 — 기본 컨트롤 `output`, UDC `udc:<정규 이름>`, UI 템플릿 `uitpl:<uuid>`.
 
 ## 2. 데이터 흐름
 
 ```
 [미리 배치] templatePlanner.skeleton(패턴, 캔버스크기) ──▶ 캔버스에 뼈대 컨트롤을 바로 깐다
+[이미지 드롭/붙여넣기] imagePlanner.readImage → analyze(Gemini 비전) → toCanvasItems ──▶ 캔버스에 바로 깐다 + 패턴 콤보 = AI 선택
 팔레트 ──DragSource(dataType=pt-palette)──▶ canvasGroup(DropTarget.onDrop)
                                                │ new cpr.controls.Xxx() / new udc.com.Xxx() / templateBuilder.build(UI 템플릿)
                                                │   → wrapper.addChild → canvas.addChild(wrapper,{top,left,width,height})
@@ -54,7 +56,8 @@ body(.pt-root)  formlayout  rows 46px / 1fr / 190px   cols 190px / 1fr / 300px
 | `controlRegistry` | 유형 표: 런타임 생성 함수 · CLX 태그/`std:sid` 접두 · ID 접두 · 기본 크기 · 역할(label/input/button/data). 유형 추가 = 여기 1항목 + `clxSerializer.TAG_INFO` 1줄. UDC(`udc:`)와 UI 템플릿(`uitpl:`)은 런타임에 붙인다 |
 | `canvasAst` | 캔버스 → JSON AST |
 | `templatePlanner` | 템플릿 카탈로그, 좌표 규칙 기반 계획, 계획 해석(검증·정규화), 패턴 뼈대 `skeleton()` |
-| `geminiPlanner` | Gemini `generateContent` 호출(응답 스키마 강제) → raw plan |
+| `geminiPlanner` | Gemini `generateContent` 호출(응답 스키마 강제) → raw plan. `request()` 는 direct/proxy 호출 공용(이미지 분석도 쓴다) |
+| `imagePlanner` | 이미지 → 캔버스 항목. `analyzeFile()`(경로 결정) · `analyzeUpload()`(multipart 로 서버에) · `probeServer()`(`imageStatus.do`) · `readImage()`/`analyze()`(브라우저 직접) · `normalize()` · `toCanvasItems()`(가로 비례 · 세로 줄 단위 재측정) |
 | `clxSerializer` | XML 빌더, `std:sid` 유일성, XY/템플릿 두 가지 직렬화 + UI 템플릿 트리(`catalogNodeEl`) |
 | `fileDownload` | Blob 다운로드 · 저장 서버 요청(`probeServer`/`saveToProject`) · 지정 폴더에 직접 쓰기(`saveToDirectory`) |
 | `templateBuilder` | UI 템플릿 카탈로그 노드 → 실제 `cpr.controls.*` 트리(캔버스 미리보기) |
@@ -159,6 +162,18 @@ CLI 컴파일러가 `theme/custom-theme.less` 에서 끝나지 않기 때문이�
 - **변경 감지**는 항목별 지문(`tools/catalog-index.txt`)을 비교한다. 이름뿐 아니라 컨트롤 트리·클래스·레이아웃이 바뀐 것도 "수정"으로 잡는다.
 - **패턴 뼈대**(`templatePlanner.skeleton()`)는 캔버스 크기를 받아 사방 20px 여백만 남기고 폭·높이를 나눠 쓴다. 좌표는 `planByRule()` 이 같은 패턴으로 되읽도록 맞춰 두었다.
 
+## 9-1. 이미지로 배치 (Gemini 비전)
+
+사용법은 [README](../README.md) 4.12 에 있다. 설계상의 요점만 적는다.
+
+- **AI 의 몫은 "요소 목록"까지** — `{ type, text, box[ymin,xmin,ymax,xmax] 0~1000, style, required }` 와 `pattern`(가장 비슷한 템플릿). 조회 조건·구획·하단 버튼의 해석은 손으로 그린 캔버스와 똑같이 `planByRule()` 이 좌표로 한다. 그래서 이미지에서 온 캔버스도 같은 길·같은 품질로 CLX 가 된다.
+- **좌표 변환은 단조(monotone)** — 가로는 캔버스 폭 비례. 세로는 요소의 위·아래 경계로 이미지를 띠로 자르고, 한 줄짜리 컨트롤이 지나는 띠는 "줄 높이 24px" 배율, 큰 영역·빈 띠는 "남는 높이를 채우는" 배율로 늘이거나 줄인다. 순서와 겹침이 유지되므로 규칙 기반 변환의 줄 묶기(`clusterRows`)·위/아래 판정이 이미지 그대로 나온다. (풀 HD 캡처를 900px 캔버스에 그냥 비례 축소하면 입력 줄이 12px 이 되어 줄이 뭉개지는 문제를 피한다.)
+- **스타일은 계열만** — 버튼 primary/secondary 를 `pt-style` 에 두고 실제 클래스는 자리(조회 줄 · 제목 줄 · 하단 좌/우)의 템플릿 관례를 따른다. 필수 표시는 라벨 끝 `*`. 인라인 스타일은 만들지 않는다.
+- **입구** — HTML5 파일 드롭(`document` 의 dragover/drop, 캔버스 사각형 안일 때만 받는다 · 밖에 놓으면 브라우저 이동을 막기만 한다) · `paste`(입력 요소에 포커스가 없을 때) · 숨은 `<input type=file>`. 팔레트의 `cpr.controls.DragSource/DropTarget` 과는 별개다.
+- **두 경로, 같은 계획 모양** — 기본은 **서버 업로드**(eXConverter-AI 의 `GeminiConversionController` 방식) : 브라우저가 원본 파일을 multipart 로 `/canvas/analyzeImage.do` 에 올리고, 서버 `CanvasImageAnalyzer`(JDK + org.json, 스프링 의존 없음)가 키 · ImageIO 축소(1536) · 호출 · 재시도 · 콘솔 로그를 맡는다. Tomcat 은 `CanvasImageController`(+ `multipartResolver`), 개발 서버는 같은 클래스를 리플렉션으로 부른다(`dev.sh` 가 컴파일해 `-cp` 로 올림 · 없으면 503). 직접 경로(브라우저 → Google)는 개인 테스트용으로 남겨 두었고, 두 경로가 돌려주는 `plan` 은 같은 모양이라 `normalize()`/`toCanvasItems()` 가 공통이다.
+- **서버 분석기의 방어** — 전송 실패(429/5xx/연결)는 같은 요청 + 지수 백오프(`retryDelay` 우선), 비정상 출력(MAX_TOKENS · JSON 아님 · `maxResponseChars` 초과)은 온도 0→0.4→0.8 로 재생성, 2.5 계열이 `thinkingLevel` 을 거부하면 `thinkingConfig` 없이 재요청. `responseSchema` 는 기본 OFF(eXConverter-AI 실측 : 스키마가 붙으면 3.5-flash 가 반복 생성으로 붕괴). 카탈로그 · 유형 목록은 브라우저가 폼 필드로 보내 서버에 사본을 두지 않는다.
+- **전송량** — 서버 경로는 원본 파일(20MB 상한)이 서버까지만 가고 서버가 줄여 보낸다. 직접 경로는 브라우저에서 긴 변 1600px 로 줄이고 PNG(크면 JPEG 0.9)로 보낸다(Tomcat 프록시 본문 상한 8MB).
+
 ## 10. 공유 (CRDT 실시간 협업)
 
 사용법과 전체 그림은 [README](../README.md) 4.11 에 있다. 설계상의 요점만 적는다.
@@ -172,7 +187,7 @@ CRDT 는 **순서를 맞추지 않고도 같은 결과로 수렴**하므로 서�
 
 ```
 Y.Doc
- └ items : Y.Map< uid, Y.Map{ uid, type, id, text, x, y, w, h } >
+ └ items : Y.Map< uid, Y.Map{ uid, type, id, text, x, y, w, h, style } >
 ```
 
 - **필드 단위 병합** — A 가 `x/y` 를, B 가 `text` 를 동시에 고쳐도 서로를 덮지 않는다. 같은 필드가 겹치면 나중 값(LWW).

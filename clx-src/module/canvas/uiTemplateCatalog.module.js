@@ -11,7 +11,7 @@
  *   props   : CLX 속성명 그대로. ld = 부모 레이아웃에 붙는 데이터.
  ************************************************/
 
-exports.GENERATED_AT = "2026-09-22 08:16";
+exports.GENERATED_AT = "2026-09-22 11:29";
 exports.SOURCE = "/Users/lim/Desktop/eclipse/eX_Canvas/.settings/canned-templates.xmi";
 
 /** 팔레트에서 쓰는 묶음 순서 */

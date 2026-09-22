@@ -83,6 +83,31 @@
 .cl-container.pt-canvas.pt-drop-active {
 	border-color: @pt-primary;
 }
+/* 이미지 파일을 캔버스 위로 끌고 있을 때 · Gemini 가 이미지를 분석하는 동안 */
+.cl-container.pt-canvas.pt-drop-image {
+	border: 2px dashed #17a2a2;
+	background-color: rgba(23, 162, 162, 0.06);
+}
+.cl-container.pt-canvas.pt-analyzing {
+	border: 2px dashed @pt-primary;
+	background-image: repeating-linear-gradient(45deg, rgba(47, 111, 237, 0.06) 0px, rgba(47, 111, 237, 0.06) 10px, transparent 10px, transparent 20px);
+	background-size: auto;
+	cursor: progress;
+}
+
+/* 스타일 계열(이미지 분석 · 속성창 Style) — 캔버스 미리보기용. 내보낼 때는 템플릿 클래스(btn-primary-01 …)로 바뀐다. */
+.cl-container.pt-item .cl-button.pt-style-primary {
+	background-color: @pt-primary;
+	background-image: none;
+	border-color: @pt-primary;
+	color: #ffffff;
+}
+.cl-container.pt-item .cl-button.pt-style-secondary {
+	background-color: #ffffff;
+	background-image: none;
+	border-color: #aab3c5;
+	color: @pt-text;
+}
 
 /* 캔버스에 놓인 항목(래퍼 그룹) */
 .cl-container.pt-item {

@@ -1,0 +1,19 @@
+{"pattern":"P3-2","reason":"왼쪽 그리드, 오른쪽 상세 폼","title":"부서 관리",
+"items":[
+{"type":"output","text":"부서 관리","box":[20,20,55,200]},
+{"type":"output","text":"부서명","box":[80,20,110,80]},
+{"type":"inputbox","text":"","box":[80,90,110,400]},
+{"type":"button","text":"조회","box":[80,860,110,925],"style":"primary"},
+{"type":"button","text":"초기화","box":[80,935,110,1000],"style":"secondary"},
+{"type":"output","text":"부서 목록","box":[150,20,180,150]},
+{"type":"grid","text":"부서코드,부서명,인원","box":[190,20,860,480]},
+{"type":"output","text":"부서 상세","box":[150,520,180,650]},
+{"type":"output","text":"부서코드","box":[200,520,230,600],"required":true},
+{"type":"inputbox","text":"","box":[200,610,230,1000]},
+{"type":"output","text":"부서명","box":[250,520,280,600]},
+{"type":"inputbox","text":"","box":[250,610,280,1000]},
+{"type":"output","text":"사용여부","box":[300,520,330,600]},
+{"type":"radiobutton","text":"사용,미사용","box":[300,610,330,900]},
+{"type":"button","text":"저장","box":[900,850,940,920],"style":"primary"},
+{"type":"button","text":"닫기","box":[900,930,940,1000],"style":"secondary"}
+]}

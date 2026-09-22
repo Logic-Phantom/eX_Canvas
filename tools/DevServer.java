@@ -82,6 +82,8 @@ public class DevServer {
 		server.createContext("/ai/gemini.do", DevServer::proxyGemini);
 		server.createContext("/canvas/saveResult.do", DevServer::saveResult);
 		server.createContext("/canvas/collabInfo.do", DevServer::collabInfo);
+		server.createContext("/canvas/analyzeImage.do", DevServer::analyzeImage);
+		server.createContext("/canvas/imageStatus.do", DevServer::imageStatus);
 		server.createContext("/runtime/", exchange -> serveFile(exchange, runtimeDir, exchange.getRequestURI().getPath().substring("/runtime/".length())));
 		server.createContext("/", exchange -> {
 			String path = exchange.getRequestURI().getPath();
@@ -90,6 +92,7 @@ public class DevServer {
 		server.start();
 		System.out.println("eX-Canvas dev server : http://127.0.0.1:" + port + "/  (build: " + buildDir + ")");
 		System.out.println("Gemini proxy        : " + (System.getenv("GEMINI_API_KEY") == null ? "OFF (GEMINI_API_KEY 미설정)" : "ON"));
+		System.out.println("이미지로 배치       : " + imageAnalyzerState());
 		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result").resolve("<yyyyMMdd>")));
 		System.out.println("공유 릴레이         : " + (collab == null ? "OFF" : "ws://" + collab.host + ":" + collab.port + CollabRelay.WS_PATH));
 	}
@@ -258,6 +261,173 @@ public class DevServer {
 			send(exchange, status, "application/json; charset=utf-8", in == null ? new byte[0] : readAll(in));
 		} finally {
 			exchange.close();
+		}
+	}
+
+	/* ================================================================ 이미지로 배치 (서버 분석)
+	 *
+	 * 브라우저가 이미지 파일을 multipart 로 올리면 서버가 Gemini 로 분석한다(eXConverter-AI 의 업로드 방식).
+	 * 분석기(com.tomatosystem.canvas.service.CanvasImageAnalyzer)는 Tomcat 컨트롤러와 같은 클래스를 쓰며,
+	 * 이 파일은 단일 소스 실행(java tools/DevServer.java)이라 클래스패스에 있을 때만 리플렉션으로 부른다.
+	 * dev.sh / dev.cmd 가 분석기를 target/canvas-classes 에 컴파일해 -cp 로 올린다. 없으면 503 으로 이유를 알린다.
+	 */
+	private static final String ANALYZER_CLASS = "com.tomatosystem.canvas.service.CanvasImageAnalyzer";
+
+	private static Class<?> analyzerClass() {
+		try {
+			return Class.forName(ANALYZER_CLASS);
+		} catch (ClassNotFoundException | NoClassDefFoundError e) {
+			return null;
+		}
+	}
+
+	private static String imageAnalyzerState() {
+		Class<?> analyzer = analyzerClass();
+		if (analyzer == null) {
+			return "OFF (분석기 클래스 없음 — tools/dev.sh 또는 dev.cmd 로 실행하면 컴파일해 올립니다)";
+		}
+		try {
+			boolean configured = (Boolean) analyzer.getMethod("isConfigured").invoke(null);
+			String model = (String) analyzer.getMethod("model").invoke(null);
+			return configured ? "ON (서버 분석 · " + model + ")" : "키 없음 (GEMINI_API_KEY 또는 -Dexcanvas.gemini.apiKey) — 브라우저 직접 호출만 가능";
+		} catch (Exception e) {
+			return "오류 : " + e.getMessage();
+		}
+	}
+
+	private static void imageStatus(HttpExchange exchange) throws IOException {
+		try {
+			Class<?> analyzer = analyzerClass();
+			if (analyzer == null) {
+				send(exchange, 503, "application/json; charset=utf-8", "{\"ok\":false,\"configured\":false,\"message\":\"분석기 클래스가 없습니다. tools/dev.sh 로 실행하세요.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			String json = (String) analyzer.getMethod("describeJson").invoke(null);
+			send(exchange, 200, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
+		} catch (Exception e) {
+			send(exchange, 500, "application/json; charset=utf-8", ("{\"ok\":false,\"message\":\"" + jsonText(e.getMessage()) + "\"}").getBytes(StandardCharsets.UTF_8));
+		} finally {
+			exchange.close();
+		}
+	}
+
+	private static void analyzeImage(HttpExchange exchange) throws IOException {
+		try {
+			if (!"POST".equals(exchange.getRequestMethod()) || !"eX-Canvas".equals(exchange.getRequestHeaders().getFirst("X-Requested-With"))) {
+				send(exchange, 403, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"forbidden\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			Class<?> analyzer = analyzerClass();
+			if (analyzer == null) {
+				send(exchange, 503, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"서버 분석기가 없습니다. tools/dev.sh(dev.cmd) 로 실행하거나 호출을 브라우저 직접 호출로 바꾸세요.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+			if (contentType == null || !contentType.toLowerCase().startsWith("multipart/form-data")) {
+				send(exchange, 400, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"multipart/form-data 로 이미지 파일을 올려야 합니다.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			Multipart form = Multipart.parse(contentType, readAll(exchange.getRequestBody()));
+			if (form.fileBytes == null || form.fileBytes.length == 0) {
+				send(exchange, 400, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"이미지 파일이 없습니다.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			try {
+				String json = (String) analyzer.getMethod("analyzeJson", byte[].class, String.class, String.class, String.class, String.class, String.class)
+						.invoke(null, form.fileBytes, form.fileName, form.field("memo"), form.field("pattern"), form.field("catalog"), form.field("types"));
+				send(exchange, 200, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
+			} catch (java.lang.reflect.InvocationTargetException e) {
+				Throwable cause = e.getCause() == null ? e : e.getCause();
+				int status = cause instanceof IllegalArgumentException ? 400 : (cause.getMessage() != null && cause.getMessage().contains("API 키가 없습니다") ? 503 : 500);
+				System.out.println("[이미지 배치] 분석 실패(" + status + ") : " + cause.getMessage());
+				send(exchange, status, "application/json; charset=utf-8", ("{\"ok\":false,\"message\":\"" + jsonText(cause.getMessage()) + "\"}").getBytes(StandardCharsets.UTF_8));
+			}
+		} catch (Exception e) {
+			send(exchange, 500, "application/json; charset=utf-8", ("{\"ok\":false,\"message\":\"" + jsonText(e.getMessage()) + "\"}").getBytes(StandardCharsets.UTF_8));
+		} finally {
+			exchange.close();
+		}
+	}
+
+	private static String jsonText(String value) {
+		return String.valueOf(value).replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
+	}
+
+	/** 아주 작은 multipart/form-data 해석기 : 첫 번째 파일 파트 + 문자열 필드. 서블릿 API 없이 쓴다. */
+	static final class Multipart {
+		byte[] fileBytes;
+		String fileName = "image";
+		final Map<String, String> fields = new HashMap<>();
+
+		String field(String name) {
+			return fields.get(name);
+		}
+
+		static Multipart parse(String contentType, byte[] body) {
+			Multipart result = new Multipart();
+			String boundary = null;
+			for (String piece : contentType.split(";")) {
+				String trimmed = piece.trim();
+				if (trimmed.toLowerCase().startsWith("boundary=")) {
+					boundary = trimmed.substring("boundary=".length()).trim();
+					if (boundary.startsWith("\"") && boundary.endsWith("\"") && boundary.length() >= 2) {
+						boundary = boundary.substring(1, boundary.length() - 1);
+					}
+				}
+			}
+			if (boundary == null) {
+				return result;
+			}
+			byte[] delimiter = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
+			int at = indexOf(body, delimiter, 0);
+			while (at >= 0) {
+				int partStart = at + delimiter.length;
+				if (partStart + 2 <= body.length && body[partStart] == '-' && body[partStart + 1] == '-') {
+					break; // 닫는 구분선
+				}
+				partStart += 2; // CRLF
+				int next = indexOf(body, delimiter, partStart);
+				if (next < 0) {
+					break;
+				}
+				int partEnd = next - 2; // 파트 끝의 CRLF 는 내용이 아니다.
+				int headerEnd = indexOf(body, "\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), partStart);
+				if (headerEnd >= 0 && headerEnd < partEnd) {
+					String headers = new String(body, partStart, headerEnd - partStart, StandardCharsets.UTF_8);
+					int contentStart = headerEnd + 4;
+					byte[] content = java.util.Arrays.copyOfRange(body, contentStart, Math.max(contentStart, partEnd));
+					String name = headerValue(headers, "name");
+					String fileName = headerValue(headers, "filename");
+					if (fileName != null) {
+						if (result.fileBytes == null) {
+							result.fileBytes = content;
+							result.fileName = fileName.isEmpty() ? "image" : fileName;
+						}
+					} else if (name != null) {
+						result.fields.put(name, new String(content, StandardCharsets.UTF_8));
+					}
+				}
+				at = next;
+			}
+			return result;
+		}
+
+		private static String headerValue(String headers, String key) {
+			java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)[;\\s]" + key + "=\"([^\"]*)\"").matcher(headers);
+			return m.find() ? m.group(1) : null;
+		}
+
+		private static int indexOf(byte[] haystack, byte[] needle, int from) {
+			outer:
+			for (int i = Math.max(0, from); i <= haystack.length - needle.length; i++) {
+				for (int j = 0; j < needle.length; j++) {
+					if (haystack[i + j] != needle[j]) {
+						continue outer;
+					}
+				}
+				return i;
+			}
+			return -1;
 		}
 	}
 

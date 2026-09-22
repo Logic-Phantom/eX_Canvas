@@ -21,6 +21,7 @@
 			 *
 			 * 모듈: module/canvas/controlRegistry · canvasAst · templatePlanner · geminiPlanner · clxSerializer · fileDownload
 			 *       module/canvas/collabSession · yjsLoader (공유 체크박스를 켰을 때만 쓴다)
+			 *       module/canvas/imagePlanner (이미지를 캔버스에 놓았을 때 — Gemini 비전으로 분석해 컨트롤을 배치한다)
 			 ************************************************/
 
 			var PALETTE_DATA_TYPE = "pt-palette";
@@ -59,6 +60,12 @@
 			var mbCursorBusy = false;
 			/** 공유를 켠 순간 내 캔버스에 있던 항목의 uid(공유본과 합칠지 정할 때 쓴다) */
 			var maPreShareUids = [];
+			/** 패턴 콤보를 코드가 바꾸는 동안(이미지 분석 결과 반영) selection-change 의 미리 배치를 막는다. */
+			var mbPatternSyncing = false;
+			/** 이미지를 분석하는 동안 true — 겹쳐 떨어뜨린 파일은 무시한다. */
+			var mbImageBusy = false;
+			/** [이미지 파일 선택…] 이 여는 숨은 파일 입력 */
+			var moImageFileInput = null;
 
 			function mod(psName) {
 				return cpr.core.Module.require("module/canvas/" + psName);
@@ -86,7 +93,9 @@
 				refreshPropertyPanel();
 				initSaveTarget();
 				initCollab();
-				setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요.");
+				initImageDrop();
+				initImageStatus();
+				setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요. 화면 이미지를 놓으면 분석해서 배치합니다.");
 			}
 
 			/* ================================================================ 팔레트 */
@@ -353,6 +362,7 @@
 				vcWrapper.userAttr(ATTR_UID, poOpt.uid || nextUid());
 				vcWrapper.userAttr(ast.ATTR_ID, poOpt.id || nextControlId(voDef.idPrefix));
 				vcWrapper.userAttr(ast.ATTR_TEXT, vsText);
+				vcWrapper.userAttr(ast.ATTR_STYLE, normalizeStyle(voDef, poOpt.style));
 
 				// ① 실제 eXBuilder6 컨트롤(UDC 포함). 만들다 실패하면 이름표 아웃풋으로 대신한다(배치·내보내기는 그대로 된다).
 				var vcControl;
@@ -363,6 +373,7 @@
 					vcControl = new cpr.controls.Output(vsRuntimeId + "_ctl");
 					vbGhost = true;
 				}
+				applyStyleClass(vcControl, vcWrapper.userAttr(ast.ATTR_STYLE));
 				vcWrapper.addChild(vcControl, fillConstraint());
 
 				// ② 덮개 : 클릭 = 선택, 드래그 = 이동
@@ -407,14 +418,41 @@
 			}
 
 			/**
+			 * 스타일 계열 값을 정리한다. 버튼만 primary | secondary 를 가질 수 있고 그 밖은 빈 값(자동)이다.
+			 * @return {String} "primary" | "secondary" | ""
+			 */
+			function normalizeStyle(poDef, psStyle) {
+				if (poDef == null || poDef.role != "button" || poDef.udcType || poDef.uiTemplate) {
+					return "";
+				}
+				return psStyle == "primary" || psStyle == "secondary" ? psStyle : "";
+			}
+
+			/**
+			 * 스타일 계열을 캔버스 미리보기 클래스(pt-style-*)로 보여 준다. 내보낼 때는 템플릿 클래스로 바뀐다.
+			 * 컨트롤 DOM 은 건드리지 않고 클래스만 준다.
+			 */
+			function applyStyleClass(pcControl, psStyle) {
+				if (pcControl == null || pcControl.disposed) {
+					return;
+				}
+				pcControl.style.removeClass("pt-style-primary");
+				pcControl.style.removeClass("pt-style-secondary");
+				if (psStyle == "primary" || psStyle == "secondary") {
+					pcControl.style.addClass("pt-style-" + psStyle);
+				}
+			}
+
+			/**
 			 * 캔버스 항목 하나를 공유 문서에 넣을 형태로 만든다.
 			 * @param {cpr.controls.Container} pcWrapper
-			 * @return {Object} {uid, type, id, text, x, y, w, h}
+			 * @return {Object} {uid, type, id, text, x, y, w, h, style}
 			 */
 			function itemRecord(pcWrapper) {
 				var ast = mod("canvasAst");
 				var voRect = getItemRect(pcWrapper);
 				var vsText = pcWrapper.userAttr(ast.ATTR_TEXT);
+				var vsStyle = pcWrapper.userAttr(ast.ATTR_STYLE);
 				return {
 					uid : attrOf(pcWrapper, ATTR_UID),
 					type : pcWrapper.userAttr(ast.ATTR_TYPE),
@@ -423,7 +461,8 @@
 					x : voRect.left,
 					y : voRect.top,
 					w : voRect.width,
-					h : voRect.height
+					h : voRect.height,
+					style : vsStyle == null ? "" : vsStyle
 				};
 			}
 
@@ -591,6 +630,8 @@
 				var voDef = vbHas ? mod("controlRegistry").getType(mcSelected.userAttr(ast.ATTR_TYPE)) : null;
 				var voRect = vbHas ? getItemRect(mcSelected) : null;
 
+				var vbStyleable = vbHas && normalizeStyle(voDef, "primary") == "primary"; // 스타일 계열을 가질 수 있는 유형(버튼)인가
+
 				mbSyncing = true;
 				app.lookup("optPropType").value = vbHas ? voDef.label : "(선택 없음)";
 				app.lookup("optPropHint").value = vbHas ? TEXT_HINT[voDef.textKind] : "";
@@ -600,12 +641,14 @@
 				app.lookup("ipbPropTop").value = vbHas ? String(voRect.top) : "";
 				app.lookup("ipbPropWidth").value = vbHas ? String(voRect.width) : "";
 				app.lookup("ipbPropHeight").value = vbHas ? String(voRect.height) : "";
+				app.lookup("cmbPropStyle").value = vbStyleable ? (mcSelected.userAttr(ast.ATTR_STYLE) || "") : "";
 				mbSyncing = false;
 
 				["ipbPropId", "ipbPropLeft", "ipbPropTop", "ipbPropWidth", "ipbPropHeight", "btnPropDelete"].forEach(function(psId) {
 					app.lookup(psId).enabled = vbHas;
 				});
 				app.lookup("ipbPropText").enabled = vbHas && voDef.textKind != "none";
+				app.lookup("cmbPropStyle").enabled = vbStyleable;
 			}
 
 			/*
@@ -629,6 +672,14 @@
 						rebuildInnerControl(mcSelected);
 						mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
 							text : vsValue
+						});
+						break;
+					case "cmbPropStyle":
+						var vsStyle = normalizeStyle(mod("controlRegistry").getType(mcSelected.userAttr(ast.ATTR_TYPE)), vsValue);
+						mcSelected.userAttr(ast.ATTR_STYLE, vsStyle);
+						applyStyleClass(mcSelected.getFirstChild(), vsStyle);
+						mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
+							style : vsStyle
 						});
 						break;
 					default:
@@ -680,6 +731,7 @@
 				} catch (ex) {
 					vcNew = new cpr.controls.Output(vsRuntimeId);
 				}
+				applyStyleClass(vcNew, pcWrapper.userAttr(ast.ATTR_STYLE));
 				pcWrapper.insertChild(0, vcNew, fillConstraint());
 			}
 
@@ -749,7 +801,7 @@
 			 * 깔아 준 좌표는 규칙 기반 변환이 같은 패턴으로 다시 읽도록 맞춰져 있다(조회 조건 위 · 하단 버튼 맨 아래).
 			 */
 			function onCmbPatternSelectionChange(e) {
-				if (app.lookup("cbxPrefill").value != "Y") {
+				if (mbPatternSyncing || app.lookup("cbxPrefill").value != "Y") {
 					return;
 				}
 				var vsPattern = app.lookup("cmbPattern").value;
@@ -809,6 +861,248 @@
 				});
 				select(null);
 				setStatus(psPattern + " 뼈대를 캔버스에 깔았습니다(" + vaItems.length + "개). 라벨·버튼 글자를 고쳐 쓰세요.");
+			}
+
+			/* ================================================================ 이미지로 배치 (Gemini 비전)
+			 *
+			 * 화면 캡처·디자인 시안 이미지를 캔버스에 끌어다 놓으면(또는 붙여넣기 · [이미지 파일 선택…])
+			 *  ① imagePlanner.readImage()   브라우저에서 이미지를 줄여 base64 로
+			 *  ② imagePlanner.analyze()     Gemini 가 "보이는 UI 요소 목록(유형 · 글자 · 사각형 · 스타일)" 과 가장 비슷한 패턴을 돌려준다
+			 *  ③ imagePlanner.toCanvasItems() 이미지 좌표 → 캔버스 좌표(가로는 비례, 세로는 줄 단위로 다시 잰다)
+			 *  ④ addCanvasItem()             패턴 미리 배치와 같은 길로 캔버스에 깐다 → 이후는 손으로 그린 캔버스와 똑같이 다룬다.
+			 * 파일 드롭은 HTML5 드래그 이벤트(document 에서 한 번만 듣는다)이고, 팔레트의 DragSource/DropTarget 과는 무관하다.
+			 */
+
+			function initImageDrop() {
+				var vcCanvas = app.lookup("canvasGroup");
+
+				function hasFiles(poEvent) {
+					var voTransfer = poEvent.dataTransfer;
+					if (voTransfer == null || voTransfer.types == null) {
+						return false;
+					}
+					for (var i = 0; i < voTransfer.types.length; i++) {
+						if (voTransfer.types[i] == "Files") {
+							return true;
+						}
+					}
+					return false;
+				}
+
+				document.addEventListener("dragover", function(poEvent) {
+					if (!hasFiles(poEvent)) {
+						return;
+					}
+					// 파일을 아무 데나 놓으면 브라우저가 그 파일로 이동해 버린다 → 기본 동작을 막고 캔버스 위에서만 받는다.
+					poEvent.preventDefault();
+					var vbInside = canvasPoint(poEvent.clientX, poEvent.clientY) != null;
+					poEvent.dataTransfer.dropEffect = vbInside && !mbImageBusy ? "copy" : "none";
+					if (vbInside) {
+						vcCanvas.style.addClass("pt-drop-image");
+					} else {
+						vcCanvas.style.removeClass("pt-drop-image");
+					}
+				});
+				document.addEventListener("dragleave", function(poEvent) {
+					if (poEvent.relatedTarget == null) { // 창 밖으로 나감
+						vcCanvas.style.removeClass("pt-drop-image");
+					}
+				});
+				document.addEventListener("drop", function(poEvent) {
+					if (!hasFiles(poEvent)) {
+						return;
+					}
+					poEvent.preventDefault();
+					vcCanvas.style.removeClass("pt-drop-image");
+					if (canvasPoint(poEvent.clientX, poEvent.clientY) == null) {
+						setStatus("이미지는 캔버스 안에 놓아 주세요.");
+						return;
+					}
+					placeFromImageFile(poEvent.dataTransfer.files[0]);
+				});
+				// 캡처를 클립보드에서 바로(Ctrl+V). 글자 입력 중일 때는 건드리지 않는다.
+				document.addEventListener("paste", function(poEvent) {
+					var voTarget = poEvent.target;
+					var vsTag = voTarget && voTarget.tagName ? voTarget.tagName.toUpperCase() : "";
+					if (vsTag == "INPUT" || vsTag == "TEXTAREA" || (voTarget && voTarget.isContentEditable)) {
+						return;
+					}
+					var vaItems = poEvent.clipboardData ? poEvent.clipboardData.items : null;
+					if (vaItems == null) {
+						return;
+					}
+					for (var i = 0; i < vaItems.length; i++) {
+						if (vaItems[i].kind == "file" && /^image\//.test(vaItems[i].type)) {
+							poEvent.preventDefault();
+							placeFromImageFile(vaItems[i].getAsFile());
+							return;
+						}
+					}
+				});
+			}
+
+			/*
+			 * 속성창 "이미지 파일 선택…" 버튼에서 click 이벤트 발생 시 호출.
+			 * 끌어다 놓기가 불편한 환경(터치패드 · 원격 데스크톱)용 파일 선택 창.
+			 */
+			function onBtnImageLayoutClick(e) {
+				if (moImageFileInput == null) {
+					moImageFileInput = document.createElement("input");
+					moImageFileInput.type = "file";
+					moImageFileInput.accept = "image/*";
+					moImageFileInput.style.display = "none";
+					moImageFileInput.addEventListener("change", function() {
+						var voFile = moImageFileInput.files && moImageFileInput.files[0];
+						moImageFileInput.value = ""; // 같은 파일을 다시 골라도 change 가 나도록
+						if (voFile != null) {
+							placeFromImageFile(voFile);
+						}
+					});
+					document.body.appendChild(moImageFileInput);
+				}
+				moImageFileInput.click();
+			}
+
+			/** 분석 중 표시 : 캔버스 테두리 · 버튼 잠금 · 겹친 드롭 무시 */
+			function setImageBusy(pbBusy) {
+				mbImageBusy = pbBusy;
+				var vcCanvas = app.lookup("canvasGroup");
+				if (pbBusy) {
+					vcCanvas.style.addClass("pt-analyzing");
+				} else {
+					vcCanvas.style.removeClass("pt-analyzing");
+				}
+				app.lookup("btnImageLayout").enabled = !pbBusy;
+			}
+
+			/**
+			 * 이미지 파일 하나를 분석해 캔버스에 배치한다.
+			 * 기존 항목이 있으면 먼저 물어보고(분석이 끝난 뒤에 지운다 — 실패해도 캔버스는 그대로), 결과는 한 번의 공유 변경으로 묶는다.
+			 * @param {File} poFile
+			 */
+			function placeFromImageFile(poFile) {
+				var image = mod("imagePlanner");
+				if (mbImageBusy) {
+					setStatus("이미지를 분석하는 중입니다. 끝난 뒤에 다시 놓아 주세요.");
+					return;
+				}
+				if (!image.isImageFile(poFile)) {
+					setStatus("이미지 파일(PNG · JPG · GIF · WEBP)만 분석할 수 있습니다 : " + (poFile ? poFile.name : ""));
+					return;
+				}
+				if (countItems() > 0 && !confirm("이미지를 분석해 배치하면 캔버스의 기존 항목을 지웁니다. 계속할까요?")) {
+					return;
+				}
+				var vsName = poFile.name || "이미지";
+				saveSettings();
+				setImageBusy(true);
+				setStatus("이미지를 분석하는 중... : " + vsName + " (서버 업로드 또는 Gemini 직접 호출)");
+				image.analyzeFile(poFile, {
+					apiKey : app.lookup("ipbApiKey").value,
+					model : app.lookup("ipbModel").value,
+					route : app.lookup("cmbAiRoute").value,
+					memo : app.lookup("txaMemo").value,
+					pattern : app.lookup("cmbPattern").value
+				}, function(poPlan, poImage, psRoute) {
+					setImageBusy(false);
+					applyImagePlan(poPlan, poImage, vsName, psRoute);
+				}, function(psError) {
+					setImageBusy(false);
+					reportImageError("이미지 분석 실패", psError, vsName);
+				});
+			}
+
+			/** 화면이 뜰 때 서버 분석 가능 여부를 확인해 속성창 안내 문구에 보여 준다. */
+			function initImageStatus() {
+				mod("imagePlanner").probeServer(function(poStatus) {
+					var vcHint = app.lookup("optImageHint");
+					var vsText;
+					if (poStatus == null) {
+						vsText = "서버 분석 없음(엔드포인트 없음) · 브라우저 직접 호출(API Key 필요)로 분석합니다. 드롭 · Ctrl+V 가능.";
+					} else if (poStatus.configured === true) {
+						vsText = "서버 분석 준비됨(" + (poStatus.model || "Gemini") + ") · 키는 서버에만 있습니다. 드롭 · Ctrl+V 가능.";
+					} else {
+						vsText = "서버에 Gemini 키가 없습니다(GEMINI_API_KEY) · 브라우저 직접 호출(API Key 입력)로 분석합니다.";
+					}
+					vcHint.value = vsText;
+					vcHint.tooltip = vsText;
+				});
+			}
+
+			/** 실패 이유를 상태 표시줄(요약)과 출력 미리보기 칸(전문)에 보여 준다 — 상태 표시줄만으로는 긴 오류를 읽기 어렵다. */
+			function reportImageError(psTitle, psError, psName) {
+				setStatus("[" + psTitle + "] " + psError);
+				app.lookup("optPreviewTitle").value = psTitle + " - " + psName;
+				app.lookup("txaPreview").value = psTitle + "\n\n" + psError + "\n\n"
+					+ "확인할 것\n"
+					+ " - 속성창 Gemini 설정의 API Key(Google AI Studio 발급) 또는 호출 = 서버 프록시(서버 환경 변수 GEMINI_API_KEY)\n"
+					+ " - Model 이름(기본 gemini-2.5-flash)\n"
+					+ " - 브라우저 개발자 도구 Network 탭의 generateContent 응답 본문";
+				console.error("[eX-Canvas] " + psTitle + " : " + psError);
+			}
+
+			/**
+			 * 분석 결과를 캔버스에 깐다. 패턴 콤보는 AI 가 고른 "가장 비슷한 패턴" 으로 맞춘다(미리 배치는 돌지 않는다).
+			 * @param {Object} poPlan imagePlanner.normalize() 결과
+			 * @param {Object} poImage readImage() 결과
+			 * @param {String} psName 파일 이름(상태 표시용)
+			 */
+			function applyImagePlan(poPlan, poImage, psName, psRoute) {
+				var vaItems = mod("imagePlanner").toCanvasItems(poPlan, poImage, canvasRect());
+				if (vaItems.length == 0) {
+					setStatus("[이미지 분석] " + psName + " 에서 배치할 UI 요소를 찾지 못했습니다." + (poPlan.dropped > 0 ? " (버린 요소 " + poPlan.dropped + "개)" : ""));
+					return;
+				}
+				if (countItems() > 0) {
+					clearCanvas();
+				}
+				mod("collabSession").transact(function() {
+					vaItems.forEach(function(poItem) {
+						addCanvasItem(poItem.type, poItem.x, poItem.y, {
+							text : poItem.text,
+							width : poItem.width,
+							height : poItem.height,
+							style : poItem.style,
+							quiet : true
+						});
+					});
+				});
+				select(null);
+				if (poPlan.pattern != null) {
+					setPatternCombo(poPlan.pattern);
+				}
+				// 좌표 규칙이 같은 패턴으로 읽는지 함께 보여 준다(다르면 패턴 콤보의 값이 내보내기에 쓰인다).
+				var vsRulePattern = "";
+				try {
+					vsRulePattern = mod("templatePlanner").planByRule(extractAst()).pattern;
+				} catch (ex) {
+					vsRulePattern = "";
+				}
+				var vsMessage = "이미지 분석 배치(" + (psRoute == "server" ? "서버" : "직접 호출") + (poPlan.server && poPlan.server.model ? " · " + poPlan.server.model : "")
+						+ (poPlan.server && poPlan.server.elapsedSeconds != null ? " · " + poPlan.server.elapsedSeconds + "s" : "") + ") : " + psName + " → " + vaItems.length + "개";
+				if (poPlan.pattern != null) {
+					vsMessage += " · 기준 템플릿 " + poPlan.pattern + (vsRulePattern && vsRulePattern != poPlan.pattern ? " (좌표 규칙으로는 " + vsRulePattern + ")" : "");
+				}
+				if (poPlan.title) {
+					vsMessage += " · 제목 \"" + poPlan.title + "\"";
+				}
+				if (poPlan.dropped > 0) {
+					vsMessage += " · 버린 요소 " + poPlan.dropped + "개";
+				}
+				if (poPlan.reason) {
+					vsMessage += " · " + poPlan.reason;
+				}
+				setStatus(vsMessage);
+			}
+
+			/** 패턴 콤보를 코드가 바꾼다(미리 배치가 따라 돌지 않게). */
+			function setPatternCombo(psPattern) {
+				mbPatternSyncing = true;
+				app.lookup("cmbPattern").value = psPattern;
+				// selection-change 가 뒤늦게(다음 틱에) 돌아도 미리 배치가 따라 돌지 않도록 한 틱 뒤에 푼다.
+				window.setTimeout(function() {
+					mbPatternSyncing = false;
+				}, 0);
 			}
 
 			function getAppName() {
@@ -1271,6 +1565,7 @@
 					height : poRecord.h,
 					uid : poRecord.uid,
 					id : poRecord.id,
+					style : poRecord.style,
 					quiet : true
 				});
 			}
@@ -1297,6 +1592,11 @@
 				if (poPatch.text != null && poPatch.text !== vcWrapper.userAttr(ast.ATTR_TEXT)) {
 					vcWrapper.userAttr(ast.ATTR_TEXT, poPatch.text);
 					rebuildInnerControl(vcWrapper);
+				}
+				if (poPatch.style != null && poPatch.style !== vcWrapper.userAttr(ast.ATTR_STYLE)) {
+					var vsStyle = normalizeStyle(mod("controlRegistry").getType(vcWrapper.userAttr(ast.ATTR_TYPE)), poPatch.style);
+					vcWrapper.userAttr(ast.ATTR_STYLE, vsStyle);
+					applyStyleClass(vcWrapper.getFirstChild(), vsStyle);
 				}
 				if (poPatch.x != null || poPatch.y != null || poPatch.w != null || poPatch.h != null) {
 					var voRect = getItemRect(vcWrapper);
@@ -1822,8 +2122,8 @@
 			formLayout_4.bottomMargin = "8px";
 			formLayout_4.leftMargin = "0px";
 			formLayout_4.setColumns(["64px", "1fr"]);
-			formLayout_4.setRows(["32px", "24px", "24px", "24px", "20px", "24px", "24px", "24px", "24px", "28px", "32px", "24px", "24px", "20px", "32px", "32px", "20px", "28px", "32px", "24px", "24px", "24px", "24px", "24px", "1fr"]);
-			formLayout_4.setRowMinHeight(24, 80);
+			formLayout_4.setRows(["32px", "24px", "24px", "24px", "20px", "24px", "24px", "24px", "24px", "24px", "28px", "32px", "24px", "24px", "20px", "32px", "32px", "20px", "28px", "32px", "24px", "24px", "24px", "24px", "28px", "20px", "24px", "1fr"]);
+			formLayout_4.setRowMinHeight(27, 80);
 			group_7.setLayout(formLayout_4);
 			(function(container){
 				var output_8 = new cpr.controls.Output("optPropTitle");
@@ -1953,6 +2253,29 @@
 					"colIndex": 1,
 					"rowIndex": 8
 				});
+				var output_18 = new cpr.controls.Output();
+				output_18.value = "Style";
+				output_18.style.setClasses(["pt-label"]);
+				container.addChild(output_18, {
+					"colIndex": 0,
+					"rowIndex": 9
+				});
+				var comboBox_3 = new cpr.controls.ComboBox("cmbPropStyle");
+				comboBox_3.tooltip = "버튼의 스타일 계열. 내보낼 때 자리에 맞는 템플릿 클래스(btn-primary-01 · btn-secondary-03 \u2026)로 바뀝니다.";
+				comboBox_3.value = "";
+				comboBox_3.preventInput = true;
+				(function(comboBox_3){
+					comboBox_3.addItem(new cpr.controls.Item("자동(글자로 판단)", ""));
+					comboBox_3.addItem(new cpr.controls.Item("primary (강조)", "primary"));
+					comboBox_3.addItem(new cpr.controls.Item("secondary (보통)", "secondary"));
+				})(comboBox_3);
+				if(typeof onPropValueChange == "function") {
+					comboBox_3.addEventListener("value-change", onPropValueChange);
+				}
+				container.addChild(comboBox_3, {
+					"colIndex": 1,
+					"rowIndex": 9
+				});
 				var group_8 = new cpr.controls.Container("grpPropButtons");
 				var flowLayout_2 = new cpr.controls.layouts.FlowLayout();
 				flowLayout_2.scrollable = false;
@@ -1974,23 +2297,23 @@
 				})(group_8);
 				container.addChild(group_8, {
 					"colIndex": 0,
-					"rowIndex": 9,
-					"colSpan": 2
-				});
-				var output_18 = new cpr.controls.Output("optShareTitle");
-				output_18.value = "공유 (실시간 협업)";
-				output_18.style.setClasses(["pt-panel-title"]);
-				container.addChild(output_18, {
-					"colIndex": 0,
 					"rowIndex": 10,
 					"colSpan": 2
 				});
-				var output_19 = new cpr.controls.Output();
-				output_19.value = "내 이름";
-				output_19.style.setClasses(["pt-label"]);
+				var output_19 = new cpr.controls.Output("optShareTitle");
+				output_19.value = "공유 (실시간 협업)";
+				output_19.style.setClasses(["pt-panel-title"]);
 				container.addChild(output_19, {
 					"colIndex": 0,
-					"rowIndex": 11
+					"rowIndex": 11,
+					"colSpan": 2
+				});
+				var output_20 = new cpr.controls.Output();
+				output_20.value = "내 이름";
+				output_20.style.setClasses(["pt-label"]);
+				container.addChild(output_20, {
+					"colIndex": 0,
+					"rowIndex": 12
 				});
 				var inputBox_8 = new cpr.controls.InputBox("ipbShareName");
 				inputBox_8.placeholder = "다른 사람에게 보일 이름";
@@ -1999,30 +2322,22 @@
 				}
 				container.addChild(inputBox_8, {
 					"colIndex": 1,
-					"rowIndex": 11
-				});
-				var output_20 = new cpr.controls.Output();
-				output_20.value = "서버";
-				output_20.style.setClasses(["pt-label"]);
-				container.addChild(output_20, {
-					"colIndex": 0,
 					"rowIndex": 12
+				});
+				var output_21 = new cpr.controls.Output();
+				output_21.value = "서버";
+				output_21.style.setClasses(["pt-label"]);
+				container.addChild(output_21, {
+					"colIndex": 0,
+					"rowIndex": 13
 				});
 				var inputBox_9 = new cpr.controls.InputBox("ipbShareUrl");
 				inputBox_9.placeholder = "비워 두면 자동으로 찾습니다";
 				container.addChild(inputBox_9, {
 					"colIndex": 1,
-					"rowIndex": 12
+					"rowIndex": 13
 				});
-				var output_21 = new cpr.controls.Output("optShareState");
-				output_21.value = "";
-				output_21.style.setClasses(["pt-status"]);
-				container.addChild(output_21, {
-					"colIndex": 0,
-					"rowIndex": 13,
-					"colSpan": 2
-				});
-				var output_22 = new cpr.controls.Output("optSharePeers");
+				var output_22 = new cpr.controls.Output("optShareState");
 				output_22.value = "";
 				output_22.style.setClasses(["pt-status"]);
 				container.addChild(output_22, {
@@ -2030,20 +2345,28 @@
 					"rowIndex": 14,
 					"colSpan": 2
 				});
-				var output_23 = new cpr.controls.Output("optSaveTitle");
-				output_23.value = "저장 위치 (result)";
-				output_23.style.setClasses(["pt-panel-title"]);
+				var output_23 = new cpr.controls.Output("optSharePeers");
+				output_23.value = "";
+				output_23.style.setClasses(["pt-status"]);
 				container.addChild(output_23, {
 					"colIndex": 0,
 					"rowIndex": 15,
 					"colSpan": 2
 				});
-				var output_24 = new cpr.controls.Output("optSaveTarget");
-				output_24.value = "";
-				output_24.style.setClasses(["pt-status"]);
+				var output_24 = new cpr.controls.Output("optSaveTitle");
+				output_24.value = "저장 위치 (result)";
+				output_24.style.setClasses(["pt-panel-title"]);
 				container.addChild(output_24, {
 					"colIndex": 0,
 					"rowIndex": 16,
+					"colSpan": 2
+				});
+				var output_25 = new cpr.controls.Output("optSaveTarget");
+				output_25.value = "";
+				output_25.style.setClasses(["pt-status"]);
+				container.addChild(output_25, {
+					"colIndex": 0,
+					"rowIndex": 17,
 					"colSpan": 2
 				});
 				var group_9 = new cpr.controls.Container("grpSaveDirButtons");
@@ -2068,61 +2391,61 @@
 				})(group_9);
 				container.addChild(group_9, {
 					"colIndex": 0,
-					"rowIndex": 17,
-					"colSpan": 2
-				});
-				var output_25 = new cpr.controls.Output("optAiTitle");
-				output_25.value = "Gemini 설정 (무료 API 키)";
-				output_25.style.setClasses(["pt-panel-title"]);
-				container.addChild(output_25, {
-					"colIndex": 0,
 					"rowIndex": 18,
 					"colSpan": 2
 				});
-				var output_26 = new cpr.controls.Output();
-				output_26.value = "API Key";
-				output_26.style.setClasses(["pt-label"]);
+				var output_26 = new cpr.controls.Output("optAiTitle");
+				output_26.value = "Gemini 설정 (무료 API 키)";
+				output_26.style.setClasses(["pt-panel-title"]);
 				container.addChild(output_26, {
 					"colIndex": 0,
-					"rowIndex": 19
+					"rowIndex": 19,
+					"colSpan": 2
+				});
+				var output_27 = new cpr.controls.Output();
+				output_27.value = "API Key";
+				output_27.style.setClasses(["pt-label"]);
+				container.addChild(output_27, {
+					"colIndex": 0,
+					"rowIndex": 20
 				});
 				var inputBox_10 = new cpr.controls.InputBox("ipbApiKey");
 				inputBox_10.secret = true;
 				inputBox_10.placeholder = "AI Studio에서 발급한 키";
 				container.addChild(inputBox_10, {
 					"colIndex": 1,
-					"rowIndex": 19
-				});
-				var output_27 = new cpr.controls.Output();
-				output_27.value = "Model";
-				output_27.style.setClasses(["pt-label"]);
-				container.addChild(output_27, {
-					"colIndex": 0,
-					"rowIndex": 20
-				});
-				var inputBox_11 = new cpr.controls.InputBox("ipbModel");
-				inputBox_11.value = "gemini-2.5-flash";
-				container.addChild(inputBox_11, {
-					"colIndex": 1,
 					"rowIndex": 20
 				});
 				var output_28 = new cpr.controls.Output();
-				output_28.value = "호출";
+				output_28.value = "Model";
 				output_28.style.setClasses(["pt-label"]);
 				container.addChild(output_28, {
 					"colIndex": 0,
 					"rowIndex": 21
 				});
-				var comboBox_3 = new cpr.controls.ComboBox("cmbAiRoute");
-				comboBox_3.value = "direct";
-				comboBox_3.preventInput = true;
-				(function(comboBox_3){
-					comboBox_3.addItem(new cpr.controls.Item("브라우저 직접 호출(테스트)", "direct"));
-					comboBox_3.addItem(new cpr.controls.Item("서버 프록시(/ai/gemini.do)", "proxy"));
-				})(comboBox_3);
-				container.addChild(comboBox_3, {
+				var inputBox_11 = new cpr.controls.InputBox("ipbModel");
+				inputBox_11.value = "gemini-2.5-flash";
+				container.addChild(inputBox_11, {
 					"colIndex": 1,
 					"rowIndex": 21
+				});
+				var output_29 = new cpr.controls.Output();
+				output_29.value = "호출";
+				output_29.style.setClasses(["pt-label"]);
+				container.addChild(output_29, {
+					"colIndex": 0,
+					"rowIndex": 22
+				});
+				var comboBox_4 = new cpr.controls.ComboBox("cmbAiRoute");
+				comboBox_4.value = "direct";
+				comboBox_4.preventInput = true;
+				(function(comboBox_4){
+					comboBox_4.addItem(new cpr.controls.Item("브라우저 직접 호출(테스트)", "direct"));
+					comboBox_4.addItem(new cpr.controls.Item("서버 프록시(/ai/gemini.do)", "proxy"));
+				})(comboBox_4);
+				container.addChild(comboBox_4, {
+					"colIndex": 1,
+					"rowIndex": 22
 				});
 				var checkBox_4 = new cpr.controls.CheckBox("cbxRememberKey");
 				checkBox_4.value = "";
@@ -2131,22 +2454,64 @@
 				checkBox_4.text = "이 브라우저에 키 저장(localStorage)";
 				container.addChild(checkBox_4, {
 					"colIndex": 0,
-					"rowIndex": 22,
+					"rowIndex": 23,
 					"colSpan": 2
 				});
-				var output_29 = new cpr.controls.Output();
-				output_29.value = "화면 요구사항 메모 (AI 프롬프트에 포함)";
-				output_29.style.setClasses(["pt-label"]);
-				container.addChild(output_29, {
+				var group_10 = new cpr.controls.Container("grpImageButtons");
+				var flowLayout_4 = new cpr.controls.layouts.FlowLayout();
+				flowLayout_4.scrollable = false;
+				flowLayout_4.horizontalSpacing = 6;
+				flowLayout_4.verticalSpacing = 0;
+				flowLayout_4.horizontalAlign = "left";
+				flowLayout_4.verticalAlign = "middle";
+				group_10.setLayout(flowLayout_4);
+				(function(container){
+					var output_30 = new cpr.controls.Output();
+					output_30.value = "이미지로 배치";
+					output_30.style.setClasses(["pt-label"]);
+					container.addChild(output_30, {
+						"autoSize": "none",
+						"width": "90px",
+						"height": "26px"
+					});
+					var button_8 = new cpr.controls.Button("btnImageLayout");
+					button_8.tooltip = "화면 캡처·시안 이미지를 Gemini 가 분석해 캔버스에 컨트롤로 배치합니다. 캔버스에 이미지를 끌어다 놓거나 붙여넣어도(Ctrl+V) 됩니다.";
+					button_8.value = "이미지 파일 선택\u2026";
+					if(typeof onBtnImageLayoutClick == "function") {
+						button_8.addEventListener("click", onBtnImageLayoutClick);
+					}
+					container.addChild(button_8, {
+						"autoSize": "none",
+						"width": "120px",
+						"height": "26px"
+					});
+				})(group_10);
+				container.addChild(group_10, {
 					"colIndex": 0,
-					"rowIndex": 23,
+					"rowIndex": 24,
+					"colSpan": 2
+				});
+				var output_31 = new cpr.controls.Output("optImageHint");
+				output_31.value = "캔버스에 이미지를 끌어다 놓거나 Ctrl+V 로 붙여넣어도 됩니다.";
+				output_31.style.setClasses(["pt-status"]);
+				container.addChild(output_31, {
+					"colIndex": 0,
+					"rowIndex": 25,
+					"colSpan": 2
+				});
+				var output_32 = new cpr.controls.Output();
+				output_32.value = "화면 요구사항 메모 (AI 프롬프트에 포함)";
+				output_32.style.setClasses(["pt-label"]);
+				container.addChild(output_32, {
+					"colIndex": 0,
+					"rowIndex": 26,
 					"colSpan": 2
 				});
 				var textArea_2 = new cpr.controls.TextArea("txaMemo");
 				textArea_2.placeholder = "예) 사원 목록 조회 화면. 부서·입사일로 검색하고 그리드에서 선택하면 하단에서 수정한다.";
 				container.addChild(textArea_2, {
 					"colIndex": 0,
-					"rowIndex": 24,
+					"rowIndex": 27,
 					"colSpan": 2
 				});
 			})(group_7);

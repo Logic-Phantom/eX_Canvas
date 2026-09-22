@@ -460,15 +460,27 @@ function isArrowButton(poNode) {
  * @param {String} psText
  * @param {String} psPlace search | title | footer-left | footer-right
  */
-function buttonClass(psText, psPlace) {
+function buttonClass(psText, psPlace, psStyle) {
 	var vsText = psText || "";
+	// 스타일 계열(primary | secondary)이 정해져 있으면(이미지 분석 · 속성창) 글자 대신 그것을 따른다.
+	// 실제 클래스는 자리마다 템플릿 관례를 지킨다(조회 줄의 primary 는 btn-primary-02 …).
+	var vbPrimary;
+	if (psStyle == "primary" || psStyle == "secondary") {
+		vbPrimary = psStyle == "primary";
+	}
 	if (psPlace == "search") {
-		return /조회|검색|search/i.test(vsText) ? "btn-primary-02" : "btn-secondary-03 btn-md";
+		if (vbPrimary == null) {
+			vbPrimary = /조회|검색|search/i.test(vsText);
+		}
+		return vbPrimary ? "btn-primary-02" : "btn-secondary-03 btn-md";
 	}
 	if (psPlace == "footer-right") {
-		return /저장|확인|등록|적용|신규|추가|save|ok/i.test(vsText) ? "btn-primary-01" : "btn-secondary-01";
+		if (vbPrimary == null) {
+			vbPrimary = /저장|확인|등록|적용|신규|추가|save|ok/i.test(vsText);
+		}
+		return vbPrimary ? "btn-primary-01" : "btn-secondary-01";
 	}
-	return "btn-secondary-03";
+	return vbPrimary === true ? "btn-primary-01" : "btn-secondary-03";
 }
 
 /* ---------------------------------------------------------------- 라벨·입력 짝짓기 */
@@ -1095,8 +1107,18 @@ exports.resolve = function(poRaw, poAst, poOpt) {
 			if (voNode == null || voNode.role != "button") {
 				return;
 			}
-			var vsCls = voNode.type == "udc" || voNode.type == "uitpl" ? null : ((poBtn || {}).cls || buttonClass(voNode.text, psPlace));
-			var voCtrl = take(vsRef, vsCls, (poBtn || {}).clearText === true);
+			var vbClearText = (poBtn || {}).clearText === true;
+			var vsCls;
+			if (voNode.type == "udc" || voNode.type == "uitpl") {
+				vsCls = null;
+			} else if (vbClearText) {
+				vsCls = (poBtn || {}).cls || buttonClass(voNode.text, psPlace); // 셔틀 화살표 같은 기능 클래스는 그대로
+			} else if (voNode.style == "primary" || voNode.style == "secondary") {
+				vsCls = buttonClass(voNode.text, psPlace, voNode.style); // 캔버스에서 정한 스타일 계열이 우선
+			} else {
+				vsCls = (poBtn || {}).cls || buttonClass(voNode.text, psPlace);
+			}
+			var voCtrl = take(vsRef, vsCls, vbClearText);
 			if (voCtrl != null) {
 				vaResult.push(voCtrl);
 			}

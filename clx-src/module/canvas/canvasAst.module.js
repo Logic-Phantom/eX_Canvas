@@ -8,18 +8,21 @@
  *   pt-type : 컨트롤 유형(controlRegistry의 type)
  *   pt-id   : 사용자가 정한 CLX id
  *   pt-text : 속성창 Text 값(유형에 따라 value/text/아이템/컬럼/탭)
+ *   pt-style: 스타일 계열(버튼의 primary | secondary, 없으면 자동)
  * 위치·크기는 캔버스(XY 레이아웃)의 제약(getConstraint)에서 읽는다 - DOM을 읽지 않는다.
  *
  * AST 형태:
  * {
  *   app : { name, title, popup, canvas : { width, height } },
- *   children : [ { type, role, id, text, items?, layoutData : { x, y, width, height } } ]
+ *   children : [ { type, role, id, text, items?, style?, layoutData : { x, y, width, height } } ]
  * }
  ************************************************/
 
 var ATTR_TYPE = "pt-type";
 var ATTR_ID = "pt-id";
 var ATTR_TEXT = "pt-text";
+/** 스타일 계열(버튼 : primary | secondary). 비어 있으면 내보낼 때 자리·글자로 정한다. */
+var ATTR_STYLE = "pt-style";
 
 /**
  * "120px" · 120 · "120.0px" → 120
@@ -68,6 +71,10 @@ exports.extract = function(pcCanvas, poAppInfo) {
 			text : vsText == null ? "" : vsText,
 			layoutData : voLayoutData
 		};
+		var vsStyle = pcWrapper.userAttr(ATTR_STYLE);
+		if (vsStyle != null && vsStyle !== "") {
+			voNode.style = vsStyle; // 이미지 분석·속성창에서 정한 스타일 계열(primary | secondary)
+		}
 		if (voDef.udcType) {
 			voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 		}
@@ -109,3 +116,4 @@ exports.extract = function(pcCanvas, poAppInfo) {
 exports.ATTR_TYPE = ATTR_TYPE;
 exports.ATTR_ID = ATTR_ID;
 exports.ATTR_TEXT = ATTR_TEXT;
+exports.ATTR_STYLE = ATTR_STYLE;

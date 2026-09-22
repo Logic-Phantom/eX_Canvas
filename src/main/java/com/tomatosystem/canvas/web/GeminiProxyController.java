@@ -27,7 +27,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class GeminiProxyController {
 
 	private static final String API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
-	private static final int MAX_BODY_BYTES = 256 * 1024;
+	/** 이미지 분석(inline_data · 긴 변 1600px 이하)까지 담을 수 있게 넉넉히 둔다. */
+	private static final int MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 	@RequestMapping(value = "/ai/gemini.do", method = RequestMethod.POST)
 	public void generate(@RequestParam(value = "model", defaultValue = "gemini-2.5-flash") String model,

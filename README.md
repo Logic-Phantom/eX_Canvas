@@ -15,6 +15,10 @@ React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.
 툴바의 **[공유]** 를 켜면 같은 화면명을 쓰는 사람과 **한 캔버스를 실시간으로 함께** 고칩니다(CRDT · [4.11](#411-공유-crdt-실시간-협업)).
 끄면 지금까지처럼 혼자 씁니다 — 공유는 체크박스를 켠 동안에만 동작합니다.
 
+**화면 캡처·시안 이미지를 캔버스에 끌어다 놓으면**(또는 Ctrl+V) Gemini 가 이미지를 분석해 보이는 컨트롤을 그 자리에 배치하고, 가장 비슷한 템플릿 패턴을 골라 줍니다 — 미리 배치처럼 뼈대가 깔리되 **기준은 이미지**입니다([4.12](#412-이미지로-배치-gemini-비전)).
+
+> 작업을 이어받는 사람은 **[7. 진행 상태와 이어서 할 일](#7-진행-상태와-이어서-할-일-2026-09-22-기준)** 부터 읽으세요 — 무엇이 검증됐고 무엇이 남았는지, 어떻게 확인하는지가 있습니다.
+
 ---
 
 ## 1. 빠른 시작
@@ -73,7 +77,8 @@ macOS 에서 처음 쓸 때 한 번만:
 4. 우측 **속성창**에서 ID · Text · Left · Top · Width · Height 를 고칩니다. (Text 의 뜻은 유형마다 다릅니다 — 아래 표)
 5. 상단 툴바에서 **화면명 · 변환 방식 · 패턴 · 팝업 여부**를 정합니다.
 6. (선택) 같이 고칠 사람이 있으면 **화면명을 맞추고** 각자 **[공유]** 를 켭니다 — 서로의 커서 · 선택 · 편집이 그대로 보입니다([4.11](#411-공유-crdt-실시간-협업)).
-7. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
+7. (선택) 참고할 **화면 캡처·시안 이미지가 있으면 캔버스에 끌어다 놓습니다**(Ctrl+V · 속성창 [이미지 파일 선택…] 도 됩니다). Gemini 가 분석해 컨트롤을 그 자리에 깔고 패턴을 골라 줍니다([4.12](#412-이미지로-배치-gemini-비전)). Gemini 설정(키 또는 서버 프록시)이 필요합니다.
+8. **[미리보기]** 로 XML 을 확인하고, **[result 저장]**(프로젝트에 저장) 또는 **[CLX 다운로드]**(브라우저 다운로드)를 누릅니다.
 
 ---
 
@@ -85,12 +90,13 @@ macOS 에서 처음 쓸 때 한 번만:
 ├────────────┬─────────────────────────────────────────────────┬───────────────────────────────────────┤
 │ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                   │ 속성창                                 │
 │  [찾기]     │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로      │  Type / ID / Text                     │
-│  기본       │   그려진다                                       │  Left / Top / Width / Height          │
+│  기본       │   그려진다                                       │  Left / Top / Width / Height / Style  │
 │  입력       │   (공유 중이면 남의 커서·선택이 함께 보인다)         │  [선택 삭제]                           │
-│  데이터·컨테이너├─────────────────────────────────────────────────┤ 공유 : 내 이름 / 서버 / 상태 / 접속자     │
-│  UDC        │ 출력 미리보기 (생성된 XML / AST JSON)              │ 저장 위치 / [폴더 지정]                 │
-│  UI 템플릿 · 버튼 │                                             │ Gemini 설정                           │
-│  UI 템플릿 · 폼 …│                                             │  API Key / Model / 호출 경로 / 메모     │
+│  데이터·컨테이너│   (이미지 파일을 놓으면 분석해서 배치한다)        │ 공유 : 내 이름 / 서버 / 상태 / 접속자     │
+│  UDC        ├─────────────────────────────────────────────────┤ 저장 위치 / [폴더 지정]                 │
+│  UI 템플릿 · 버튼 │ 출력 미리보기 (생성된 XML / AST JSON)         │ Gemini 설정                           │
+│  UI 템플릿 · 폼 …│                                             │  API Key / Model / 호출 경로            │
+│             │                                                 │  이미지로 배치 [이미지 파일 선택…] / 메모 │
 └────────────┴─────────────────────────────────────────────────┴───────────────────────────────────────┘
 ```
 
@@ -131,6 +137,8 @@ macOS 에서 처음 쓸 때 한 번만:
 | Image · EmbeddedPage | 경로(`src`) | |
 | UDC (`title` 속성이 있는 것) | UDC 의 `title` | `사원 목록` |
 
+**Style**(버튼만) — `자동` / `primary (강조)` / `secondary (보통)`. 캔버스에서는 파란 채움 · 흰 바탕으로 보이고, 내보낼 때는 자리에 맞는 템플릿 클래스로 바뀝니다(조회 줄 primary → `btn-primary-02`, 하단 오른쪽 primary → `btn-primary-01`, secondary → `btn-secondary-01/03` …). `자동`이면 지금까지처럼 글자(조회 · 저장 …)로 정합니다. 이미지 분석이 버튼 색을 보고 채워 줍니다.
+
 > **규칙 기반 변환을 잘 받는 팁** — 라벨은 입력의 **왼쪽(또는 바로 위)** 에, 필수 항목은 라벨 끝에 `*`, 기간은 `입력 ~ 입력` 처럼 `~` 라벨로 연결, 조회 버튼은 조회 조건과 같은 줄에, 저장/닫기 버튼은 화면 맨 아래에 둡니다. 두 그리드 사이에 `>` `<` 버튼을 두면 셔틀 패턴이 됩니다.
 
 ---
@@ -150,11 +158,12 @@ eX-Canvas/
 │  │  ├ Prototyper.clx               ← Web Prototyper 화면(툴바 · 팔레트 · 캔버스 · 속성창 · 미리보기)
 │  │  ├ Prototyper.js                ← 화면 스크립트: 드래그 앤 드롭 · 선택/이동/크기 · 속성 반영 · 내보내기
 │  │  └ 확인필요.md                   ← 검증한 것 / 아직 확인이 필요한 것
-│  ├ module/canvas/                  ← 공통 모듈 10종 (cpr.core.Module.require("module/canvas/<이름>"))
+│  ├ module/canvas/                  ← 공통 모듈 11종 (cpr.core.Module.require("module/canvas/<이름>"))
 │  │  ├ controlRegistry.module.js    ← 컨트롤 유형 표 + UDC 자동 탐색 + UI 템플릿 등록
 │  │  ├ canvasAst.module.js          ← 캔버스 → JSON AST
 │  │  ├ templatePlanner.module.js    ← 템플릿 카탈로그 · 규칙 기반 계획 · 계획 검증/정규화 · 패턴 뼈대(skeleton)
-│  │  ├ geminiPlanner.module.js      ← Gemini 호출 → 화면 계획(JSON)
+│  │  ├ geminiPlanner.module.js      ← Gemini 호출(공통 request) → 화면 계획(JSON)
+│  │  ├ imagePlanner.module.js       ← 이미지 읽기 · Gemini 비전 분석 · 이미지 좌표 → 캔버스 좌표
 │  │  ├ clxSerializer.module.js      ← JSON → .clx XML (XY / 템플릿 뼈대 / UI 템플릿 트리)
 │  │  ├ fileDownload.module.js       ← Blob 다운로드 · 저장 서버 요청 · 지정 폴더에 직접 쓰기
 │  │  ├ templateBuilder.module.js    ← UI 템플릿 노드 → 실제 cpr.controls.* 트리(캔버스 미리보기)
@@ -166,14 +175,20 @@ eX-Canvas/
 │  ├ udc/com/                        ← 프로젝트 UDC (팔레트 UDC 묶음의 원천)
 │  └ result/<yyyyMMdd>/              ← [result 저장] 결과물(.clx + .js). 실행한 날짜별 폴더
 ├ src/main/java/com/tomatosystem/canvas/web/
-│  ├ GeminiProxyController.java      ← POST /ai/gemini.do       (Tomcat 용 Gemini 프록시)
+│  ├ GeminiProxyController.java      ← POST /ai/gemini.do       (Tomcat 용 Gemini 프록시 · 화면 계획용)
+│  ├ CanvasImageController.java      ← POST /canvas/analyzeImage.do · GET /canvas/imageStatus.do (이미지 업로드 분석, Tomcat)
+│  └ ../service/CanvasImageAnalyzer.java ← 서버 쪽 Gemini 비전 분석(설정 · 축소 · 재시도 · 로그). DevServer 와 공용
+├ src/main/resources/canvas/
+│  ├ excanvas.properties             ← 이미지 분석 서버 설정(excanvas.gemini.*)
+│  └ prompts/image-items.txt         ← (선택) 서버 프롬프트 덮어쓰기. 없으면 분석기 내장 프롬프트
 │  ├ CanvasResultController.java     ← /canvas/saveResult.do (Tomcat 용 result 저장 · GET 은 가능 여부 확인)
 │  └ CrdtRelayEndpoint.java          ← /ws/crdt-sync.do      (Tomcat 용 공유 릴레이 · javax.websocket)
 ├ tools/
-│  ├ dev.cmd · dev.sh                ← 카탈로그 갱신 + 빌드 + 개발 서버 실행 (Windows · macOS/Linux)
+│  ├ dev.cmd · dev.sh                ← 카탈로그 갱신 + 빌드 + 이미지 분석기 컴파일 + 개발 서버 실행 (Windows · macOS/Linux)
 │  ├ SyncCatalog.java                ← 상용구 XMI·UDC·화면 템플릿 훑기 → 카탈로그 모듈 · docs/catalog.md · 변경 보고
 │  ├ catalog-index.txt               ← 자동 생성: 변경 감지용 지문(항목별 해시)
 │  ├ BuildOnce.java                  ← e6-compiler 실행 + eXCFrame 테마(clx-build/theme) 반영
+│  ├ harness/FakeGemini.java         ← 키 없이 이미지 분석 서버 경로를 확인하는 가짜 Gemini (+ sample-image-plan.json) — [7.3](#73-확인하는-방법)
 │  └ DevServer.java                  ← Tomcat 없이 쓰는 개발 서버(정적 파일 + 위 엔드포인트 + 공유 릴레이), 127.0.0.1 전용
 ├ ci-lib/clx/e6-compiler.jar         ← eXBuilder6 컴파일러(빌드 · 생성물 유효성 검증에 사용)
 ├ exbuilder/runtime/                 ← 런타임(cleopatra.js · 기본 테마)
@@ -190,6 +205,7 @@ eX-Canvas/
 ```
  팔레트 항목(Output · UDC · UI 템플릿)         ◀── 패턴 미리 배치는 이 단계를 건너뛰고 캔버스에 바로 깐다
     │  cpr.controls.DragSource (dataType = "pt-palette", 피드백은 app.floatControl)
+    │                                          ◀── 이미지 드롭 : imagePlanner.analyze(Gemini 비전) → toCanvasItems → 캔버스에 바로 깐다
     ▼
  canvasGroup  ── cpr.controls.DropTarget.onDrop ──▶ pointerLocation → 캔버스 상대 좌표(10px 격자 스냅)
     │  new cpr.controls.Xxx() / new udc.com.Xxx() / templateBuilder.build(UI 템플릿)
@@ -418,6 +434,46 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 `yjsLoader` 가 **공유를 처음 켤 때** `https://esm.sh` 에서 `yjs@13.6.8` 과 `y-protocols@1.0.6/awareness` 를 동적 `import` 합니다(두 패키지를 같은 yjs 버전으로 받는 것이 중요합니다 — 인스턴스가 갈리면 awareness 가 동작하지 않습니다).
 사내망처럼 esm.sh 를 못 여는 곳이면 사본을 두고 화면보다 먼저 `window.EXCANVAS_YJS_URL` · `window.EXCANVAS_YAWARENESS_URL` 에 주소를 넣으면 됩니다.
 
+### 4.12 이미지로 배치 (Gemini 비전)
+
+화면 캡처 · 디자인 시안 · 손그림 이미지를 **캔버스에 끌어다 놓으면**(Ctrl+V 붙여넣기 · 속성창 **[이미지 파일 선택…]** 도 같음) Gemini 가 이미지를 보고 **보이는 UI 요소를 컨트롤로 옮겨 그 자리에** 깔아 줍니다. 미리 배치가 "패턴의 뼈대"를 까는 것이라면, 이것은 **이미지가 기준**이고 패턴은 그 결과로 고릅니다.
+
+업로드 방식은 **eXConverter-AI**(설계서 이미지 → CLX 프로젝트)의 `GeminiConversionController` 와 같습니다 — 브라우저는 **이미지 파일을 multipart 로 서버에 올리기만** 하고, 키 · 축소 · 호출 · 재시도 · 콘솔 로그는 서버가 맡습니다.
+
+```
+ 이미지 파일 ─ 드롭 / 붙여넣기 / 파일 선택
+    │  imagePlanner.analyzeFile()  경로 결정 : 호출 = 서버 프록시, 또는 키가 비어 있고 서버에 키가 있으면 → 서버 / 그 밖 → 직접
+    ├─ [서버 · 기본] POST /canvas/analyzeImage.do (multipart : image · memo · pattern · catalog · types, X-Requested-With)
+    │       CanvasImageAnalyzer(서버) : ImageIO 축소(긴 변 1536) → PNG(크면 JPEG) → Gemini generateContent
+    │         재시도 : 429/5xx 는 백오프(retryDelay 존중) · MAX_TOKENS/JSON 아님/반복은 온도 0→0.4→0.8 · 2.5 계열이 thinkingLevel 을 거부하면 빼고 재요청
+    │         responseSchema 는 기본 OFF(eXConverter-AI 실측 : 스키마를 붙이면 붕괴) · 콘솔에 [eX-Canvas hh:mm:ss] 진행 로그
+    │       → { ok, plan, image{width,height}, model, usage, elapsedSeconds }
+    └─ [직접]      imagePlanner.readImage()(브라우저 축소 1600px) → geminiPlanner.request()(브라우저 → Google, 화면의 API Key)
+    │  plan = { pattern, title, reason, items : [ { type, text, box[ymin,xmin,ymax,xmax](0~1000), style, required } ] }
+    ▼
+ imagePlanner.normalize()       유형·box 검증(모르는 유형 · 깨진 box 는 버림)
+ imagePlanner.toCanvasItems()   이미지 좌표 → 캔버스 좌표
+    │  가로 : 캔버스 폭에 비례(좌우 배치 · 폭 비율 그대로)
+    │  세로 : "줄 단위" 로 다시 잰다 — 입력·버튼 줄은 24px, 그리드·트리·탭 같은 큰 영역은 남는 높이를 나눠 쓴다(위아래 순서·겹침은 그대로)
+    ▼
+ addCanvasItem() × n  (미리 배치와 같은 길)  → 패턴 콤보 = AI 가 고른 패턴  → 이후는 손으로 그린 캔버스와 똑같다
+```
+
+| 엔드포인트 | 담당 | 설명 |
+|---|---|---|
+| `POST /canvas/analyzeImage.do` | `CanvasImageController`(Tomcat) · `DevServer`(리플렉션) | multipart 첫 파일 파트 = 이미지(20MB). `X-Requested-With: eX-Canvas` 없으면 403, 키 없으면 503, 이미지가 아니면 400 |
+| `GET /canvas/imageStatus.do` | 〃 | `{ ok, configured, model, maxImageSide, responseSchema, thinkingLevel … }` — 키 값은 돌려주지 않는다. 화면이 뜰 때 확인해 속성창 안내 문구에 보여 준다 |
+
+서버 설정(`src/main/resources/canvas/excanvas.properties`, 우선순위 `-Dexcanvas.gemini.xxx` > 환경 변수 `EXCANVAS_GEMINI_XXX` > 파일) : `apiKey`(비면 `GEMINI_API_KEY` → `GOOGLE_API_KEY`) · `model`(기본 `gemini-2.5-flash`) · `url` · `responseSchema`(false) · `maxOutputTokens`(8192) · `maxResponseChars` · `temperature` · `maxImageSide`(1536) · `thinkingLevel`(MINIMAL) · `timeoutSeconds` · `maxRetries` · `proxyHost/Port`.
+Tomcat 은 이클립스 서버 실행 구성의 VM arguments 에 `-Dexcanvas.gemini.apiKey=AIza…`(또는 환경 변수 `GEMINI_API_KEY`) 를 주고 Publish 합니다. 개발 서버는 `tools/dev.sh` · `dev.cmd` 가 분석기(`CanvasImageAnalyzer`)를 `target/canvas-classes` 에 컴파일해 클래스패스로 올립니다(`java tools/DevServer.java` 만 직접 띄우면 서버 분석은 꺼지고 직접 호출만 됩니다).
+
+- **AI 는 "무엇이 어디에 있는지"만 말합니다.** 조회 조건 · 구획 · 하단 버튼 같은 해석은 규칙 기반 변환(`planByRule`)이 좌표로 합니다 — 손으로 그린 캔버스와 같은 길이라 결과 CLX 의 품질이 같습니다. 상태 표시줄에 AI 가 고른 패턴과 좌표 규칙이 읽은 패턴을 함께 보여 주며, 다르면 패턴 콤보의 값(AI 선택)이 내보내기에 쓰입니다.
+- **스타일도 옮깁니다(테마 클래스로만).** 버튼은 색을 보고 `primary`(채운 강조색) / `secondary`(흰·회색) 계열을 정해 속성창 **Style** 에 넣고, 내보낼 때 자리에 맞는 템플릿 클래스(`btn-primary-01/02` · `btn-secondary-01/03`)로 바뀝니다. 라벨의 `*`·빨간 필수 표시는 라벨 끝 `*` 로 남겨 `label required` 가 됩니다. 인라인 `style` 은 만들지 않습니다.
+- 글자는 **보이는 그대로**(라벨 · 버튼 · 표 헤더 → 그리드 컬럼 · 탭 이름 · 콤보 항목) 가져옵니다. 표는 셀이 아니라 그리드 1개로, 표 위 제목·버튼 묶음은 제목 줄로, 표 아래 페이지 번호는 PageIndexer 로 옮깁니다.
+- 기존 항목이 있으면 **분석 전에 물어보고**, 분석이 끝난 뒤에 지웁니다(실패해도 캔버스는 그대로). 공유 중이면 한 번의 변경으로 묶어 보냅니다.
+- 실패하면 상태 표시줄(요약)과 **출력 미리보기 칸(전문 + 확인할 것)** 에 이유가 뜨고 아무것도 놓지 않습니다 — 이미지 분석에는 규칙 기반 대체가 없습니다(픽셀만으로는 컨트롤 유형을 알 수 없습니다). 서버 경로의 상세 원인은 서버 콘솔의 `[eX-Canvas hh:mm:ss]` 로그에 있습니다.
+- 서버 경로에서는 원본 파일이 서버로만 가고 서버가 줄여 Google 로 보냅니다. 직접 경로는 브라우저가 줄인 뒤(긴 변 1600px) Google 로 보내며 키가 브라우저에 있으므로 개인 테스트 전용입니다. 두 경로 모두 이미지가 Google 로 나가므로 대외비 화면은 정책 확인이 필요합니다(eXConverter-AI 의 로컬 Ollama 엔진 같은 사내 경로는 아직 없습니다).
+
 ---
 
 ## 5. 확장하는 법
@@ -431,6 +487,9 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 | 템플릿 패턴 추가 | `templatePlanner.module.js` 의 `CATALOG` + `decidePattern()` + `skeleton()` 의 `switch` |
 | 뼈대(클래스·행 높이·스크린) 변경 | `clxSerializer.module.js` (`headEl` · `searchHeaderEl` · `sectionEl` · `footerEl`) |
 | AI 프롬프트·응답 스키마 | `geminiPlanner.module.js` (`SYSTEM_TEXT` · `buildResponseSchema`) |
+| 이미지 분석 프롬프트·유형 해석 | 서버 : `CanvasImageAnalyzer.BUILTIN_PROMPT`(또는 `src/main/resources/canvas/prompts/image-items.txt`) · 직접 호출 : `imagePlanner.module.js` 의 `SYSTEM_TEXT`. 유형 목록·카탈로그는 브라우저가 보내므로 서버에 따로 없다. 좌표 변환은 `toCanvasItems()` |
+| 이미지 분석 서버 설정(모델 · 재시도 · 스키마) | `src/main/resources/canvas/excanvas.properties` 또는 `-Dexcanvas.gemini.*` |
+| 스타일 계열을 다른 유형에도 | `Prototyper.js` 의 `normalizeStyle()`(허용 유형) + `applyStyleClass()`(캔버스 표시) + `templatePlanner.buttonClass()`(내보낼 클래스) + `style/prototyper.less` 의 `.pt-style-*` |
 | 공유 항목에 필드 추가(예: 잠금·색) | `collabSession.module.js` 의 `FIELDS` 에 이름 추가 + `Prototyper.js` 의 `itemRecord()`·`applyRemoteUpdate()` |
 | 공유 표시(커서·선택 상자) 모양 | `style/prototyper.less` 의 `.pt-remote-sel` · `.pt-remote-chip` · `.pt-peer-0~7` |
 | 공유 서버를 따로 운영 | 릴레이 주소만 속성창 **서버** 칸(또는 `collabInfo.do` 응답)에 넣으면 됩니다. 전선 규약은 `[0]`=문서 · `[1]`=커서 두 가지뿐입니다 |
@@ -448,6 +507,9 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 - **UI 템플릿 116종 전부** — 캔버스 컨트롤 트리 생성 오류 0건, 한 화면에 모두 담아 내보낸 `.clx` 컴파일 오류 0건(`std:sid`·`id` 충돌 없음). `[폼] 조회 (1행)` 은 브라우저에서 사내 테마(`search-box` · `label required` · `btn-search`)가 그대로 나오는 것을 눈으로 확인.
 - **패턴 미리 배치 21개** — `skeleton() → planByRule() → resolve()` 왕복에서 고른 패턴 그대로 나오는 것 확인(자동 선택일 때 18/21은 그대로, 나머지 3개는 아래 5번). 900×580 과 1600×900 두 크기에서 21개 모두 사방 여백이 정확히 20px(넘침·빈 공간 0) 인 것 확인.
 - Gemini: 서버 프록시 경로로 실호출 성공(`gemini-2.5-flash`, 응답 스키마 통과).
+- **이미지로 배치** — 브라우저에서 드롭 · 붙여넣기(Ctrl+V) → 이미지 축소 · base64 → Gemini 요청 본문(inline_data · 응답 스키마 · 유형 29종) 생성까지 실제 이벤트로 확인.
+  Gemini 응답은 **XHR 을 가로챈 가짜 응답**(이 PC 에 API 키가 없음)으로 넣어, 요소 27개 배치 · 필수 라벨 `*` · 버튼 스타일(primary/secondary) 표시 · 패턴 콤보 설정(미리 배치가 따라 돌지 않음) · 기존 항목 있을 때 확인 뒤 교체 · 좌표 규칙이 같은 패턴(P3-1 · P2-4)으로 읽고 CLX 에 `btn-primary-02/01` · `label required` 로 나가는 것까지 확인.
+- **이미지 서버 업로드(eXConverter-AI 방식)** — 가짜 Gemini 서버(`-Dexcanvas.gemini.url` 로 지정)를 두고 개발 서버로 확인 : `curl -F image=@…` 와 브라우저 드롭 모두 multipart 해석 → 서버 분석기 → 키 헤더 · inline_data · 카탈로그/유형 전달 → "thinkingLevel 미지원 400" 뒤 thinkingConfig 없이 자동 재요청 → 코드 펜스 벗김 → 요소 16개 배치 · 패턴 P3-2(좌표 규칙도 P3-2). 헤더 없는 POST 는 403, `imageStatus.do` 는 `configured` 와 모델만 답함. `CanvasImageController` 는 스프링 · 서블릿 클래스패스로 컴파일 확인(실 Tomcat 배포는 미확인).
 - **공유(CRDT)** — 브라우저 탭 2개를 개발 서버 릴레이(`ws://127.0.0.1:8091`)에 실제로 붙여 확인했습니다.
   ① 방 열기(첫 사람) · ② 나중 사람이 기존 항목을 그대로 받기 · ③ 항목 추가 · **드래그 이동** · 크기 · `ID`/`Text` 변경 · 삭제가 양쪽에 같은 값으로 반영 ·
   ④ 남의 **커서**(캔버스 좌표)와 **선택 상자**가 따라 움직임 · 사람마다 다른 색 · 이름 바꾸면 즉시 반영 ·
@@ -475,10 +537,91 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 13. 공유 중에 두 사람이 **동시에 같은 유형을 추가하면** 둘 다 `btn1` 같은 같은 `id` 를 가질 수 있습니다(모두의 화면에 똑같이 보입니다). 내보낼 때 직렬화기가 번호를 붙여 유일하게 만들지만, 원하는 이름이면 속성창에서 고치세요.
 14. 화면명·팝업·변환 방식 같은 **툴바 설정은 공유하지 않습니다**(각자 값). 공유되는 것은 캔버스 항목뿐입니다.
 15. CRDT 라이브러리를 인터넷(esm.sh)에서 받습니다. 막힌 망에서는 [5](#5-확장하는-법) 의 주소 설정으로 사본을 쓰세요.
+16. **이미지로 배치는 실제 Gemini 응답으로는 아직 확인하지 못했습니다**(이 PC 에 키가 없어 가짜 응답·가짜 서버로 검증). 실제 이미지에서 요소 사각형·유형이 얼마나 정확한지는 `gemini-2.5-flash` 로 몇 장 돌려 보고 프롬프트(서버 `CanvasImageAnalyzer.BUILTIN_PROMPT` · 직접 `imagePlanner.SYSTEM_TEXT`)를 다듬어야 합니다. 이미지가 Google 로 나가므로 사내 화면은 보안 정책을 확인하세요. Tomcat 에서 서버 경로를 쓰려면 `dispatcher-servlet.xml` 의 `multipartResolver`(이번에 추가)와 `-Dexcanvas.gemini.apiKey` 가 있어야 하며, 실제 Tomcat 배포는 아직 확인하지 않았습니다.
+17. 이미지 분석은 규칙 기반 대체가 없고(키 없으면 아무것도 놓지 않음), 스타일은 버튼의 primary/secondary 계열과 라벨 필수 표시만 옮깁니다(색·폰트 같은 인라인 스타일은 만들지 않는 원칙 그대로). UDC · UI 템플릿(상용구)로의 매핑은 하지 않습니다 — 기본 컨트롤 29종으로만 놓습니다.
 
 ---
 
-## 7. 변경 이력
+## 7. 진행 상태와 이어서 할 일 (2026-09-22 기준)
+
+다음 사람(또는 다음 세션의 AI)이 바로 이어갈 수 있게 "지금 어디까지 됐고, 무엇이 안 됐고, 어떻게 확인하는지" 를 적는다. 끝나면 이 절을 갱신할 것.
+
+### 7.1 지금 상태
+
+| 항목 | 상태 |
+|---|---|
+| 팔레트 · 캔버스 · 템플릿 변환 · result 저장 · UI 템플릿 · 미리 배치 · 공유(CRDT) | 완료 · 검증됨([6](#6-검증-현황과-알려진-제약)) |
+| **이미지로 배치**([4.12](#412-이미지로-배치-gemini-비전)) — 드롭 · Ctrl+V · 파일 선택 → 분석 → 배치 · 패턴 콤보 · 버튼 Style | 구현 완료. **가짜 응답/가짜 서버로만 검증**, 실제 Gemini 응답 미확인 |
+| 이미지 분석 **서버 업로드 경로**(eXConverter-AI 방식 · `CanvasImageAnalyzer` · `/canvas/analyzeImage.do`) | 개발 서버에서 검증 완료. **Tomcat 실배포 미확인**(컴파일만 통과) |
+| 이 작업분의 git 커밋 | **아직 안 함** — 작업 트리에 그대로 있다(`git status`). 커밋 전에 7.3 의 실 검증을 한 번 하는 것이 좋다 |
+
+이 PC(macOS)에는 Gemini API 키가 없다. 실제 호출 검증은 키를 가진 사람이 7.3 대로 한다.
+
+### 7.2 이어서 할 일 (우선순위 순)
+
+1. **실제 Gemini 로 이미지 분석 품질 확인** — 사내 화면 캡처 3~5장을 서버 경로로 돌려 보고, 잘못 읽는 유형(표를 셀로 쪼갬 · 라벨과 입력을 합침 · 버튼 스타일 오판 · 페이지 인덱서 누락)을 모아 프롬프트를 다듬는다.
+   고칠 곳 : 서버 [`CanvasImageAnalyzer.BUILTIN_PROMPT`](src/main/java/com/tomatosystem/canvas/service/CanvasImageAnalyzer.java)(또는 `src/main/resources/canvas/prompts/image-items.txt` 를 만들어 덮어쓰기) · 직접 호출 [`imagePlanner.SYSTEM_TEXT`](clx-src/module/canvas/imagePlanner.module.js). 두 프롬프트는 같은 내용이어야 한다.
+   모델이 `gemini-3.5-flash` 면 `thinkingLevel=MINIMAL` 이 그대로 먹고, `2.5` 계열이면 400 뒤 자동으로 빼고 재요청한다(로그로 확인).
+2. **Tomcat 배포 확인** — 이클립스에서 프로젝트 빌드 → Publish → `GET /canvas/imageStatus.do` 가 `configured:true` 인지 → 이미지 드롭. 확인할 것 : `multipartResolver` 빈(dispatcher-servlet.xml)이 기존 `DataRequestResolver` 와 충돌하지 않는지, `src/main/resources/canvas/excanvas.properties` 가 `WEB-INF/classes` 로 배포되는지.
+3. **좌표 변환 다듬기** — 세로 캡처(스크롤 페이지)는 캔버스 아래로 넘쳐 스크롤된다. 필요하면 `toCanvasItems()` 에 "캔버스 높이에 맞추는 최대 배율" 을 두거나 큰 영역의 최소 높이를 조정.
+4. (선택) **사내망 경로** — eXConverter-AI 처럼 로컬 Ollama(qwen3-vl) 분석기를 `CanvasImageAnalyzer` 옆에 두면 이미지가 밖으로 나가지 않는다. 계획 JSON 모양만 맞추면 클라이언트는 그대로다.
+5. (선택) 스타일 반영 확대 — 지금은 버튼 primary/secondary 와 라벨 필수 표시만. 그리드 제목 줄 버튼 · 탭 아이콘 등은 템플릿 클래스가 있을 때만 추가.
+
+### 7.3 확인하는 방법
+
+```bash
+# 개발 서버(키 없이 파이프라인 확인) : 터미널 1 = 가짜 Gemini, 터미널 2 = 개발 서버
+java tools/harness/FakeGemini.java 18436 tools/harness/sample-image-plan.json
+EXCANVAS_JAVA_OPTS="-Dexcanvas.gemini.apiKey=fake -Dexcanvas.gemini.url=http://127.0.0.1:18436" sh tools/dev.sh
+#   → http://127.0.0.1:8090/ 에서 아무 이미지나 캔버스에 놓으면 sample-image-plan.json 대로 16개가 P3-2 로 깔린다.
+#   → 서버 콘솔에 [eX-Canvas hh:mm:ss] 분석 시작 → thinkingLevel 재요청 → 분석 완료 로그.
+
+# 실제 Gemini(키 보유자)
+export GEMINI_API_KEY=AIza...
+sh tools/dev.sh
+#   → 속성창 "이미지로 배치" 안내가 "서버 분석 준비됨(gemini-2.5-flash)" 이면 준비 끝. 호출 콤보는 어느 쪽이든 키가 비어 있으면 서버로 간다.
+
+# 엔드포인트만
+curl http://127.0.0.1:8090/canvas/imageStatus.do
+curl -H "X-Requested-With: eX-Canvas" -F image=@캡처.png -F pattern=auto http://127.0.0.1:8090/canvas/analyzeImage.do
+```
+
+- 실패 이유는 화면의 **출력 미리보기 칸**(전문)과 서버 콘솔에 나온다. `API key not valid` 는 키 문제(400), `키가 없습니다` 는 503, 이미지가 아니면 400.
+- 브라우저 직접 호출을 시험할 때는 속성창 API Key 에 AI Studio 키를 넣고 호출을 "브라우저 직접 호출" 로 둔다(테스트 전용 · 키가 브라우저에 남는다).
+- 규칙 기반 변환이 이미지와 같은 패턴으로 읽는지는 상태 표시줄의 "기준 템플릿 P.. (좌표 규칙으로는 P..)" 표시로 본다. 다르면 패턴 콤보(AI 선택)가 내보내기에 쓰인다.
+
+### 7.4 이번 작업에서 손댄 파일 (커밋 안 됨)
+
+| 파일 | 내용 |
+|---|---|
+| `clx-src/module/canvas/imagePlanner.module.js` (신규) | 경로 결정 · 서버 업로드 · 직접 호출 · 정규화 · 좌표 변환 |
+| `clx-src/canvas/Prototyper.js` · `Prototyper.clx` | 드롭/붙여넣기/파일 선택 입구, 분석 결과 배치, 패턴 콤보 동기화, 속성창 **Style** 콤보 · **이미지로 배치** 줄, 오류 전문 표시 |
+| `clx-src/module/canvas/geminiPlanner.module.js` | `request()` 공용화, 키 공백 제거, 키 오류 문구 |
+| `canvasAst` · `collabSession` · `templatePlanner` · `style/prototyper.less` | `pt-style`(버튼 스타일 계열) AST/공유/내보내기 반영, 캔버스 표시 클래스 |
+| `src/main/java/.../canvas/service/CanvasImageAnalyzer.java` (신규) | 서버 분석기(설정 · 축소 · Gemini 호출 · 재시도 · 로그) |
+| `src/main/java/.../canvas/web/CanvasImageController.java` (신규) · `dispatcher-servlet.xml` | Tomcat 엔드포인트 · multipartResolver |
+| `src/main/resources/canvas/excanvas.properties` (신규) | 서버 설정 |
+| `tools/DevServer.java` · `dev.sh` · `dev.cmd` | 개발 서버 엔드포인트(multipart 해석 · 리플렉션) · 분석기 컴파일/클래스패스 |
+| `tools/harness/FakeGemini.java` · `sample-image-plan.json` (신규) | 키 없이 서버 경로를 확인하는 가짜 Gemini |
+| `GeminiProxyController.java` | 본문 상한 8MB |
+| `README.md` · `docs/eX-Canvas-architecture.md` · `clx-src/canvas/확인필요.md` | 문서 |
+
+`clx-build/**` 의 변경은 이클립스 빌더가 만든 것이다(`.gitignore` 에 있지만 과거에 커밋된 파일이라 diff 로 보인다). `target/canvas-classes/` 는 `dev.sh` 가 만드는 산출물이라 `.gitignore` 에 넣었다.
+
+---
+
+## 8. 변경 이력
+
+### 2026-09-22 · 이미지로 배치 (Gemini 비전) · 버튼 Style
+
+화면 캡처·시안 이미지를 캔버스에 놓으면 분석해서 컨트롤을 배치합니다([4.12](#412-이미지로-배치-gemini-비전)).
+
+- **새 모듈 `imagePlanner`** — 이미지 축소·base64 → Gemini 비전(응답 스키마 강제 : 유형 · 글자 · 사각형 0~1000 · 스타일 · 필수) → 이미지 좌표를 캔버스 좌표로. 가로는 비례, 세로는 줄 단위로 다시 재서 24px 줄 격자에 맞춥니다(위아래 순서·겹침 유지 → 규칙 기반 변환이 이미지와 같은 구조로 읽습니다).
+- **입구 세 가지** — 캔버스에 파일 드롭(HTML5 드래그, `document` 에서 한 번만 듣는다) · Ctrl+V 붙여넣기(입력 중이 아닐 때) · 속성창 **[이미지 파일 선택…]**. 분석 중에는 캔버스 테두리로 표시하고 겹친 드롭을 무시합니다.
+- **패턴은 AI 가 고른 가장 비슷한 것** — 패턴 콤보에 넣되 미리 배치가 따라 돌지 않게 막았습니다. 상태 표시줄에 좌표 규칙이 읽은 패턴도 함께 보여 줍니다.
+- **스타일 계열(`pt-style`)** — 버튼에 `primary`/`secondary` 를 둘 수 있고(속성창 **Style** · 이미지 분석이 채움 · 공유 문서 필드에도 포함) 내보낼 때 자리별 템플릿 클래스로 바뀝니다. 캔버스 표시는 `pt-style-*` 클래스(테마 밖 스타일)로만 합니다.
+- `geminiPlanner.request()` 로 호출 경로(direct/proxy · 오류 문구)를 공용화했고, Tomcat 프록시 본문 상한을 256KB → 8MB 로 올렸습니다.
+- **서버 업로드 경로 추가(eXConverter-AI 방식)** — 브라우저가 이미지 파일을 multipart 로 `/canvas/analyzeImage.do` 에 올리면 서버(`CanvasImageAnalyzer`)가 키 · 축소(1536px) · 호출 · 재시도(백오프 · 온도 상향 · thinkingLevel 자동 제거) · 콘솔 로그를 맡습니다. 키는 서버에만 두고 `imageStatus.do` 로 준비 여부만 알립니다. 호출이 "직접" 이어도 키가 비어 있고 서버가 준비돼 있으면 서버로 갑니다. Tomcat 은 `CanvasImageController` + `multipartResolver`, 개발 서버는 `dev.sh`/`dev.cmd` 가 분석기를 컴파일해 올립니다. responseSchema 는 eXConverter-AI 의 실측에 따라 기본 OFF 입니다.
 
 ### 2026-09-20 · 공유 (CRDT 실시간 협업)
 

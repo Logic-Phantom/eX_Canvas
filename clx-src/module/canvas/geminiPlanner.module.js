@@ -213,14 +213,74 @@ function errorMessage(pnStatus, psBody) {
 	if (pnStatus == 429) {
 		return "Gemini 무료 등급 호출 한도를 넘었습니다(429). 잠시 뒤 다시 시도하세요. " + vsDetail;
 	}
+	if (/API key not valid|API_KEY_INVALID/i.test(vsDetail)) {
+		return "Gemini API 키가 유효하지 않습니다(" + pnStatus + "). Google AI Studio 에서 발급한 키인지, 앞뒤 공백이 없는지 확인하세요. " + vsDetail;
+	}
 	if (pnStatus == 400 || pnStatus == 403) {
-		return "Gemini 요청이 거부되었습니다(" + pnStatus + "). API 키·모델명을 확인하세요. " + vsDetail;
+		return "Gemini 요청이 거부되었습니다(" + pnStatus + "). API 키·모델명을 확인하세요. " + (vsDetail || psBody || "");
 	}
 	if (pnStatus == 0) {
 		return "Gemini 에 연결하지 못했습니다(네트워크·CORS·시간 초과).";
 	}
 	return "Gemini 호출 실패(" + pnStatus + "). " + vsDetail;
 }
+
+/**
+ * generateContent 를 호출해 첫 후보의 글자(JSON 문자열)를 돌려준다(비동기).
+ * 화면 계획(plan)과 이미지 분석(imagePlanner)이 같은 길(direct / proxy · 오류 문구)을 쓴다.
+ * @param {Object} poBody generateContent 요청 본문
+ * @param {{apiKey:String, model:String, route:String, timeout:Number}} poOpt route = direct | proxy
+ * @param {function(String)} pfSuccess 응답 글자(코드 펜스를 벗긴 것)
+ * @param {function(String)} pfError 오류 메시지
+ */
+exports.request = function(poBody, poOpt, pfSuccess, pfError) {
+	var vsModel = poOpt.model ? poOpt.model : DEFAULT_MODEL;
+	var voXhr = new XMLHttpRequest();
+	if (poOpt.route == "proxy") {
+		// 서버 프록시: 키는 서버(환경 변수 GEMINI_API_KEY)에 있다. 브라우저에는 키가 없다.
+		voXhr.open("POST", contextPath() + "/ai/gemini.do?model=" + encodeURIComponent(vsModel), true);
+	} else {
+		var vsKey = (poOpt.apiKey || "").replace(/^\s+|\s+$/g, ""); // 복사해 넣을 때 딸려 오는 공백·줄바꿈 제거
+		if (!vsKey) {
+			pfError("Gemini API 키가 없습니다. 속성창 아래 'Gemini 설정'에 키를 넣거나 호출을 '서버 프록시' 로 바꾸세요.");
+			return;
+		}
+		voXhr.open("POST", API_BASE + encodeURIComponent(vsModel) + ":generateContent", true);
+		voXhr.setRequestHeader("x-goog-api-key", vsKey); // 키를 URL 에 싣지 않는다(로그·히스토리 노출 방지)
+	}
+	voXhr.setRequestHeader("Content-Type", "application/json");
+	voXhr.timeout = poOpt.timeout || TIMEOUT_MS;
+
+	voXhr.onreadystatechange = function() {
+		if (voXhr.readyState != 4) {
+			return;
+		}
+		if (voXhr.status < 200 || voXhr.status >= 300) {
+			pfError(errorMessage(voXhr.status, voXhr.responseText));
+			return;
+		}
+		var vsText;
+		try {
+			var voResponse = JSON.parse(voXhr.responseText);
+			var voCandidate = voResponse.candidates && voResponse.candidates[0];
+			if (voCandidate == null || voCandidate.content == null || voCandidate.content.parts == null) {
+				var vsBlock = voResponse.promptFeedback && voResponse.promptFeedback.blockReason ? voResponse.promptFeedback.blockReason : "응답 없음";
+				pfError("Gemini 가 결과를 돌려주지 않았습니다(" + vsBlock + ").");
+				return;
+			}
+			vsText = voCandidate.content.parts.map(function(poPart) {
+				return poPart.text || "";
+			}).join("");
+			// responseMimeType 을 지정해도 드물게 코드 펜스가 붙는 경우를 방어한다.
+			vsText = vsText.replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
+		} catch (e) {
+			pfError("Gemini 응답을 해석하지 못했습니다: " + e.message);
+			return;
+		}
+		pfSuccess(vsText);
+	};
+	voXhr.send(JSON.stringify(poBody));
+};
 
 /**
  * Gemini 로 원시 계획을 만든다(비동기).
@@ -233,7 +293,6 @@ exports.plan = function(poAst, poOpt, pfSuccess, pfError) {
 	var planner = cpr.core.Module.require("module/canvas/templatePlanner");
 	var vaCatalog = planner.getCatalog();
 	var voDraft = planner.planByRule(poAst);
-	var vsModel = poOpt.model ? poOpt.model : DEFAULT_MODEL;
 
 	var voBody = {
 		systemInstruction : {
@@ -256,43 +315,9 @@ exports.plan = function(poAst, poOpt, pfSuccess, pfError) {
 		}
 	};
 
-	var voXhr = new XMLHttpRequest();
-	if (poOpt.route == "proxy") {
-		// 서버 프록시: 키는 서버(환경 변수 GEMINI_API_KEY)에 있다. 브라우저에는 키가 없다.
-		voXhr.open("POST", contextPath() + "/ai/gemini.do?model=" + encodeURIComponent(vsModel), true);
-	} else {
-		if (!poOpt.apiKey) {
-			pfError("Gemini API 키가 없습니다. 속성창 아래 'Gemini 설정'에 키를 넣으세요.");
-			return;
-		}
-		voXhr.open("POST", API_BASE + encodeURIComponent(vsModel) + ":generateContent", true);
-		voXhr.setRequestHeader("x-goog-api-key", poOpt.apiKey); // 키를 URL 에 싣지 않는다(로그·히스토리 노출 방지)
-	}
-	voXhr.setRequestHeader("Content-Type", "application/json");
-	voXhr.timeout = TIMEOUT_MS;
-
-	voXhr.onreadystatechange = function() {
-		if (voXhr.readyState != 4) {
-			return;
-		}
-		if (voXhr.status < 200 || voXhr.status >= 300) {
-			pfError(errorMessage(voXhr.status, voXhr.responseText));
-			return;
-		}
+	exports.request(voBody, poOpt, function(psText) {
 		try {
-			var voResponse = JSON.parse(voXhr.responseText);
-			var voCandidate = voResponse.candidates && voResponse.candidates[0];
-			if (voCandidate == null || voCandidate.content == null || voCandidate.content.parts == null) {
-				var vsBlock = voResponse.promptFeedback && voResponse.promptFeedback.blockReason ? voResponse.promptFeedback.blockReason : "응답 없음";
-				pfError("Gemini 가 계획을 돌려주지 않았습니다(" + vsBlock + ").");
-				return;
-			}
-			var vsText = voCandidate.content.parts.map(function(poPart) {
-				return poPart.text || "";
-			}).join("");
-			// responseMimeType 을 지정해도 드물게 코드 펜스가 붙는 경우를 방어한다.
-			vsText = vsText.replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
-			var voPlan = JSON.parse(vsText);
+			var voPlan = JSON.parse(psText);
 			voPlan.warnings = [];
 			if (voPlan.reason) {
 				voPlan.warnings.push("AI 선택 이유: " + voPlan.reason);
@@ -301,8 +326,7 @@ exports.plan = function(poAst, poOpt, pfSuccess, pfError) {
 		} catch (e) {
 			pfError("Gemini 응답을 해석하지 못했습니다: " + e.message);
 		}
-	};
-	voXhr.send(JSON.stringify(voBody));
+	}, pfError);
 };
 
 exports.DEFAULT_MODEL = DEFAULT_MODEL;
