@@ -1503,12 +1503,30 @@
 		};
 
 		/**
+		 * 사용자가 적은 공유 서버 주소를 웹소켓 주소로 고친다. 쓸 수 없는 값이면 "".
+		 * ws(s):// 는 그대로, http(s):// 는 ws(s):// 로 바꾼다. 그 밖의 값(예: 이름을 잘못 적은 것)은
+		 * new WebSocket 이 이 화면 기준 상대 경로(/ui/<값>)로 풀어 404 가 나므로 받지 않는다.
+		 * @param {String} psUrl
+		 */
+		function normalizeUrl(psUrl) {
+			var vsUrl = (psUrl || "").replace(/\s+/g, "");
+			if (/^wss?:\/\/[^\/?#]+/i.test(vsUrl)) {
+				return vsUrl;
+			}
+			if (/^https?:\/\/[^\/?#]+/i.test(vsUrl)) {
+				return vsUrl.replace(/^http/i, "ws");
+			}
+			return "";
+		}
+		exports.normalizeUrl = normalizeUrl;
+
+		/**
 		 * 방 이름을 붙인 접속 주소.
 		 * @param {String} psBaseUrl
 		 * @param {String} psRoom
 		 */
 		exports.buildUrl = function(psBaseUrl, psRoom) {
-			var vsBase = (psBaseUrl || "").replace(/\s+/g, "");
+			var vsBase = normalizeUrl(psBaseUrl);
 			if (vsBase === "") {
 				vsBase = sameOriginUrl();
 			}

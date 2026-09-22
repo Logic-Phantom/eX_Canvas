@@ -1116,6 +1116,12 @@ function onIpbShareNameValueChange(e) {
 
 function startShare() {
 	var vsRoom = getAppName();
+	var vcUrl = app.lookup("ipbShareUrl");
+	if (vcUrl.value && !collab().normalizeUrl(vcUrl.value)) {
+		// ws:// 주소가 아닌 값(이름을 잘못 적은 것 등)은 지우고 자동으로 찾은 주소를 쓴다.
+		console.warn("[공유] 서버 주소가 아니어서 무시합니다 : " + vcUrl.value);
+		vcUrl.value = "";
+	}
 	saveCollabSettings();
 	// 붙는 사이에 공유본이 먼저 들어오므로, "켜기 직전에 내가 갖고 있던 것" 을 따로 적어 둔다.
 	maPreShareUids = canvasItems().map(function(pcItem) {
