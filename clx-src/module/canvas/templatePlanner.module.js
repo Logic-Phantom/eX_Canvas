@@ -1094,6 +1094,7 @@ exports.resolve = function(poRaw, poAst, poOpt) {
 			cls : voNode.type == "uitpl" ? null : (psCls || null),
 			udcType : voNode.udcType,
 			tpl : voNode.tpl,
+			bind : voNode.bind || null, // 데이터 바인딩(ds: · dm: · sub: · clear:)은 자리와 무관하게 그대로 간다.
 			width : voNode.layoutData.width,
 			height : voNode.layoutData.height
 		};
@@ -1386,6 +1387,8 @@ exports.resolve = function(poRaw, poAst, poOpt) {
 		search : voSearch,
 		rows : toRows(vaTopSections, vbForced && voCatalog != null && voCatalog.arrange != "mixed" ? voCatalog.arrange : null),
 		footer : voFooter,
+		// API 연동 데이터 모델(DataSet · DataMap · Submission). 직렬화기가 <cl:model> 에 넣는다.
+		model : poAst.app.model || null,
 		warnings : vaWarnings
 	};
 };

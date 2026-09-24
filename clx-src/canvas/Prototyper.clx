@@ -183,44 +183,105 @@
         <cl:item std:sid="item-e0c00146" label="primary (강조)" value="primary"/>
         <cl:item std:sid="item-e0c00147" label="secondary (보통)" value="secondary"/>
       </cl:combobox>
+      <cl:output std:sid="output-e0c00200" class="pt-label" value="Bind">
+        <cl:formdata std:sid="f-data-e0c00201" row="10" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c00202" id="ipbPropBind" tooltip="데이터 바인딩. ds:데이터셋(그리드) · dm:데이터맵.컬럼(입력) · sub:서브미션(버튼) · clear:데이터(버튼). API 연동으로 만든 모델의 id 를 씁니다.">
+        <cl:listener std:sid="listener-e0c00203" name="value-change" handler="onPropValueChange"/>
+        <cl:formdata std:sid="f-data-e0c00204" row="10" col="1"/>
+      </cl:inputbox>
       <cl:group std:sid="group-e0c00098" id="grpPropButtons">
-        <cl:formdata std:sid="f-data-e0c00099" row="10" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c00099" row="11" col="0" colspan="2"/>
         <cl:button std:sid="button-e0c0009a" id="btnPropDelete" value="선택 삭제">
           <cl:listener std:sid="listener-e0c0009b" name="click" handler="onBtnPropDeleteClick"/>
           <cl:flowlayoutdata std:sid="f-data-e0c0009c" width="80px" height="26px" autosize="none"/>
         </cl:button>
         <cl:flowlayout std:sid="f-layout-e0c0009d" scrollable="false" hspacing="6" vspacing="0" halign="right"/>
       </cl:group>
+      <cl:output std:sid="output-e0c00210" id="optApiTitle" class="pt-panel-title" value="API 연동 (Swagger / OpenAPI · 응답 JSON)">
+        <cl:formdata std:sid="f-data-e0c00211" row="12" col="0" colspan="2"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00212" class="pt-label" value="URL">
+        <cl:formdata std:sid="f-data-e0c00213" row="13" col="0"/>
+      </cl:output>
+      <cl:inputbox std:sid="i-box-e0c00214" id="ipbApiUrl" placeholder="http://host/v3/api-docs · Swagger UI 주소 · 응답 JSON 을 주는 API 주소">
+        <cl:formdata std:sid="f-data-e0c00215" row="13" col="1"/>
+      </cl:inputbox>
+      <cl:group std:sid="group-e0c00216" id="grpApiButtons">
+        <cl:formdata std:sid="f-data-e0c00217" row="14" col="0" colspan="2"/>
+        <cl:button std:sid="button-e0c00218" id="btnApiLoad" value="URL 불러오기" tooltip="명세 JSON 을 받아 분석합니다. Swagger UI 주소를 넣으면 /v3/api-docs · /v2/api-docs 를 추정해 시도합니다.">
+          <cl:listener std:sid="listener-e0c00219" name="click" handler="onBtnApiLoadClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c0021a" width="88px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c0021b" id="btnApiFile" value="JSON 파일…" tooltip="명세 JSON 또는 응답 샘플 JSON 파일을 골라 분석합니다.">
+          <cl:listener std:sid="listener-e0c0021c" name="click" handler="onBtnApiFileClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c0021d" width="80px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c0021e" id="btnApiPaste" value="붙여넣기 분석" tooltip="아래 칸에 붙여넣은 JSON 을 분석합니다 — Swagger 명세, 또는 실제 응답 JSON(배열 키=DataSet · 객체 키=DataMap).">
+          <cl:listener std:sid="listener-e0c0021f" name="click" handler="onBtnApiPasteClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00220" width="90px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:flowlayout std:sid="f-layout-e0c00221" scrollable="false" hspacing="6" vspacing="0" halign="left" valign="middle" linewrap="false"/>
+      </cl:group>
+      <cl:textarea std:sid="t-area-e0c00222" id="txaApiJson" class="pt-api-json" placeholder="OpenAPI/Swagger JSON 또는 응답 샘플 JSON({dsList:[…], dmPageInfo:{…}})을 여기에 붙여넣고 [붙여넣기 분석]">
+        <cl:formdata std:sid="f-data-e0c00223" row="15" col="0" colspan="2"/>
+      </cl:textarea>
+      <cl:output std:sid="output-e0c00224" id="optApiHint" class="pt-status" value="">
+        <cl:formdata std:sid="f-data-e0c00225" row="16" col="0" colspan="2"/>
+      </cl:output>
+      <cl:output std:sid="output-e0c00226" class="pt-label" value="리소스">
+        <cl:formdata std:sid="f-data-e0c00227" row="17" col="0"/>
+      </cl:output>
+      <cl:combobox std:sid="c-box-e0c00228" id="cmbApiTag" preventinput="true" tooltip="명세의 태그(컨트롤러)별로 API 를 추립니다. 화면 하나는 보통 리소스 하나입니다.">
+        <cl:listener std:sid="listener-e0c00229" name="selection-change" handler="onCmbApiTagSelectionChange"/>
+        <cl:formdata std:sid="f-data-e0c0022a" row="17" col="1"/>
+      </cl:combobox>
+      <cl:listbox std:sid="l-box-e0c0022b" id="lsbApiOps" class="pt-api-ops" multiple="true" tooltip="화면에 넣을 API 를 고릅니다(여러 개). 역할(목록·상세·등록·수정·삭제)은 응답과 메서드로 판정합니다. 응답 샘플이면 DataSet/DataMap 항목이 나오고, 고른 것이 바로 이 화면의 모델이 됩니다.">
+        <cl:listener std:sid="listener-e0c00236" name="selection-change" handler="onLsbApiOpsSelectionChange"/>
+        <cl:formdata std:sid="f-data-e0c0022c" row="18" col="0" colspan="2"/>
+      </cl:listbox>
+      <cl:group std:sid="group-e0c0022d" id="grpApiActions">
+        <cl:formdata std:sid="f-data-e0c0022e" row="19" col="0" colspan="2"/>
+        <cl:button std:sid="button-e0c0022f" id="btnApiGenerate" class="pt-btn-primary" value="화면 생성" tooltip="고른 API 로 DataSet · DataMap · Submission 을 만들고, 바인딩된 컨트롤(조회 조건 · 그리드 · 폼 · 버튼)을 캔버스에 깝니다.">
+          <cl:listener std:sid="listener-e0c00230" name="click" handler="onBtnApiGenerateClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00231" width="80px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:button std:sid="button-e0c00232" id="btnApiModel" value="모델만 적용" tooltip="캔버스는 그대로 두고 데이터 모델만 붙입니다. 속성창 Bind 로 컨트롤을 잇습니다.">
+          <cl:listener std:sid="listener-e0c00233" name="click" handler="onBtnApiModelClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00234" width="84px" height="26px" autosize="none"/>
+        </cl:button>
+        <cl:flowlayout std:sid="f-layout-e0c00235" scrollable="false" hspacing="6" vspacing="0" halign="right"/>
+      </cl:group>
       <cl:output std:sid="output-e0c00120" id="optShareTitle" class="pt-panel-title" value="공유 (실시간 협업)">
-        <cl:formdata std:sid="f-data-e0c00121" row="11" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c00121" row="20" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c00122" class="pt-label" value="내 이름">
-        <cl:formdata std:sid="f-data-e0c00123" row="12" col="0"/>
+        <cl:formdata std:sid="f-data-e0c00123" row="21" col="0"/>
       </cl:output>
       <cl:inputbox std:sid="i-box-e0c00124" id="ipbShareName" placeholder="다른 사람에게 보일 이름">
         <cl:listener std:sid="listener-e0c00125" name="value-change" handler="onIpbShareNameValueChange"/>
-        <cl:formdata std:sid="f-data-e0c00126" row="12" col="1"/>
+        <cl:formdata std:sid="f-data-e0c00126" row="21" col="1"/>
       </cl:inputbox>
       <cl:output std:sid="output-e0c00127" class="pt-label" value="서버">
-        <cl:formdata std:sid="f-data-e0c00128" row="13" col="0"/>
+        <cl:formdata std:sid="f-data-e0c00128" row="22" col="0"/>
       </cl:output>
       <cl:inputbox std:sid="i-box-e0c00129" id="ipbShareUrl" placeholder="비워 두면 자동으로 찾습니다">
-        <cl:formdata std:sid="f-data-e0c0012a" row="13" col="1"/>
+        <cl:formdata std:sid="f-data-e0c0012a" row="22" col="1"/>
       </cl:inputbox>
       <cl:output std:sid="output-e0c0012b" id="optShareState" class="pt-status" value="">
-        <cl:formdata std:sid="f-data-e0c0012c" row="14" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c0012c" row="23" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c0012d" id="optSharePeers" class="pt-status" value="">
-        <cl:formdata std:sid="f-data-e0c0012e" row="15" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c0012e" row="24" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c000e0" id="optSaveTitle" class="pt-panel-title" value="저장 위치 (result)">
-        <cl:formdata std:sid="f-data-e0c000e1" row="16" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000e1" row="25" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c000e2" id="optSaveTarget" class="pt-status" value="">
-        <cl:formdata std:sid="f-data-e0c000e3" row="17" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000e3" row="26" col="0" colspan="2"/>
       </cl:output>
       <cl:group std:sid="group-e0c000e4" id="grpSaveDirButtons">
-        <cl:formdata std:sid="f-data-e0c000e5" row="18" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000e5" row="27" col="0" colspan="2"/>
         <cl:button std:sid="button-e0c000e6" id="btnPickSaveDir" value="폴더 지정" tooltip="저장 서버가 없을 때 브라우저가 직접 쓸 폴더(clx-src/result)를 고릅니다.">
           <cl:listener std:sid="listener-e0c000e7" name="click" handler="onBtnPickSaveDirClick"/>
           <cl:flowlayoutdata std:sid="f-data-e0c000e8" width="80px" height="26px" autosize="none"/>
@@ -228,33 +289,33 @@
         <cl:flowlayout std:sid="f-layout-e0c000e9" scrollable="false" hspacing="6" vspacing="0" halign="right"/>
       </cl:group>
       <cl:output std:sid="output-e0c000a0" id="optAiTitle" class="pt-panel-title" value="Gemini 설정 (무료 API 키)">
-        <cl:formdata std:sid="f-data-e0c000a1" row="19" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000a1" row="28" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c000a2" class="pt-label" value="API Key">
-        <cl:formdata std:sid="f-data-e0c000a3" row="20" col="0"/>
+        <cl:formdata std:sid="f-data-e0c000a3" row="29" col="0"/>
       </cl:output>
       <cl:inputbox std:sid="i-box-e0c000a4" id="ipbApiKey" secret="true" placeholder="AI Studio에서 발급한 키">
-        <cl:formdata std:sid="f-data-e0c000a5" row="20" col="1"/>
+        <cl:formdata std:sid="f-data-e0c000a5" row="29" col="1"/>
       </cl:inputbox>
       <cl:output std:sid="output-e0c000a6" class="pt-label" value="Model">
-        <cl:formdata std:sid="f-data-e0c000a7" row="21" col="0"/>
+        <cl:formdata std:sid="f-data-e0c000a7" row="30" col="0"/>
       </cl:output>
       <cl:inputbox std:sid="i-box-e0c000a8" id="ipbModel" value="gemini-2.5-flash">
-        <cl:formdata std:sid="f-data-e0c000a9" row="21" col="1"/>
+        <cl:formdata std:sid="f-data-e0c000a9" row="30" col="1"/>
       </cl:inputbox>
       <cl:output std:sid="output-e0c000aa" class="pt-label" value="호출">
-        <cl:formdata std:sid="f-data-e0c000ab" row="22" col="0"/>
+        <cl:formdata std:sid="f-data-e0c000ab" row="31" col="0"/>
       </cl:output>
       <cl:combobox std:sid="c-box-e0c000ac" id="cmbAiRoute" value="direct" preventinput="true">
-        <cl:formdata std:sid="f-data-e0c000ad" row="22" col="1"/>
+        <cl:formdata std:sid="f-data-e0c000ad" row="31" col="1"/>
         <cl:item std:sid="item-e0c000ae" label="브라우저 직접 호출(테스트)" value="direct"/>
         <cl:item std:sid="item-e0c000af" label="서버 프록시(/ai/gemini.do)" value="proxy"/>
       </cl:combobox>
       <cl:checkbox std:sid="c-box-e0c000b0" id="cbxRememberKey" text="이 브라우저에 키 저장(localStorage)" value="" truevalue="Y" falsevalue="">
-        <cl:formdata std:sid="f-data-e0c000b1" row="23" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000b1" row="32" col="0" colspan="2"/>
       </cl:checkbox>
       <cl:group std:sid="group-e0c00130" id="grpImageButtons">
-        <cl:formdata std:sid="f-data-e0c00131" row="24" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c00131" row="33" col="0" colspan="2"/>
         <cl:output std:sid="output-e0c00132" class="pt-label" value="이미지로 배치">
           <cl:flowlayoutdata std:sid="f-data-e0c00133" width="90px" height="26px" autosize="none"/>
         </cl:output>
@@ -265,13 +326,13 @@
         <cl:flowlayout std:sid="f-layout-e0c00137" scrollable="false" hspacing="6" vspacing="0" halign="left" valign="middle"/>
       </cl:group>
       <cl:output std:sid="output-e0c00138" id="optImageHint" class="pt-status" value="캔버스에 이미지를 끌어다 놓거나 Ctrl+V 로 붙여넣어도 됩니다.">
-        <cl:formdata std:sid="f-data-e0c00139" row="25" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c00139" row="34" col="0" colspan="2"/>
       </cl:output>
       <cl:output std:sid="output-e0c000b2" class="pt-label" value="화면 요구사항 메모 (AI 프롬프트에 포함)">
-        <cl:formdata std:sid="f-data-e0c000b3" row="26" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000b3" row="35" col="0" colspan="2"/>
       </cl:output>
       <cl:textarea std:sid="t-area-e0c000b4" id="txaMemo" placeholder="예) 사원 목록 조회 화면. 부서·입사일로 검색하고 그리드에서 선택하면 하단에서 수정한다.">
-        <cl:formdata std:sid="f-data-e0c000b5" row="27" col="0" colspan="2"/>
+        <cl:formdata std:sid="f-data-e0c000b5" row="36" col="0" colspan="2"/>
       </cl:textarea>
       <cl:formlayout std:sid="f-layout-e0c000b6" scrollable="true" hspace="6px" vspace="6px" top-margin="0px" right-margin="8px" bottom-margin="8px" left-margin="0px">
         <cl:rows length="32" unit="PIXEL"/>
@@ -284,6 +345,15 @@
         <cl:rows length="24" unit="PIXEL"/>
         <cl:rows length="24" unit="PIXEL"/>
         <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="28" unit="PIXEL"/>
+        <cl:rows length="32" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="28" unit="PIXEL"/>
+        <cl:rows length="60" unit="PIXEL"/>
+        <cl:rows length="20" unit="PIXEL"/>
+        <cl:rows length="24" unit="PIXEL"/>
+        <cl:rows length="110" unit="PIXEL"/>
         <cl:rows length="28" unit="PIXEL"/>
         <cl:rows length="32" unit="PIXEL"/>
         <cl:rows length="24" unit="PIXEL"/>

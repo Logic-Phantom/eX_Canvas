@@ -58,7 +58,8 @@ body(.pt-root)  formlayout  rows 46px / 1fr / 190px   cols 190px / 1fr / 300px
 | `templatePlanner` | 템플릿 카탈로그, 좌표 규칙 기반 계획, 계획 해석(검증·정규화), 패턴 뼈대 `skeleton()` |
 | `geminiPlanner` | Gemini `generateContent` 호출(응답 스키마 강제) → raw plan. `request()` 는 direct/proxy 호출 공용(이미지 분석도 쓴다) |
 | `imagePlanner` | 이미지 → 캔버스 항목. `analyzeFile()`(경로 결정) · `analyzeUpload()`(multipart 로 서버에) · `probeServer()`(`imageStatus.do`) · `readImage()`/`analyze()`(브라우저 직접) · `normalize()` · `toCanvasItems()`(가로 비례 · 세로 줄 단위 재측정) |
-| `clxSerializer` | XML 빌더, `std:sid` 유일성, XY/템플릿 두 가지 직렬화 + UI 템플릿 트리(`catalogNodeEl`) |
+| `openApiPlanner` | Swagger/OpenAPI 명세 → 데이터 모델 → 바인딩된 뼈대. `parse()` · `analyze()`(API 목록 · 역할) · `mapModel()`(DataSet · DataMap · Submission · flows) · `parseBind()`(바인딩 표기) · `skeleton()` · `describe()` · `fetchSpec()`/`candidateUrls()`/`probeProxy()`(URL 받기). `cpr` 에 의존하지 않는 순수 JS |
+| `clxSerializer` | XML 빌더, `std:sid` 유일성, XY/템플릿 두 가지 직렬화 + UI 템플릿 트리(`catalogNodeEl`) + `<cl:model>` · 바인딩(`bindChildren`) · `generate()` → `{clx, js}`(리스너 핸들러 `.js` 생성 `scriptFor`) |
 | `fileDownload` | Blob 다운로드 · 저장 서버 요청(`probeServer`/`saveToProject`) · 지정 폴더에 직접 쓰기(`saveToDirectory`) |
 | `templateBuilder` | UI 템플릿 카탈로그 노드 → 실제 `cpr.controls.*` 트리(캔버스 미리보기) |
 | `uiTemplateCatalog` | **자동 생성** — 상용구 116종의 컨트롤 트리. `tools/SyncCatalog.java` 가 만든다 |
@@ -121,7 +122,8 @@ CLI 컴파일러가 `theme/custom-theme.less` 에서 끝나지 않기 때문이�
   테마 LESS 는 이 프로젝트에도 있어 **스타일은 그대로 보이지만**, UDC 는 eXCFrame 공통 모듈(`createCommonUtil`)을 요구한다
   → UDC 는 캔버스에서 이름표로 대신 보인다(파일 출력은 정상). 실행은 **eXCFrame 템플릿 프로젝트가 전제**다.
 - P0(이너) 패턴은 대상에서 뺐다. 아코디언·임베디드·쉘 안의 내용(자식 컨트롤)은 비워서 내보낸다.
-- 데이터셋·서브미션·이벤트 핸들러는 만들지 않는다(화면 초안 도구). 그리드 헤더는 `text` 만 채운다.
+- 손으로만 그린 화면은 데이터셋·서브미션·이벤트 핸들러를 만들지 않는다(화면 초안 도구). 그리드 헤더는 `text` 만 채운다.
+  API 연동([9-2](#9-2-api-연동-swaggeropenapi--데이터-모델--바인딩))으로 모델을 붙인 경우에만 `<cl:model>` · 바인딩 · 리스너 핸들러가 생긴다.
 - UI 템플릿은 스튜디오 전용 정보(`metaData` · `fieldLabel`)와 표현식 바인딩(`itemStyle`/`binders`), 탭 아이콘용 `userAttributes` 를 옮기지 않는다.
 
 ## 7. 팔레트 컨트롤 · UDC
@@ -173,6 +175,20 @@ CLI 컴파일러가 `theme/custom-theme.less` 에서 끝나지 않기 때문이�
 - **두 경로, 같은 계획 모양** — 기본은 **서버 업로드**(eXConverter-AI 의 `GeminiConversionController` 방식) : 브라우저가 원본 파일을 multipart 로 `/canvas/analyzeImage.do` 에 올리고, 서버 `CanvasImageAnalyzer`(JDK + org.json, 스프링 의존 없음)가 키 · ImageIO 축소(1536) · 호출 · 재시도 · 콘솔 로그를 맡는다. Tomcat 은 `CanvasImageController`(+ `multipartResolver`), 개발 서버는 같은 클래스를 리플렉션으로 부른다(`dev.sh` 가 컴파일해 `-cp` 로 올림 · 없으면 503). 직접 경로(브라우저 → Google)는 개인 테스트용으로 남겨 두었고, 두 경로가 돌려주는 `plan` 은 같은 모양이라 `normalize()`/`toCanvasItems()` 가 공통이다.
 - **서버 분석기의 방어** — 전송 실패(429/5xx/연결)는 같은 요청 + 지수 백오프(`retryDelay` 우선), 비정상 출력(MAX_TOKENS · JSON 아님 · `maxResponseChars` 초과)은 온도 0→0.4→0.8 로 재생성, 2.5 계열이 `thinkingLevel` 을 거부하면 `thinkingConfig` 없이 재요청. `responseSchema` 는 기본 OFF(eXConverter-AI 실측 : 스키마가 붙으면 3.5-flash 가 반복 생성으로 붕괴). 카탈로그 · 유형 목록은 브라우저가 폼 필드로 보내 서버에 사본을 두지 않는다.
 - **전송량** — 서버 경로는 원본 파일(20MB 상한)이 서버까지만 가고 서버가 줄여 보낸다. 직접 경로는 브라우저에서 긴 변 1600px 로 줄이고 PNG(크면 JPEG 0.9)로 보낸다(Tomcat 프록시 본문 상한 8MB).
+
+## 9-2. API 연동 (Swagger/OpenAPI → 데이터 모델 · 바인딩)
+
+사용법과 전체 흐름은 [README](../README.md) 4.13 에 있다. 설계상의 요점만 적는다.
+
+- **AI 를 쓰지 않는다.** 명세는 이미 구조화된 데이터라 결정적으로 옮긴다(같은 명세 → 같은 결과 · 비용 0). Gemini 는 이미지 배치·계획 다듬기에만 쓴다.
+- **역할 판정은 응답 모양이 먼저다.** 응답에 "목록" 이 있으면 메서드와 무관하게 list(사내 API 의 "POST 로 조회" 를 받아 준다). 목록 래퍼 판정(`listProperty`)은 ① 이름이 `data · content · list · items · rows · result(s) · records · body · payload` 인 객체 배열, ② 그것이 아니면 객체 배열 속성이 하나뿐이고 나머지 속성이 모두 래퍼용(success · message · 페이지 정보)일 때만이다 — 그래서 "엔티티 + 자식 배열(careers)" 은 목록이 아니라 상세로 남는다. 래퍼 안(`data`)이 객체면 한 단계 더 본다(`data.content`).
+- **DataMap 하나로 폼을 잇는다.** 상세 응답 · 등록 본문 · 수정 본문이 같은 `$ref` 이름이거나 컬럼 이름이 절반 이상 겹치면 `dmDetail` 하나에 합친다(컬럼 합집합). 실제 eXBuilder 화면이 폼 DataMap 하나로 "선택 → 상세 조회 → 고쳐서 저장" 을 돌리는 관례를 따른 것이다. 경로 변수는 키 DataMap(`dmDetailKey` · `dmDeleteKey`)으로 떼고 `.js` 가 `action` 의 `{id}` 를 치환한다(Submission `action` 은 정적이라).
+- **id 는 역할이 하나뿐일 때만 읽기 쉬운 이름**(`subList` · `dmSearch` · `dsList` · `dmDetail` · `subSave/subUpdate` · `subDelete`)이고, 같은 역할이 여럿이면 `operationId` 기반(`subGetEmployee`)이다. 컨트롤 id 도 뼈대가 준다(`ipbSrchDeptCd` · `ipbEmpNm` · `grdList` · `btnSearch` …) → 핸들러 이름이 `onBtnSearchClick` 처럼 읽힌다.
+- **바인딩은 항목의 문자열 한 칸(`pt-bind`)이다.** `ds:` · `dm:x.col` · `sub:` · `clear:` 네 가지뿐이라 AST · 공유 문서 · 속성창이 같은 값을 들고 다니고, 해석은 내보낼 때 `clxSerializer.bindChildren()` 한 곳에서 한다. 모델(`app.model`)은 화면 상태(메모리)이고 공유하지 않는다.
+- **CLX 스키마 확인 사항**(`kr.co.tomatosystem.exbuilder.model` 플러그인의 `cleopatra/head/*.xsd` · `body/bindable.xsd` 로 확정) — `<cl:model>` 자식 순서는 dataset → datamap → submission. `<cl:dataset>`/`<cl:datamap>` 은 `id` · `info` 와 `<cl:datacolumnlist><cl:datacolumn name datatype(string|number|decimal|expression)/>`. `<cl:submission id action method mediatype>` 의 자식 `<cl:requestdata dataid alias payload/>` · `<cl:responsedata dataid alias/>` 와 `<cl:datamapbind property datacontrolid columnname/>` 는 **`std:sid` 를 갖지 않는다**(붙이면 컴파일러가 "Feature 'sid' not found" 로 거부 — 실측). 컨트롤 자식 순서는 listener → bind → layoutdata → 고유 자식. 그리드는 `datasetid`, 헤더 셀 `targetcolumnname`, 디테일 셀 `columnname`.
+- **`.js` 핸들러는 리스너가 있는 컨트롤에만** 만든다(직렬화 문맥 `ctx.handlers`). 그리드 `selection-change` 는 목록 데이터셋에 바인딩된 그리드 + 상세/폼 흐름이 있을 때만 붙는다. 삭제는 키를 폼 DataMap(같은 컬럼이 있으면) 아니면 그리드 선택 행에서 채운다.
+- **명세 프록시**는 본문을 해석하지 않고 그대로 돌려준다(`DevServer.fetchOpenApi` · `CanvasOpenApiController`). 개발 도구라 주소를 제한하지 않으므로 외부 공개 서버에는 두지 않는다.
+- **응답 샘플 JSON(명세가 없을 때)** — `parse()` 는 `openapi`/`swagger` 필드가 없는 JSON 을 응답 샘플로 그대로 돌려주고, `analyze()` 가 `analyzeSample()` 로 갈라진다(결과 모양은 같아 화면의 콤보·목록 상자·[화면 생성] 코드가 그대로다 — 항목에 `sample:true` 와 `kind/columns/path` 가 붙는다). 규칙은 값의 모양뿐이다 : 객체 → DataMap, 객체 배열 → DataSet, 그 안의 배열/객체는 재귀(`MAX_DEPTH` 8)로 자식 항목 — 배열 행 안의 배열은 모든 행의 것을 이어 붙이고(`sampleColumns` 가 `nested.values` 에 모은다), 배열 행 안의 객체는 행마다 하나씩 모아 DataSet 으로, 객체 안의 객체는 DataMap 으로. 스칼라 없는 래퍼(`{data:{content:[…]}}`)는 항목이 되지 않고 안의 것만 올라온다. 자료형은 값으로(정수 number · 소수 decimal · 그 밖 string · boolean 은 체크박스), 컬럼 이름이 대부분 page/total/count/message 계열인 DataMap 은 `role:"info"`(모델에만). **Submission 은 만들지 않는다**(주소·메서드가 없다) — `flows.list.sub` 가 null 이라 조회 버튼은 바인딩 없이 놓이고, `flows.form` 은 그리드와 폼에 같은 이름의 컬럼이 있을 때만 두어 의미 없는 selection-change 핸들러를 만들지 않는다. 화면 쪽(`Prototyper.js`)은 응답 샘플을 **화면 생성 재료가 아니라 "이 화면의 모델"** 로 다룬다 — 분석 즉시 `applySampleModel()` 이 `moApiModel` 로 붙이고(목록 상자 선택이 바뀌면 다시), `addCanvasItem()` 은 새 그리드를 아직 안 쓴 첫 DataSet 에 `ds:` 로 잇는다(`nextDataSetBind` · 먼저 그린 그리드는 `autoBindGrids`). 그래서 응답 샘플에서는 [화면 생성]·[모델만 적용] 을 숨긴다. 중첩 데이터의 경로는 `path`/`parent` 에 남겨 [참고]에 "alias 로 바로 못 받을 수 있다" 를 적는다.
 
 ## 10. 공유 (CRDT 실시간 협업)
 

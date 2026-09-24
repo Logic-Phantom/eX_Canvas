@@ -12,9 +12,16 @@
  *         ├ grpData(.content-body)     > content / division-group / tabfolder / form-base
  *         └ grpFooter(.content-footer) > footer-button-group(좌·우 flow)
  *     plan 은 templatePlanner.resolve() 가 만든 "해석 완료된 화면 계획"이다.
+ *  3) generate(source, mode, appName) : 위 둘 중 하나로 XML 을 만들고, 함께 쓸 화면 스크립트(.js)까지 돌려준다 { clx, js }.
+ *
+ * 데이터 모델 · 바인딩(API 연동, openApiPlanner)
+ *   - plan.model / ast.app.model 이 있으면 <cl:model> 에 DataSet · DataMap · Submission 을 넣는다(순서 : dataset → datamap → submission).
+ *   - 컨트롤의 bind 가 "ds:X" 면 그리드에 datasetid + 셀 columnname, "dm:X.col" 이면 <cl:datamapbind>, "sub:X"/"clear:X" 면 click 리스너.
+ *   - 리스너의 핸들러 함수는 .js 에 함께 만든다(send() · clear() · 그리드 선택 → 상세 조회/복사).
  *
  * 규칙: std:sid 는 파일 안에서 유일(접두-16진수 8자리), 컨테이너의 레이아웃 노드는 마지막 자식,
  *       자식마다 부모 레이아웃에 맞는 데이터 노드, style 속성은 쓰지 않는다(클래스만).
+ *       컨트롤 자식 순서는 스키마대로 리스너 → 바인딩 → 레이아웃 데이터 → 고유 자식.
  ************************************************/
 
 var TEMPLATE_VERSION = "1.0.4350";
@@ -66,8 +73,60 @@ function createContext() {
 	return {
 		sids : {},
 		ids : {},
-		seq : {}
+		seq : {},
+		/** 데이터 모델(datasets · datamaps · submissions · flows). 없으면 null */
+		model : null,
+		/** 캔버스 id → 파일에 쓴 id(정리·중복 회피 뒤) */
+		idMap : {},
+		/** 데이터셋 id → 그 데이터셋에 바인딩된 그리드 id(스크립트에서 선택 행을 읽을 때) */
+		gridsByDataset : {},
+		/** 리스너를 붙인 컨트롤 → .js 에 만들 핸들러 { kind, handler, ctrlId, text, dataId } */
+		handlers : [],
+		handlerNames : {}
 	};
+}
+
+/** 같은 이름의 핸들러가 두 번 생기지 않게 한다(onBtnSaveClick · onBtnSaveClick2 …). */
+function uniqueHandler(poCtx, psName) {
+	var vsName = psName;
+	var vnSeq = 1;
+	while (poCtx.handlerNames[vsName]) {
+		vnSeq++;
+		vsName = psName + vnSeq;
+	}
+	poCtx.handlerNames[vsName] = true;
+	return vsName;
+}
+
+function parseBind(psBind) {
+	if (psBind == null || psBind === "") {
+		return null;
+	}
+	return cpr.core.Module.require("module/canvas/openApiPlanner").parseBind(psBind);
+}
+
+/** 모델에서 데이터(셋·맵)를 찾는다. */
+function modelData(poCtx, psId) {
+	if (poCtx.model == null) {
+		return null;
+	}
+	var vaAll = (poCtx.model.datasets || []).concat(poCtx.model.datamaps || []);
+	for (var i = 0; i < vaAll.length; i++) {
+		if (vaAll[i].id == psId) {
+			return vaAll[i];
+		}
+	}
+	return null;
+}
+
+function modelSubmission(poCtx, psId) {
+	var vaSubs = poCtx.model == null ? [] : (poCtx.model.submissions || []);
+	for (var i = 0; i < vaSubs.length; i++) {
+		if (vaSubs[i].id == psId) {
+			return vaSubs[i];
+		}
+	}
+	return null;
 }
 
 /** 태그 접두에 맞는 유일한 std:sid 를 만든다. */
@@ -271,8 +330,48 @@ function itemEls(poCtx, paItems) {
 	});
 }
 
-function gridParts(poCtx, paHeaders) {
-	var vaHeaders = paHeaders && paHeaders.length > 0 ? paHeaders : ["", "", "", "", ""];
+/**
+ * 그리드 헤더 글자와 데이터셋 컬럼을 짝짓는다.
+ * 개수가 같으면 순서대로, 다르면(사용자가 헤더를 고친 경우) 글자가 컬럼의 설명·이름과 같은 것을 찾는다. 못 찾으면 null.
+ * @return {String[]} 헤더마다 컬럼 이름 또는 null
+ */
+function matchColumns(paHeaders, paColumns) {
+	if (paColumns == null || paColumns.length == 0) {
+		return paHeaders.map(function() {
+			return null;
+		});
+	}
+	if (paHeaders.length == paColumns.length) {
+		return paColumns.map(function(poColumn) {
+			return poColumn.name;
+		});
+	}
+	var voUsed = {};
+	return paHeaders.map(function(psHeader) {
+		var vsKey = String(psHeader).replace(/\s+/g, "").toLowerCase();
+		for (var i = 0; i < paColumns.length; i++) {
+			var poColumn = paColumns[i];
+			if (voUsed[poColumn.name]) {
+				continue;
+			}
+			if (String(poColumn.label || "").replace(/\s+/g, "").toLowerCase() == vsKey || poColumn.name.toLowerCase() == vsKey) {
+				voUsed[poColumn.name] = true;
+				return poColumn.name;
+			}
+		}
+		return null;
+	});
+}
+
+/**
+ * @param {String[]} paHeaders 헤더 글자
+ * @param {Object[]} paColumns 바인딩된 데이터셋의 컬럼(없으면 null) → 있으면 셀에 columnname 을 넣는다.
+ */
+function gridParts(poCtx, paHeaders, paColumns) {
+	var vaHeaders = paHeaders && paHeaders.length > 0 ? paHeaders : (paColumns != null && paColumns.length > 0 ? paColumns.map(function(poColumn) {
+		return poColumn.label || poColumn.name;
+	}) : ["", "", "", "", ""]);
+	var vaNames = matchColumns(vaHeaders, paColumns);
 	var vaParts = [];
 	vaHeaders.forEach(function() {
 		vaParts.push(el("cl:gridcolumn", [["std:sid", sid(poCtx, "g-column")], ["width", "80px"]]));
@@ -284,9 +383,10 @@ function gridParts(poCtx, paHeaders) {
 			["std:sid", sid(poCtx, "gh-cell")],
 			["rowindex", 0],
 			["colindex", pnIdx],
+			["targetcolumnname", vaNames[pnIdx]],
 			["text", psHeader === "" ? null : psHeader]
 		]));
-		vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx]]));
+		vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx], ["columnname", vaNames[pnIdx]]]));
 	});
 	vaParts.push(el("cl:gridheader", [["std:sid", sid(poCtx, "gh-band")]], vaHeaderCells));
 	vaParts.push(el("cl:griddetail", [["std:sid", sid(poCtx, "gd-band")]], vaDetailCells));
@@ -309,10 +409,20 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 	if (vaInfo == null) {
 		throw new Error("직렬화를 지원하지 않는 유형: " + poCtrl.type);
 	}
-	var vaAttrs = [["std:sid", sid(poCtx, vaInfo[1])], ["id", uniqueId(poCtx, poCtrl.id)], ["class", poCtrl.cls || null]];
-	var vaChildren = [poLayoutData];
+	var vsFinalId = uniqueId(poCtx, poCtrl.id);
+	if (poCtrl.id != null && vsFinalId != null && poCtx.idMap[poCtrl.id] == null) {
+		poCtx.idMap[poCtrl.id] = vsFinalId;
+	}
+	var vaAttrs = [["std:sid", sid(poCtx, vaInfo[1])], ["id", vsFinalId], ["class", poCtrl.cls || null]];
+	var voBind = parseBind(poCtrl.bind);
+	// 스키마 순서 : 리스너 → 바인딩 → 레이아웃 데이터 → 고유 자식
+	var vaChildren = bindChildren(poCtx, poCtrl, voBind, vsFinalId).concat([poLayoutData]);
 	var vsText = poCtrl.text == null ? "" : poCtrl.text;
 	var voLayoutNode = null; // 컨테이너 유형의 레이아웃 노드(마지막 자식)
+	var vbGridBound = voBind != null && voBind.kind == "ds" && poCtrl.type == "grid";
+	if (vbGridBound) {
+		vaAttrs.push(["datasetid", voBind.dataId]);
+	}
 
 	switch (poCtrl.type) {
 		case "output":
@@ -336,7 +446,8 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 			vaChildren = vaChildren.concat(itemEls(poCtx, poCtrl.items));
 			break;
 		case "grid":
-			vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items));
+			var voDataSet = vbGridBound ? modelData(poCtx, voBind.dataId) : null;
+			vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items, voDataSet != null ? voDataSet.columns : null));
 			break;
 		case "htmlsnippet":
 			vaAttrs.push(["value", vsText === "" ? null : vsText]);
@@ -372,6 +483,85 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 			break;
 	}
 	return el(vaInfo[0], vaAttrs, vaChildren.concat(paExtraChildren || []).concat([voLayoutNode]));
+}
+
+/* ---------------------------------------------------------------- 데이터 바인딩(API 연동) */
+
+/** value 속성을 데이터맵 컬럼에 묶을 수 있는 유형 */
+var VALUE_BINDABLE = {
+	output : true,
+	inputbox : true,
+	combobox : true,
+	dateinput : true,
+	numbereditor : true,
+	searchinput : true,
+	checkbox : true,
+	radiobutton : true,
+	textarea : true,
+	maskeditor : true,
+	checkboxgroup : true,
+	listbox : true,
+	slider : true,
+	fileinput : true
+};
+
+function handlerBase(psId) {
+	return "on" + psId.charAt(0).toUpperCase() + psId.substring(1);
+}
+
+/**
+ * 컨트롤의 bind 에 따라 리스너 · 바인딩 자식을 만들고, .js 에 만들 핸들러를 문맥에 적어 둔다.
+ *   dm:X.col → <cl:datamapbind property="value" datacontrolid="X" columnname="col"/>
+ *   sub:X · clear:X (버튼) → <cl:listener name="click" handler="onXxxClick"/>
+ *   ds:X (그리드) → datasetid 는 controlEl 이 붙인다. 목록 데이터셋이고 상세/폼 흐름이 있으면 selection-change 리스너.
+ */
+function bindChildren(poCtx, poCtrl, poBind, psFinalId) {
+	var vaOut = [];
+	if (poBind == null || psFinalId == null) {
+		return vaOut;
+	}
+	switch (poBind.kind) {
+		case "dm":
+			if (VALUE_BINDABLE[poCtrl.type]) {
+				// bind 요소는 스키마상 std:sid 를 갖지 않는다.
+				vaOut.push(el("cl:datamapbind", [["property", "value"], ["datacontrolid", poBind.dataId], ["columnname", poBind.column]]));
+			}
+			break;
+		case "sub":
+		case "clear":
+			if (poCtrl.type == "button") {
+				var vsHandler = uniqueHandler(poCtx, handlerBase(psFinalId) + "Click");
+				vaOut.push(el("cl:listener", [["std:sid", sid(poCtx, "listener")], ["name", "click"], ["handler", vsHandler]]));
+				poCtx.handlers.push({
+					kind : poBind.kind,
+					handler : vsHandler,
+					ctrlId : psFinalId,
+					text : poCtrl.text == null ? "" : poCtrl.text,
+					dataId : poBind.dataId
+				});
+			}
+			break;
+		case "ds":
+			if (poCtrl.type == "grid") {
+				poCtx.gridsByDataset[poBind.dataId] = psFinalId;
+				var voFlows = poCtx.model != null ? (poCtx.model.flows || {}) : {};
+				if (voFlows.list != null && voFlows.list.ds == poBind.dataId && (voFlows.detail != null || voFlows.form != null)) {
+					var vsSelect = uniqueHandler(poCtx, handlerBase(psFinalId) + "SelectionChange");
+					vaOut.push(el("cl:listener", [["std:sid", sid(poCtx, "listener")], ["name", "selection-change"], ["handler", vsSelect]]));
+					poCtx.handlers.push({
+						kind : "gridSelect",
+						handler : vsSelect,
+						ctrlId : psFinalId,
+						text : poCtrl.text == null ? "" : poCtrl.text,
+						dataId : poBind.dataId
+					});
+				}
+			}
+			break;
+		default:
+			break;
+	}
+	return vaOut;
 }
 
 /* ---------------------------------------------------------------- UI 템플릿(스튜디오 상용구) 트리 */
@@ -517,6 +707,65 @@ function buttonWidth(psText) {
 	return Math.max(36, (psText || "").length * 12 + 16);
 }
 
+/* ---------------------------------------------------------------- 데이터 모델(<cl:model>) */
+
+/** 데이터셋 · 데이터맵 : <cl:dataset id="dsList"><cl:datacolumnlist><cl:datacolumn name="…" datatype="number"/>…</cl:datacolumnlist></cl:dataset> */
+function dataEl(poCtx, psTag, psSidPrefix, poData) {
+	poCtx.ids[poData.id] = true; // 컨트롤 id 와 겹치지 않게 선점한다.
+	var vaColumns = (poData.columns || []).map(function(poColumn) {
+		return el("cl:datacolumn", [
+			["std:sid", sid(poCtx, "d-column")],
+			["name", poColumn.name],
+			["datatype", poColumn.datatype == null || poColumn.datatype == "string" ? null : poColumn.datatype]
+		]);
+	});
+	return el(psTag, [["std:sid", sid(poCtx, psSidPrefix)], ["id", poData.id], ["info", poData.info ? poData.info : null]], [el("cl:datacolumnlist", [], vaColumns)]);
+}
+
+/** 서브미션 : <cl:submission id action method mediatype><cl:requestdata dataid alias payload/><cl:responsedata dataid alias/></cl:submission> */
+function submissionEl(poCtx, poSub) {
+	poCtx.ids[poSub.id] = true;
+	var vaChildren = [];
+	// requestdata · responsedata 는 스키마상 std:sid 를 갖지 않는다(붙이면 컴파일러가 "Feature 'sid' not found" 로 거부한다).
+	(poSub.request || []).forEach(function(poReq) {
+		var voData = modelData(poCtx, poReq.dataid);
+		vaChildren.push(el("cl:requestdata", [
+			["dataid", poReq.dataid],
+			["alias", poReq.alias ? poReq.alias : null],
+			// payload 는 DataSet 에서만 뜻이 있다(DataMap 은 항상 전체).
+			["payload", voData != null && voData.kind == "dataset" ? "all" : null]
+		]));
+	});
+	(poSub.response || []).forEach(function(poRes) {
+		vaChildren.push(el("cl:responsedata", [["dataid", poRes.dataid], ["alias", poRes.alias ? poRes.alias : null]]));
+	});
+	return el("cl:submission", [
+		["std:sid", sid(poCtx, "submission")],
+		["id", poSub.id],
+		["action", poSub.action],
+		["method", poSub.method || "post"],
+		["mediatype", poSub.mediatype || "application/x-www-form-urlencoded"]
+	], vaChildren);
+}
+
+/** <cl:model> — 스키마 순서대로 데이터셋 → 데이터맵 → 서브미션 */
+function modelEl(poCtx) {
+	var voModel = poCtx.model;
+	var vaChildren = [];
+	if (voModel != null) {
+		(voModel.datasets || []).forEach(function(poSet) {
+			vaChildren.push(dataEl(poCtx, "cl:dataset", "d-set", poSet));
+		});
+		(voModel.datamaps || []).forEach(function(poMap) {
+			vaChildren.push(dataEl(poCtx, "cl:datamap", "d-map", poMap));
+		});
+		(voModel.submissions || []).forEach(function(poSub) {
+			vaChildren.push(submissionEl(poCtx, poSub));
+		});
+	}
+	return el("cl:model", [["std:sid", sid(poCtx, "model")]], vaChildren);
+}
+
 /* ---------------------------------------------------------------- 문서 뼈대 */
 
 function headEl(poCtx, pbPopup, psTitle) {
@@ -537,7 +786,7 @@ function headEl(poCtx, pbPopup, psTitle) {
 		];
 	}
 	return el("head", [["std:sid", sid(poCtx, "head")]], vaScreens.concat([
-		el("cl:model", [["std:sid", sid(poCtx, "model")]]),
+		modelEl(poCtx),
 		el("cl:appspec", [["title", psTitle ? psTitle : null]])
 	]));
 }
@@ -567,7 +816,11 @@ function documentString(poCtx, poHead, poBody, psComment) {
  * @return {String} .clx XML
  */
 exports.serializeXY = function(poAst) {
-	var voCtx = createContext();
+	return xyDocument(createContext(), poAst);
+};
+
+function xyDocument(voCtx, poAst) {
+	voCtx.model = poAst.app.model || null;
 	var voHead = headEl(voCtx, poAst.app.popup, poAst.app.title);
 
 	var vaChildren = poAst.children.map(function(poNode) {
@@ -584,8 +837,16 @@ exports.serializeXY = function(poAst) {
 	vaChildren.push(el("cl:xylayout", [["std:sid", sid(voCtx, "xylayout")]]));
 
 	var voBody = el("body", [["std:sid", sid(voCtx, "body")]], vaChildren);
-	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (mode: xy)");
-};
+	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (mode: xy" + modelComment(voCtx) + ")");
+}
+
+/** 파일 머리 주석에 넣는 모델 요약 */
+function modelComment(poCtx) {
+	if (poCtx.model == null) {
+		return "";
+	}
+	return ", model: dataset " + (poCtx.model.datasets || []).length + " / datamap " + (poCtx.model.datamaps || []).length + " / submission " + (poCtx.model.submissions || []).length;
+}
 
 /* ---------------------------------------------------------------- 2) 템플릿 뼈대 */
 
@@ -926,7 +1187,11 @@ function footerEl(poCtx, poPlan, pnBodyRow) {
  * @return {String} .clx XML
  */
 exports.serializePlan = function(poPlan) {
-	var voCtx = createContext();
+	return planDocument(createContext(), poPlan);
+};
+
+function planDocument(voCtx, poPlan) {
+	voCtx.model = poPlan.model || null;
 	var vbPopup = poPlan.popup === true;
 	var voHead = headEl(voCtx, vbPopup, poPlan.title);
 
@@ -970,7 +1235,24 @@ exports.serializePlan = function(poPlan) {
 	}, vaBodyRows, [FR()]));
 
 	var voBody = el("body", [["std:sid", sid(voCtx, "body")], ["class", vbPopup ? "pop-content-wrapper" : "content-wrapper"]], vaBodyChildren);
-	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (base template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + ")");
+	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (base template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + modelComment(voCtx) + ")");
+}
+
+/**
+ * XML 과 화면 스크립트를 함께 만든다. 바인딩된 버튼·그리드의 리스너 핸들러가 .js 에 들어간다.
+ * @param {Object} poSource psMode 가 "xy" 면 AST, 아니면 해석된 계획
+ * @param {String} psMode "xy" | "plan"
+ * @param {String} psAppName 화면명(.js 머리 주석)
+ * @return {{clx:String, js:String, handlers:Number}}
+ */
+exports.generate = function(poSource, psMode, psAppName) {
+	var voCtx = createContext();
+	var vsXml = psMode == "xy" ? xyDocument(voCtx, poSource) : planDocument(voCtx, poSource);
+	return {
+		clx : vsXml,
+		js : scriptFor(voCtx, psAppName),
+		handlers : voCtx.handlers.length
+	};
 };
 
 /**
@@ -978,6 +1260,256 @@ exports.serializePlan = function(poPlan) {
  * @param {String} psAppName
  */
 exports.makeScriptSkeleton = function(psAppName) {
-	var vdNow = new Date();
-	return ["/************************************************", " * " + psAppName + ".js", " * Created at " + vdNow.getFullYear() + ". " + (vdNow.getMonth() + 1) + ". " + vdNow.getDate() + ".", " *", " * @author eX-Canvas Web Prototyper", " ************************************************/", ""].join("\n");
+	return scriptHeader(psAppName).join("\n") + "\n";
 };
+
+function scriptHeader(psAppName) {
+	var vdNow = new Date();
+	return ["/************************************************", " * " + psAppName + ".js", " * Created at " + vdNow.getFullYear() + ". " + (vdNow.getMonth() + 1) + ". " + vdNow.getDate() + ".", " *", " * @author eX-Canvas Web Prototyper", " ************************************************/", ""];
+}
+
+/* ---------------------------------------------------------------- 화면 스크립트(.js) — 바인딩 핸들러 */
+
+function jsString(psText) {
+	return "\"" + String(psText == null ? "" : psText).replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\r?\n/g, "\\n") + "\"";
+}
+
+/** 서브미션 한 줄 설명 : GET /api/emps — 요청 dmSearch → 응답 dsList */
+function submissionLine(poSub) {
+	if (poSub == null) {
+		return "";
+	}
+	var vsReq = (poSub.request || []).map(function(poEach) {
+		return poEach.dataid;
+	}).join("+");
+	var vsRes = (poSub.response || []).map(function(poEach) {
+		return poEach.dataid;
+	}).join("+");
+	return poSub.id + " : " + String(poSub.method || "post").toUpperCase() + " " + poSub.action + (vsReq ? " — 요청 " + vsReq : "") + (vsRes ? " → 응답 " + vsRes : "");
+}
+
+/**
+ * 경로 변수({id})를 요청 데이터맵 값으로 채워 action 을 정하는 코드 줄.
+ * @param {String[]} paLines 여기에 붙인다
+ */
+function pathParamLines(paLines, poSub, psSubVar, poKeyVars) {
+	var vaParams = poSub.pathParams || [];
+	if (vaParams.length == 0) {
+		return;
+	}
+	var vsKeyId = poSub.requestDataId;
+	if (vsKeyId == null) {
+		paLines.push("\t// TODO: 경로 변수 {" + vaParams.join("},{") + "} 를 채울 데이터가 없습니다. 값을 정한 뒤 action 을 만드세요.");
+		paLines.push("\t" + psSubVar + ".action = " + jsString(poSub.action) + ";");
+		return;
+	}
+	// 같은 DataMap 을 이미 변수에 받아 두었으면 다시 lookup 하지 않는다.
+	var vsKeyVar = poKeyVars != null && poKeyVars[vsKeyId] != null ? poKeyVars[vsKeyId] : null;
+	paLines.push("\t// 경로 변수 치환 : 요청 DataMap(" + vsKeyId + ")의 값으로 {" + vaParams.join("},{") + "} 를 채운다.");
+	if (vsKeyVar == null) {
+		vsKeyVar = "vcKeyData";
+		paLines.push("\tvar vcKeyData = app.lookup(" + jsString(vsKeyId) + ");");
+	}
+	var vsExpr = jsString(poSub.action);
+	vaParams.forEach(function(psParam) {
+		vsExpr += ".replace(" + jsString("{" + psParam + "}") + ", encodeURIComponent(" + vsKeyVar + ".getValue(" + jsString(psParam) + ")))";
+	});
+	paLines.push("\t" + psSubVar + ".action = " + vsExpr + ";");
+}
+
+/**
+ * 키 컬럼을 채우는 코드 줄 — 상세 DataMap(폼)에 같은 컬럼이 있으면 거기서, 아니면 목록 그리드의 선택 행에서.
+ * @return {Boolean} 코드를 냈으면 true
+ */
+function keyFillLines(paLines, poCtx, psKeyId, paKeyColumns) {
+	var voFlows = poCtx.model.flows || {};
+	var voForm = voFlows.form != null ? modelData(poCtx, voFlows.form.dm) : null;
+	var vsGridId = voFlows.list != null ? poCtx.gridsByDataset[voFlows.list.ds] : null;
+	var voList = voFlows.list != null ? modelData(poCtx, voFlows.list.ds) : null;
+	if (psKeyId == null || paKeyColumns == null || paKeyColumns.length == 0) {
+		return false;
+	}
+	function has(poData, psColumn) {
+		return poData != null && (poData.columns || []).some(function(poColumn) {
+			return poColumn.name == psColumn;
+		});
+	}
+	var vbFromForm = voForm != null && voForm.id != psKeyId && paKeyColumns.every(function(psColumn) {
+		return has(voForm, psColumn);
+	});
+	if (vbFromForm) {
+		paLines.push("\t// 키는 상세 DataMap(" + voForm.id + ")의 값으로 채운다.");
+		paLines.push("\tvar vcKey = app.lookup(" + jsString(psKeyId) + ");");
+		paLines.push("\tvar vcDetail = app.lookup(" + jsString(voForm.id) + ");");
+		paKeyColumns.forEach(function(psColumn) {
+			paLines.push("\tvcKey.setValue(" + jsString(psColumn) + ", vcDetail.getValue(" + jsString(psColumn) + "));");
+		});
+		return true;
+	}
+	if (vsGridId != null && voList != null) {
+		paLines.push("\t// 키는 목록 그리드(" + vsGridId + ")에서 선택한 행의 값으로 채운다.");
+		paLines.push("\tvar vcGrid = app.lookup(" + jsString(vsGridId) + ");");
+		paLines.push("\tvar vnRow = vcGrid.getSelectedRowIndex();");
+		paLines.push("\tif (vnRow < 0) {");
+		paLines.push("\t\talert(\"목록에서 행을 먼저 선택하세요.\");");
+		paLines.push("\t\treturn;");
+		paLines.push("\t}");
+		paLines.push("\tvar vcKey = app.lookup(" + jsString(psKeyId) + ");");
+		paLines.push("\tvar vcList = app.lookup(" + jsString(voList.id) + ");");
+		paKeyColumns.forEach(function(psColumn) {
+			if (has(voList, psColumn)) {
+				paLines.push("\tvcKey.setValue(" + jsString(psColumn) + ", vcList.getValue(vnRow, " + jsString(psColumn) + "));");
+			} else {
+				paLines.push("\t// TODO: 목록(" + voList.id + ")에 '" + psColumn + "' 컬럼이 없어 키를 채우지 못했습니다.");
+			}
+		});
+		return true;
+	}
+	paLines.push("\t// TODO: 키(" + paKeyColumns.join(", ") + ")를 채울 곳(상세 DataMap 또는 목록 그리드)이 없습니다.");
+	return false;
+}
+
+/** 버튼 click → 서브미션 send() */
+function sendHandlerLines(poCtx, poHandler) {
+	var voSub = modelSubmission(poCtx, poHandler.dataId);
+	var vaLines = [];
+	vaLines.push("/*");
+	vaLines.push(" * \"" + poHandler.text + "\" 버튼(" + poHandler.ctrlId + ")에서 click 이벤트 발생 시 호출.");
+	vaLines.push(" * " + (voSub != null ? submissionLine(voSub) : poHandler.dataId + " 서브미션을 보낸다(모델에 정의가 없습니다)."));
+	vaLines.push(" */");
+	vaLines.push("function " + poHandler.handler + "(e) {");
+	vaLines.push("\tvar vcSubmission = app.lookup(" + jsString(poHandler.dataId) + ");");
+	if (voSub != null) {
+		var voFlows = poCtx.model.flows || {};
+		var voKeyVars = {};
+		if (voSub.role == "remove" && voFlows.remove != null && voFlows.remove.sub == voSub.id) {
+			if (keyFillLines(vaLines, poCtx, voFlows.remove.keyDm, voFlows.remove.keyColumns)) {
+				voKeyVars[voFlows.remove.keyDm] = "vcKey";
+			}
+			vaLines.push("\tif (!confirm(\"삭제할까요?\")) {");
+			vaLines.push("\t\treturn;");
+			vaLines.push("\t}");
+		} else if (voSub.role == "detail" && voFlows.detail != null && voFlows.detail.sub == voSub.id) {
+			if (keyFillLines(vaLines, poCtx, voFlows.detail.keyDm, voFlows.detail.keyColumns)) {
+				voKeyVars[voFlows.detail.keyDm] = "vcKey";
+			}
+		}
+		pathParamLines(vaLines, voSub, "vcSubmission", voKeyVars);
+	}
+	vaLines.push("\tvcSubmission.send();");
+	vaLines.push("}");
+	vaLines.push("");
+	return vaLines;
+}
+
+/** 버튼 click → 데이터 clear() */
+function clearHandlerLines(poCtx, poHandler) {
+	var voData = modelData(poCtx, poHandler.dataId);
+	var vaLines = [];
+	vaLines.push("/*");
+	vaLines.push(" * \"" + poHandler.text + "\" 버튼(" + poHandler.ctrlId + ")에서 click 이벤트 발생 시 호출. " + poHandler.dataId + " 를 비운다.");
+	vaLines.push(" */");
+	vaLines.push("function " + poHandler.handler + "(e) {");
+	vaLines.push("\tapp.lookup(" + jsString(poHandler.dataId) + ")." + (voData != null && voData.kind == "dataset" ? "clearData()" : "clear()") + ";");
+	vaLines.push("}");
+	vaLines.push("");
+	return vaLines;
+}
+
+/** 목록 그리드 selection-change → 상세 조회(키 채우고 send) 또는 선택 행을 폼 DataMap 에 복사 */
+function gridSelectHandlerLines(poCtx, poHandler) {
+	var voFlows = poCtx.model.flows || {};
+	var voList = modelData(poCtx, poHandler.dataId);
+	var voDetail = voFlows.detail || null;
+	var voForm = voFlows.form != null ? modelData(poCtx, voFlows.form.dm) : null;
+	var voSub = voDetail != null ? modelSubmission(poCtx, voDetail.sub) : null;
+	var vaLines = [];
+	vaLines.push("/*");
+	vaLines.push(" * 목록 그리드(" + poHandler.ctrlId + ")에서 selection-change 이벤트 발생 시 호출.");
+	if (voSub != null) {
+		vaLines.push(" * 선택한 행의 키로 상세를 조회한다 : " + submissionLine(voSub));
+	} else if (voForm != null) {
+		vaLines.push(" * 선택한 행의 값을 상세 DataMap(" + voForm.id + ")에 복사한다(이름이 같은 컬럼).");
+	}
+	vaLines.push(" */");
+	vaLines.push("function " + poHandler.handler + "(e) {");
+	vaLines.push("\tvar vcGrid = e.control;");
+	vaLines.push("\tvar vnRow = vcGrid.getSelectedRowIndex();");
+	vaLines.push("\tif (vnRow < 0) {");
+	vaLines.push("\t\treturn;");
+	vaLines.push("\t}");
+	vaLines.push("\tvar vcList = app.lookup(" + jsString(poHandler.dataId) + ");");
+	if (voSub != null) {
+		var vaKeys = voDetail.keyColumns || [];
+		var voKeyVars = {};
+		if (voDetail.keyDm != null && vaKeys.length > 0) {
+			vaLines.push("\tvar vcKey = app.lookup(" + jsString(voDetail.keyDm) + ");");
+			voKeyVars[voDetail.keyDm] = "vcKey";
+			vaKeys.forEach(function(psColumn) {
+				var vbHas = voList != null && (voList.columns || []).some(function(poColumn) {
+					return poColumn.name == psColumn;
+				});
+				if (vbHas) {
+					vaLines.push("\tvcKey.setValue(" + jsString(psColumn) + ", vcList.getValue(vnRow, " + jsString(psColumn) + "));");
+				} else {
+					vaLines.push("\t// TODO: 목록(" + poHandler.dataId + ")에 '" + psColumn + "' 컬럼이 없어 키를 채우지 못했습니다.");
+				}
+			});
+		}
+		vaLines.push("\tvar vcSubmission = app.lookup(" + jsString(voSub.id) + ");");
+		pathParamLines(vaLines, voSub, "vcSubmission", voKeyVars);
+		vaLines.push("\tvcSubmission.send();");
+	} else if (voForm != null) {
+		var vaShared = (voForm.columns || []).filter(function(poColumn) {
+			return voList != null && (voList.columns || []).some(function(poEach) {
+				return poEach.name == poColumn.name;
+			});
+		}).map(function(poColumn) {
+			return jsString(poColumn.name);
+		});
+		vaLines.push("\tvar vcDetail = app.lookup(" + jsString(voForm.id) + ");");
+		if (vaShared.length > 0) {
+			vaLines.push("\t[" + vaShared.join(", ") + "].forEach(function(psColumn) {");
+			vaLines.push("\t\tvcDetail.setValue(psColumn, vcList.getValue(vnRow, psColumn));");
+			vaLines.push("\t});");
+		} else {
+			vaLines.push("\t// TODO: 목록과 상세 DataMap 에 이름이 같은 컬럼이 없어 복사할 것이 없습니다.");
+		}
+	}
+	vaLines.push("}");
+	vaLines.push("");
+	return vaLines;
+}
+
+/**
+ * 직렬화 문맥에 모인 핸들러로 화면 스크립트를 만든다. 핸들러가 없으면 머리 주석뿐이다(기존과 같다).
+ * @param {Object} poCtx
+ * @param {String} psAppName
+ */
+function scriptFor(poCtx, psAppName) {
+	var vaLines = scriptHeader(psAppName);
+	if (poCtx.handlers.length == 0 || poCtx.model == null) {
+		return vaLines.join("\n") + "\n";
+	}
+	vaLines.push("/*");
+	vaLines.push(" * API 연동(Swagger/OpenAPI) 으로 만든 데이터 모델");
+	(poCtx.model.submissions || []).forEach(function(poSub) {
+		vaLines.push(" *  - " + submissionLine(poSub));
+	});
+	vaLines.push(" */");
+	vaLines.push("");
+	poCtx.handlers.forEach(function(poHandler) {
+		var vaEach;
+		if (poHandler.kind == "sub") {
+			vaEach = sendHandlerLines(poCtx, poHandler);
+		} else if (poHandler.kind == "clear") {
+			vaEach = clearHandlerLines(poCtx, poHandler);
+		} else if (poHandler.kind == "gridSelect") {
+			vaEach = gridSelectHandlerLines(poCtx, poHandler);
+		} else {
+			vaEach = [];
+		}
+		vaLines = vaLines.concat(vaEach);
+	});
+	return vaLines.join("\n");
+}

@@ -9,12 +9,13 @@
  *   pt-id   : 사용자가 정한 CLX id
  *   pt-text : 속성창 Text 값(유형에 따라 value/text/아이템/컬럼/탭)
  *   pt-style: 스타일 계열(버튼의 primary | secondary, 없으면 자동)
+ *   pt-bind : 데이터 바인딩(ds:데이터셋 · dm:데이터맵.컬럼 · sub:서브미션 · clear:데이터 — openApiPlanner 참고)
  * 위치·크기는 캔버스(XY 레이아웃)의 제약(getConstraint)에서 읽는다 - DOM을 읽지 않는다.
  *
  * AST 형태:
  * {
- *   app : { name, title, popup, canvas : { width, height } },
- *   children : [ { type, role, id, text, items?, style?, layoutData : { x, y, width, height } } ]
+ *   app : { name, title, popup, canvas : { width, height }, model? },   model = API 연동으로 붙인 데이터 모델(DataSet · DataMap · Submission)
+ *   children : [ { type, role, id, text, items?, style?, bind?, layoutData : { x, y, width, height } } ]
  * }
  ************************************************/
 
@@ -23,6 +24,8 @@ var ATTR_ID = "pt-id";
 var ATTR_TEXT = "pt-text";
 /** 스타일 계열(버튼 : primary | secondary). 비어 있으면 내보낼 때 자리·글자로 정한다. */
 var ATTR_STYLE = "pt-style";
+/** 데이터 바인딩 표기(openApiPlanner.parseBind 가 해석한다). 비어 있으면 바인딩 없음. */
+var ATTR_BIND = "pt-bind";
 
 /**
  * "120px" · 120 · "120.0px" → 120
@@ -75,6 +78,10 @@ exports.extract = function(pcCanvas, poAppInfo) {
 		if (vsStyle != null && vsStyle !== "") {
 			voNode.style = vsStyle; // 이미지 분석·속성창에서 정한 스타일 계열(primary | secondary)
 		}
+		var vsBind = pcWrapper.userAttr(ATTR_BIND);
+		if (vsBind != null && vsBind !== "") {
+			voNode.bind = vsBind; // API 연동·속성창에서 정한 데이터 바인딩
+		}
 		if (voDef.udcType) {
 			voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 		}
@@ -107,7 +114,9 @@ exports.extract = function(pcCanvas, poAppInfo) {
 			canvas : {
 				width : Math.max(Math.round(voRect.width), vnMaxRight),
 				height : Math.max(Math.round(voRect.height), vnMaxBottom)
-			}
+			},
+			// API 연동으로 붙인 데이터 모델. 직렬화기가 <cl:model> 에 넣고 바인딩(bind)을 여기 id 로 잇는다.
+			model : poAppInfo.model || null
 		},
 		children : vaChildren
 	};
@@ -117,3 +126,4 @@ exports.ATTR_TYPE = ATTR_TYPE;
 exports.ATTR_ID = ATTR_ID;
 exports.ATTR_TEXT = ATTR_TEXT;
 exports.ATTR_STYLE = ATTR_STYLE;
+exports.ATTR_BIND = ATTR_BIND;

@@ -32,8 +32,11 @@ import javax.websocket.server.ServerEndpoint;
  *
  * 개발 도구용 기능이다. 운영 서버에는 배포하지 않는다.
  */
-@ServerEndpoint("/ws/crdt-sync.do")
+@ServerEndpoint(CrdtRelayEndpoint.WS_PATH)
 public class CrdtRelayEndpoint {
+
+	/** 릴레이 경로. CanvasCollabController 가 화면에 알려 준다(개발 서버의 CollabRelay.WS_PATH 와 같다). */
+	public static final String WS_PATH = "/ws/crdt-sync.do";
 
 	/** 문서 변경 · 커서 구분(첫 바이트) */
 	private static final byte FLAG_DOC = 0;
@@ -43,6 +46,11 @@ public class CrdtRelayEndpoint {
 	private static final long MAX_HISTORY_BYTES = 16L * 1024 * 1024;
 
 	private static final Map<String, Room> ROOMS = new ConcurrentHashMap<>();
+
+	/** 지금 열려 있는 방의 수(collabInfo.do 응답용 · 개발 서버의 CollabRelay.roomCount() 와 같다). */
+	public static int roomCount() {
+		return ROOMS.size();
+	}
 
 	@OnOpen
 	public void onOpen(Session session) {

@@ -1,0 +1,226 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "사원 관리 API",
+    "description": "eX-Canvas API 연동(Swagger/OpenAPI → DataSet · DataMap · Submission) 검증용 샘플. springdoc(/v3/api-docs) 이 내는 모양을 닮았다.",
+    "version": "1.2.0"
+  },
+  "servers": [
+    { "url": "http://localhost:8080/hr" }
+  ],
+  "tags": [
+    { "name": "사원", "description": "사원 조회 · 등록 · 수정 · 삭제" },
+    { "name": "부서", "description": "부서 코드" }
+  ],
+  "paths": {
+    "/api/emps": {
+      "get": {
+        "tags": ["사원"],
+        "summary": "사원 목록 조회",
+        "operationId": "listEmployees",
+        "parameters": [
+          { "name": "deptCd", "in": "query", "description": "부서코드", "schema": { "type": "string" } },
+          { "name": "empNm", "in": "query", "description": "성명(부분 일치)", "schema": { "type": "string" } },
+          { "name": "hireDateFrom", "in": "query", "description": "입사일(부터)", "schema": { "type": "string", "format": "date" } },
+          { "name": "hireDateTo", "in": "query", "description": "입사일(까지)", "schema": { "type": "string", "format": "date" } },
+          { "name": "useYn", "in": "query", "description": "사용 여부", "schema": { "type": "string", "enum": ["Y", "N"] } },
+          { "name": "page", "in": "query", "description": "페이지 번호", "schema": { "type": "integer", "format": "int32", "default": 0 } },
+          { "name": "size", "in": "query", "description": "페이지 크기", "schema": { "type": "integer", "format": "int32", "default": 20 } },
+          { "name": "X-Trace-Id", "in": "header", "description": "추적 ID", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PageEmployee" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["사원"],
+        "summary": "사원 등록",
+        "operationId": "createEmployee",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmployeeRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Employee" } } }
+          }
+        }
+      }
+    },
+    "/api/emps/{empNo}": {
+      "parameters": [
+        { "name": "empNo", "in": "path", "required": true, "description": "사번", "schema": { "type": "string" } }
+      ],
+      "get": {
+        "tags": ["사원"],
+        "summary": "사원 상세 조회",
+        "operationId": "getEmployee",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Employee" } } }
+          },
+          "404": { "description": "Not Found" }
+        }
+      },
+      "put": {
+        "tags": ["사원"],
+        "summary": "사원 수정",
+        "operationId": "updateEmployee",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmployeeRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Employee" } } }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["사원"],
+        "summary": "사원 삭제",
+        "operationId": "deleteEmployee",
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      }
+    },
+    "/api/emps/search": {
+      "post": {
+        "tags": ["사원"],
+        "summary": "사원 검색 (POST 조회)",
+        "operationId": "searchEmployees",
+        "deprecated": true,
+        "requestBody": {
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmployeeSearch" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponseEmployeePage" } } }
+          }
+        }
+      }
+    },
+    "/api/depts": {
+      "get": {
+        "tags": ["부서"],
+        "summary": "부서 목록",
+        "operationId": "listDepartments",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponseListDept" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EmployeeBase": {
+        "type": "object",
+        "properties": {
+          "empNm": { "type": "string", "description": "성명", "maxLength": 50 },
+          "deptCd": { "type": "string", "description": "부서코드" },
+          "position": { "type": "string", "description": "직급", "enum": ["사원", "대리", "과장", "차장", "부장"] },
+          "hireDate": { "type": "string", "format": "date", "description": "입사일" },
+          "salary": { "type": "integer", "format": "int64", "description": "급여" },
+          "rate": { "type": "number", "format": "double", "description": "평가 점수" },
+          "email": { "type": "string", "format": "email", "description": "이메일" },
+          "useYn": { "type": "boolean", "description": "사용 여부" },
+          "remark": { "type": "string", "description": "비고", "maxLength": 1000 },
+          "address": { "$ref": "#/components/schemas/Address" },
+          "skills": { "type": "array", "items": { "type": "string" }, "description": "보유 기술" },
+          "careers": { "type": "array", "items": { "$ref": "#/components/schemas/Career" }, "description": "경력" }
+        }
+      },
+      "Employee": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EmployeeBase" },
+          {
+            "type": "object",
+            "properties": {
+              "empNo": { "type": "string", "description": "사번" },
+              "createdAt": { "type": "string", "format": "date-time", "description": "등록일시", "readOnly": true }
+            }
+          }
+        ]
+      },
+      "EmployeeRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/EmployeeBase" },
+          {
+            "type": "object",
+            "required": ["empNm", "deptCd"],
+            "properties": {
+              "empNo": { "type": "string", "description": "사번" }
+            }
+          }
+        ]
+      },
+      "EmployeeSearch": {
+        "type": "object",
+        "properties": {
+          "keyword": { "type": "string", "description": "검색어" },
+          "deptCds": { "type": "array", "items": { "type": "string" }, "description": "부서코드 목록" }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "zip": { "type": "string", "description": "우편번호" },
+          "addr1": { "type": "string", "description": "주소" }
+        }
+      },
+      "Career": {
+        "type": "object",
+        "properties": {
+          "company": { "type": "string", "description": "회사" },
+          "years": { "type": "integer", "description": "근무 년수" }
+        }
+      },
+      "Dept": {
+        "type": "object",
+        "properties": {
+          "deptCd": { "type": "string", "description": "부서코드" },
+          "deptNm": { "type": "string", "description": "부서명" },
+          "upperDeptCd": { "type": "string", "description": "상위 부서코드" },
+          "children": { "type": "array", "items": { "$ref": "#/components/schemas/Dept" } }
+        }
+      },
+      "PageEmployee": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "array", "items": { "$ref": "#/components/schemas/Employee" } },
+          "totalElements": { "type": "integer", "format": "int64" },
+          "totalPages": { "type": "integer", "format": "int32" },
+          "number": { "type": "integer", "format": "int32" },
+          "size": { "type": "integer", "format": "int32" }
+        }
+      },
+      "ApiResponseEmployeePage": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/PageEmployee" }
+        }
+      },
+      "ApiResponseListDept": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Dept" } }
+        }
+      }
+    }
+  }
+}

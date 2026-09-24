@@ -84,6 +84,7 @@ public class DevServer {
 		server.createContext("/canvas/collabInfo.do", DevServer::collabInfo);
 		server.createContext("/canvas/analyzeImage.do", DevServer::analyzeImage);
 		server.createContext("/canvas/imageStatus.do", DevServer::imageStatus);
+		server.createContext("/canvas/fetchOpenApi.do", DevServer::fetchOpenApi);
 		server.createContext("/runtime/", exchange -> serveFile(exchange, runtimeDir, exchange.getRequestURI().getPath().substring("/runtime/".length())));
 		server.createContext("/", exchange -> {
 			String path = exchange.getRequestURI().getPath();
@@ -93,6 +94,7 @@ public class DevServer {
 		System.out.println("eX-Canvas dev server : http://127.0.0.1:" + port + "/  (build: " + buildDir + ")");
 		System.out.println("Gemini proxy        : " + (System.getenv("GEMINI_API_KEY") == null ? "OFF (GEMINI_API_KEY 미설정)" : "ON"));
 		System.out.println("이미지로 배치       : " + imageAnalyzerState());
+		System.out.println("API 연동(명세 프록시): ON (GET /canvas/fetchOpenApi.do?url=… · http/https · 8MB)");
 		System.out.println("result 저장         : " + (srcDir == null ? "OFF (clx-src 를 찾지 못했습니다 → 브라우저 다운로드로 대체)" : srcDir.resolve("result").resolve("<yyyyMMdd>")));
 		System.out.println("공유 릴레이         : " + (collab == null ? "OFF" : "ws://" + collab.host + ":" + collab.port + CollabRelay.WS_PATH));
 	}
@@ -262,6 +264,96 @@ public class DevServer {
 		} finally {
 			exchange.close();
 		}
+	}
+
+	/* ================================================================ API 연동 (Swagger/OpenAPI 명세 받기)
+	 *
+	 * 브라우저는 다른 출처(포트가 다른 API 서버)의 명세 JSON 을 CORS 때문에 직접 받지 못하는 경우가 많다.
+	 * 서버가 대신 받아 본문을 그대로 돌려준다(해석하지 않는다). Tomcat 은 CanvasOpenApiController 가 같은 일을 한다.
+	 *   GET /canvas/fetchOpenApi.do?probe=1     → {ok:true}  (화면이 뜰 때 프록시가 있는지 확인)
+	 *   GET /canvas/fetchOpenApi.do?url=<주소>   → 그 주소의 본문 (http/https 만 · 30초 · 8MB 상한 · 리다이렉트 따라감)
+	 * 127.0.0.1 전용 개발 서버라 주소를 따로 제한하지 않는다. X-Requested-With 헤더는 다른 출처 페이지의 단순 요청을 막는다.
+	 */
+	private static final int MAX_SPEC_BYTES = 8 * 1024 * 1024;
+
+	private static void fetchOpenApi(HttpExchange exchange) throws IOException {
+		try {
+			if (!"GET".equals(exchange.getRequestMethod()) || !"eX-Canvas".equals(exchange.getRequestHeaders().getFirst("X-Requested-With"))) {
+				send(exchange, 403, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"forbidden\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			Map<String, String> query = parseQuery(exchange.getRequestURI().getRawQuery());
+			if (query.containsKey("probe")) {
+				send(exchange, 200, "application/json; charset=utf-8", ("{\"ok\":true,\"maxBytes\":" + MAX_SPEC_BYTES + "}").getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			String url = query.get("url");
+			if (url == null || url.trim().isEmpty()) {
+				send(exchange, 400, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"url 파라미터가 없습니다.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			url = url.trim();
+			if (!url.matches("(?i)^https?://.+")) {
+				send(exchange, 400, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"http/https 주소만 받을 수 있습니다.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+			con.setInstanceFollowRedirects(true);
+			con.setConnectTimeout(10000);
+			con.setReadTimeout(30000);
+			con.setRequestProperty("Accept", "application/json, */*");
+			con.setRequestProperty("User-Agent", "eX-Canvas");
+			int status = con.getResponseCode();
+			InputStream in = status >= 400 ? con.getErrorStream() : con.getInputStream();
+			byte[] body = in == null ? new byte[0] : readLimited(in, MAX_SPEC_BYTES);
+			if (body == null) {
+				send(exchange, 413, "application/json; charset=utf-8", "{\"ok\":false,\"message\":\"명세가 8MB 를 넘습니다.\"}".getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			System.out.println("[fetchOpenApi] " + url + " → " + status + " (" + body.length + " bytes)");
+			if (status >= 400) {
+				send(exchange, status, "application/json; charset=utf-8", ("{\"ok\":false,\"message\":\"상대 서버가 HTTP " + status + " 로 답했습니다.\"}").getBytes(StandardCharsets.UTF_8));
+				return;
+			}
+			String contentType = con.getContentType();
+			if (contentType == null || contentType.isEmpty()) {
+				contentType = "application/json; charset=utf-8";
+			}
+			send(exchange, 200, contentType, body);
+		} catch (Exception e) {
+			System.out.println("[fetchOpenApi] 실패 : " + e);
+			send(exchange, 502, "application/json; charset=utf-8", ("{\"ok\":false,\"message\":\"" + jsonText(e.toString()) + "\"}").getBytes(StandardCharsets.UTF_8));
+		} finally {
+			exchange.close();
+		}
+	}
+
+	/** 상한까지만 읽는다. 넘으면 null. */
+	private static byte[] readLimited(InputStream in, int max) throws IOException {
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		byte[] chunk = new byte[8192];
+		int read;
+		while ((read = in.read(chunk)) > 0) {
+			if (buffer.size() + read > max) {
+				return null;
+			}
+			buffer.write(chunk, 0, read);
+		}
+		return buffer.toByteArray();
+	}
+
+	private static Map<String, String> parseQuery(String rawQuery) throws IOException {
+		Map<String, String> out = new HashMap<>();
+		if (rawQuery == null || rawQuery.isEmpty()) {
+			return out;
+		}
+		for (String pair : rawQuery.split("&")) {
+			int eq = pair.indexOf('=');
+			String key = URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), "UTF-8");
+			String value = eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), "UTF-8");
+			out.put(key, value);
+		}
+		return out;
 	}
 
 	/* ================================================================ 이미지로 배치 (서버 분석)

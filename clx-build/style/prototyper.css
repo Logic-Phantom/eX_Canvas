@@ -128,6 +128,14 @@
   font-family: Consolas, "D2Coding", monospace;
   font-size: 12px;
 }
+/* API 연동(Swagger/OpenAPI) — 붙여넣기 칸 · API 목록 상자 */
+.cl-textarea.pt-api-json {
+  font-family: Consolas, "D2Coding", monospace;
+  font-size: 11px;
+}
+.cl-listbox.pt-api-ops {
+  font-size: 12px;
+}
 /* 팔레트 묶음 머리글 · UDC 항목 */
 .cl-output.pt-palette-category {
   font-size: 11px;

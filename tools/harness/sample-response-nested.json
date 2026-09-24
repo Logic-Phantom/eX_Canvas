@@ -1,0 +1,42 @@
+{
+    "customerInfo": {
+        "customerId": "C123456",
+        "name": "홍길동",
+        "contact": {
+            "phone": "010-1234-5678",
+            "email": "hong@example.com"
+        },
+        "accounts": [
+            {
+                "accountId": "A78901",
+                "type": "savings",
+                "balance": 1500000,
+                "transactions": [
+                    { "transactionId": "T001", "date": "2024-12-01", "amount": -50000, "description": "ATM 출금", "accountId": "A78901" },
+                    { "transactionId": "T002", "date": "2024-12-02", "amount": 200000, "description": "월급 입금", "accountId": "A78901" }
+                ]
+            },
+            {
+                "accountId": "A78902",
+                "type": "checking",
+                "balance": 500000,
+                "transactions": [
+                    { "transactionId": "T101", "date": "2024-12-03", "amount": -15000, "description": "쇼핑몰 결제", "accountId": "A78902" },
+                    { "transactionId": "T102", "date": "2024-12-04", "amount": -8500, "description": "동암칼국수", "accountId": "A78902" },
+                    { "transactionId": "T103", "date": "2024-12-04", "amount": -2000, "description": "메가프레소", "accountId": "A78902" },
+                    { "transactionId": "T104", "date": "2024-12-05", "amount": -1700, "description": "씨에스편의점", "accountId": "A78902" }
+                ]
+            }
+        ]
+    },
+    "creditInfo": {
+        "creditScore": 850,
+        "creditLimit": 5000000,
+        "creditUsage": 1200000,
+        "paymentHistory": [
+            { "month": "2024-11", "status": "on-time" },
+            { "month": "2024-10", "status": "late" }
+        ]
+    },
+    "CI": "04c1fc4b3f8d7c"
+}

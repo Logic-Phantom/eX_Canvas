@@ -9,6 +9,7 @@
  * 모듈: module/canvas/controlRegistry · canvasAst · templatePlanner · geminiPlanner · clxSerializer · fileDownload
  *       module/canvas/collabSession · yjsLoader (공유 체크박스를 켰을 때만 쓴다)
  *       module/canvas/imagePlanner (이미지를 캔버스에 놓았을 때 — Gemini 비전으로 분석해 컨트롤을 배치한다)
+ *       module/canvas/openApiPlanner (Swagger/OpenAPI 명세 → DataSet · DataMap · Submission + 바인딩된 화면 뼈대 — AI 없이 결정적으로)
  ************************************************/
 
 var PALETTE_DATA_TYPE = "pt-palette";
@@ -53,9 +54,27 @@ var mbPatternSyncing = false;
 var mbImageBusy = false;
 /** [이미지 파일 선택…] 이 여는 숨은 파일 입력 */
 var moImageFileInput = null;
+/** API 연동 : 분석한 명세(openApiPlanner.analyze 결과). 없으면 null */
+var moApiAnalysis = null;
+/** API 연동 : 캔버스에 붙인 데이터 모델(DataSet · DataMap · Submission). 내보낼 때 <cl:model> 에 들어간다. */
+var moApiModel = null;
+/** [JSON 파일…] 이 여는 숨은 파일 입력 */
+var moApiFileInput = null;
+/** 목록 상자 항목 값(op<번호>) → API */
+var moApiOpOf = {};
+/** 목록 상자를 코드로 채우는 중(selection-change 를 무시한다) */
+var mbApiOpsSyncing = false;
 
 function mod(psName) {
-	return cpr.core.Module.require("module/canvas/" + psName);
+	var voModule = cpr.core.Module.require("module/canvas/" + psName);
+	if (voModule == null) {
+		// 배포본(cpr-lib/user-modules.js)이 소스보다 오래돼 모듈이 빠진 경우.
+		// 이클립스는 밖에서 만든 새 *.module.js 를 프로젝트 새로 고침 전에는 모르므로 빌더가 번들을 다시 만들지 않는다.
+		// "Cannot read properties of undefined" 대신 원인과 조치를 바로 알려 준다.
+		throw new Error("module/canvas/" + psName + " 모듈이 빌드(cpr-lib/user-modules.js)에 없습니다. "
+				+ "이클립스에서 프로젝트 새로 고침(F5) → 빌드 → Publish 하거나 tools/dev.sh 로 다시 빌드하세요.");
+	}
+	return voModule;
 }
 
 function snap(pnValue) {
@@ -82,7 +101,8 @@ function onBodyLoad(e) {
 	initCollab();
 	initImageDrop();
 	initImageStatus();
-	setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요. 화면 이미지를 놓으면 분석해서 배치합니다.");
+	initApiPanel();
+	setStatus("팔레트의 컨트롤을 캔버스로 끌어다 놓으세요. 화면 이미지를 놓으면 분석해서 배치하고, API 명세(Swagger)를 넣으면 데이터 모델까지 만듭니다.");
 }
 
 /* ================================================================ 팔레트 */
@@ -350,6 +370,12 @@ function addCanvasItem(psType, pnLeft, pnTop, poOpt) {
 	vcWrapper.userAttr(ast.ATTR_ID, poOpt.id || nextControlId(voDef.idPrefix));
 	vcWrapper.userAttr(ast.ATTR_TEXT, vsText);
 	vcWrapper.userAttr(ast.ATTR_STYLE, normalizeStyle(voDef, poOpt.style));
+	vcWrapper.userAttr(ast.ATTR_BIND, normalizeBind(poOpt.bind));
+	if (psType == "grid" && attrOf(vcWrapper, ast.ATTR_BIND) == null && poOpt.uid == null) {
+		// 모델(API 연동 · 응답 샘플)이 붙어 있으면 새 그리드는 아직 쓰지 않은 첫 DataSet 에 저절로 잇는다.
+		// (uid 가 온 것은 공유 상대가 만든 항목이라 상대의 bind 값을 그대로 둔다.)
+		vcWrapper.userAttr(ast.ATTR_BIND, nextDataSetBind(vcWrapper));
+	}
 
 	// ① 실제 eXBuilder6 컨트롤(UDC 포함). 만들다 실패하면 이름표 아웃풋으로 대신한다(배치·내보내기는 그대로 된다).
 	var vcControl;
@@ -416,6 +442,70 @@ function normalizeStyle(poDef, psStyle) {
 }
 
 /**
+ * 바인딩 표기를 정리한다. 형식(ds: · dm:x.col · sub: · clear:)에 맞지 않으면 빈 값.
+ * @return {String}
+ */
+function normalizeBind(psBind) {
+	var vsBind = psBind == null ? "" : String(psBind).replace(/^\s+|\s+$/g, "");
+	return vsBind !== "" && mod("openApiPlanner").parseBind(vsBind) != null ? vsBind : "";
+}
+
+/**
+ * 붙여 둔 데이터 모델(API 연동 · 응답 샘플)의 DataSet 중 캔버스의 다른 그리드가 아직 쓰지 않은 첫 번째 것의 바인딩("ds:<id>"). 없으면 "".
+ * 미리 배치(템플릿) · 팔레트 · 이미지 배치로 놓이는 그리드가 모델의 DataSet 에 저절로 이어지게 한다(속성창 Bind 에서 바꿀 수 있다).
+ * @param {cpr.controls.Container} pcExcept 이 항목은 "쓰는 중" 으로 세지 않는다(자기 자신)
+ */
+function nextDataSetBind(pcExcept) {
+	if (moApiModel == null || (moApiModel.datasets || []).length == 0) {
+		return "";
+	}
+	var ast = mod("canvasAst");
+	var voUsed = {};
+	canvasItems().forEach(function(pcItem) {
+		if (pcItem === pcExcept) {
+			return;
+		}
+		var voBind = mod("openApiPlanner").parseBind(attrOf(pcItem, ast.ATTR_BIND));
+		if (voBind != null && voBind.kind == "ds") {
+			voUsed[voBind.dataId] = true;
+		}
+	});
+	for (var i = 0; i < moApiModel.datasets.length; i++) {
+		if (!voUsed[moApiModel.datasets[i].id]) {
+			return "ds:" + moApiModel.datasets[i].id;
+		}
+	}
+	return "";
+}
+
+/**
+ * 캔버스에 이미 있는 그리드 중 바인딩이 없는 것을 모델의 DataSet 에 차례로 잇는다(화면을 먼저 그리고 나중에 JSON 을 넣은 경우).
+ * @return {Number} 이은 그리드 수
+ */
+function autoBindGrids() {
+	var ast = mod("canvasAst");
+	var vnCount = 0;
+	canvasItems().forEach(function(pcItem) {
+		if (attrOf(pcItem, ast.ATTR_TYPE) != "grid" || attrOf(pcItem, ast.ATTR_BIND) != null) {
+			return;
+		}
+		var vsBind = nextDataSetBind(pcItem);
+		if (vsBind === "") {
+			return;
+		}
+		pcItem.userAttr(ast.ATTR_BIND, vsBind);
+		mod("collabSession").publishUpdate(attrOf(pcItem, ATTR_UID), {
+			bind : vsBind
+		});
+		vnCount++;
+	});
+	if (vnCount > 0 && mcSelected != null) {
+		refreshPropertyPanel();
+	}
+	return vnCount;
+}
+
+/**
  * 스타일 계열을 캔버스 미리보기 클래스(pt-style-*)로 보여 준다. 내보낼 때는 템플릿 클래스로 바뀐다.
  * 컨트롤 DOM 은 건드리지 않고 클래스만 준다.
  */
@@ -433,13 +523,14 @@ function applyStyleClass(pcControl, psStyle) {
 /**
  * 캔버스 항목 하나를 공유 문서에 넣을 형태로 만든다.
  * @param {cpr.controls.Container} pcWrapper
- * @return {Object} {uid, type, id, text, x, y, w, h, style}
+ * @return {Object} {uid, type, id, text, x, y, w, h, style, bind}
  */
 function itemRecord(pcWrapper) {
 	var ast = mod("canvasAst");
 	var voRect = getItemRect(pcWrapper);
 	var vsText = pcWrapper.userAttr(ast.ATTR_TEXT);
 	var vsStyle = pcWrapper.userAttr(ast.ATTR_STYLE);
+	var vsBind = pcWrapper.userAttr(ast.ATTR_BIND);
 	return {
 		uid : attrOf(pcWrapper, ATTR_UID),
 		type : pcWrapper.userAttr(ast.ATTR_TYPE),
@@ -449,7 +540,8 @@ function itemRecord(pcWrapper) {
 		y : voRect.top,
 		w : voRect.width,
 		h : voRect.height,
-		style : vsStyle == null ? "" : vsStyle
+		style : vsStyle == null ? "" : vsStyle,
+		bind : vsBind == null ? "" : vsBind
 	};
 }
 
@@ -618,6 +710,8 @@ function refreshPropertyPanel() {
 	var voRect = vbHas ? getItemRect(mcSelected) : null;
 
 	var vbStyleable = vbHas && normalizeStyle(voDef, "primary") == "primary"; // 스타일 계열을 가질 수 있는 유형(버튼)인가
+	// 데이터 바인딩을 가질 수 있는 유형 : 입력(dm:) · 그리드(ds:) · 버튼(sub: · clear:). UDC · UI 템플릿은 제외.
+	var vbBindable = vbHas && !voDef.udcType && !voDef.uiTemplate && (voDef.role == "input" || voDef.role == "button" || voDef.type == "grid" || voDef.type == "output");
 
 	mbSyncing = true;
 	app.lookup("optPropType").value = vbHas ? voDef.label : "(선택 없음)";
@@ -629,6 +723,7 @@ function refreshPropertyPanel() {
 	app.lookup("ipbPropWidth").value = vbHas ? String(voRect.width) : "";
 	app.lookup("ipbPropHeight").value = vbHas ? String(voRect.height) : "";
 	app.lookup("cmbPropStyle").value = vbStyleable ? (mcSelected.userAttr(ast.ATTR_STYLE) || "") : "";
+	app.lookup("ipbPropBind").value = vbBindable ? (mcSelected.userAttr(ast.ATTR_BIND) || "") : "";
 	mbSyncing = false;
 
 	["ipbPropId", "ipbPropLeft", "ipbPropTop", "ipbPropWidth", "ipbPropHeight", "btnPropDelete"].forEach(function(psId) {
@@ -636,6 +731,19 @@ function refreshPropertyPanel() {
 	});
 	app.lookup("ipbPropText").enabled = vbHas && voDef.textKind != "none";
 	app.lookup("cmbPropStyle").enabled = vbStyleable;
+	app.lookup("ipbPropBind").enabled = vbBindable;
+	app.lookup("ipbPropBind").placeholder = vbBindable ? bindPlaceholder(voDef) : "";
+}
+
+/** 유형별 Bind 칸 안내 글 */
+function bindPlaceholder(poDef) {
+	if (poDef.type == "grid") {
+		return "ds:데이터셋id";
+	}
+	if (poDef.role == "button") {
+		return "sub:서브미션id 또는 clear:데이터id";
+	}
+	return "dm:데이터맵id.컬럼";
 }
 
 /*
@@ -668,6 +776,19 @@ function onPropValueChange(e) {
 			mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
 				style : vsStyle
 			});
+			break;
+		case "ipbPropBind":
+			var vsTrimmed = vsValue.replace(/^\s+|\s+$/g, "");
+			var vsBind = normalizeBind(vsTrimmed);
+			if (vsTrimmed !== "" && vsBind === "") {
+				setStatus("Bind 형식이 맞지 않습니다 : " + mod("openApiPlanner").BIND_HINT);
+				break;
+			}
+			mcSelected.userAttr(ast.ATTR_BIND, vsBind);
+			mod("collabSession").publishUpdate(attrOf(mcSelected, ATTR_UID), {
+				bind : vsBind
+			});
+			setStatus(vsBind === "" ? "바인딩을 지웠습니다." : "바인딩 : " + vsBind + (moApiModel == null ? " (내보낼 때 <cl:model> 에 이 id 가 있어야 동작합니다 — [모델만 적용] 또는 [화면 생성])" : ""));
 			break;
 		default:
 			var voRect = getItemRect(mcSelected);
@@ -751,10 +872,11 @@ function onBtnPropDeleteClick(e) {
  * "전체 삭제" 버튼에서 click 이벤트 발생 시 호출.
  */
 function onBtnClearClick(e) {
-	if (!confirm("캔버스의 모든 항목을 삭제할까요?")) {
+	if (!confirm("캔버스의 모든 항목을 삭제할까요?" + (moApiModel != null ? "\n(API 연동으로 붙인 데이터 모델도 함께 뗍니다)" : ""))) {
 		return;
 	}
 	clearCanvas();
+	moApiModel = null;
 	app.lookup("txaPreview").value = "";
 	setStatus("캔버스를 비웠습니다.");
 }
@@ -1083,6 +1205,420 @@ function applyImagePlan(poPlan, poImage, psName, psRoute) {
 }
 
 /** 패턴 콤보를 코드가 바꾼다(미리 배치가 따라 돌지 않게). */
+/* ================================================================ API 연동 (Swagger / OpenAPI → 데이터 모델 · 바인딩된 뼈대)
+ *
+ * 명세(JSON)를 URL · 붙여넣기 · 파일로 받아 openApiPlanner 가 분석한다 — AI 를 쓰지 않는 결정적 변환(비용 0).
+ *  ① analyze()      API 목록(역할 : 목록/상세/등록/수정/삭제) → 리소스(태그) 콤보 + API 목록 상자(여러 개 선택)
+ *  ② mapModel()     고른 API → DataSet · DataMap · Submission (+ 화면 흐름)
+ *  ③ [화면 생성]     skeleton() 으로 바인딩(pt-bind)이 붙은 컨트롤을 캔버스에 깔고 패턴 콤보를 맞춘다(미리 배치와 같은 길)
+ *     [모델만 적용]  캔버스는 그대로 두고 모델만 붙인다 — 속성창 Bind 로 직접 잇는다
+ *  ④ 내보낼 때 clxSerializer 가 <cl:model> + datasetid/columnname/datamapbind/listener 와 .js 핸들러(send · clear · 선택→상세)를 만든다
+ */
+
+function api() {
+	return mod("openApiPlanner");
+}
+
+/** 화면이 뜰 때 : 서버 프록시(/canvas/fetchOpenApi.do)가 있는지 확인해 안내 문구에 보여 준다. */
+function initApiPanel() {
+	app.lookup("btnApiGenerate").enabled = false;
+	app.lookup("btnApiModel").enabled = false;
+	var voApi;
+	try {
+		voApi = api();
+	} catch (ex) {
+		// 배포본에 openApiPlanner 가 없으면(이클립스 새로 고침 전) API 연동만 끄고 화면 초기화는 계속한다.
+		console.error("[eX-Canvas] " + ex.message);
+		["btnApiLoad", "btnApiPaste", "btnApiFile"].forEach(function(psId) {
+			app.lookup(psId).enabled = false;
+		});
+		setApiHint("API 연동 모듈(openApiPlanner)이 이 빌드에 없습니다 — 이클립스 프로젝트 새로 고침(F5) 후 빌드 · Publish 하세요.");
+		return;
+	}
+	voApi.probeProxy(function(pbProxy) {
+		setApiHint(pbProxy ? "URL 은 서버 프록시(/canvas/fetchOpenApi.do)가 대신 받습니다 · JSON 붙여넣기 · 파일도 됩니다."
+				: "서버 프록시 없음 — URL 은 브라우저가 직접 받습니다(CORS 를 허용한 서버만). JSON 붙여넣기 · 파일이 확실합니다.");
+	});
+}
+
+function setApiHint(psText) {
+	var vcHint = app.lookup("optApiHint");
+	vcHint.value = psText;
+	vcHint.tooltip = psText;
+}
+
+/*
+ * "URL 불러오기" 버튼에서 click 이벤트 발생 시 호출.
+ * Swagger UI 주소를 넣어도 문서 주소(/v3/api-docs 등)를 추정해 차례로 시도한다.
+ */
+function onBtnApiLoadClick(e) {
+	var vsUrl = String(app.lookup("ipbApiUrl").value || "").replace(/^\s+|\s+$/g, "");
+	if (vsUrl === "") {
+		setStatus("API 명세 주소를 넣으세요(예: http://localhost:8080/v3/api-docs 또는 Swagger UI 주소).");
+		return;
+	}
+	app.lookup("btnApiLoad").enabled = false;
+	setApiHint("명세를 받는 중... " + vsUrl);
+	api().fetchSpec(vsUrl, {}, function(poSpec, psUsedUrl) {
+		app.lookup("btnApiLoad").enabled = true;
+		applyApiSpec(poSpec, psUsedUrl);
+	}, function(psError) {
+		app.lookup("btnApiLoad").enabled = true;
+		setApiHint("명세를 받지 못했습니다. JSON 을 붙여넣거나 파일로 넣어 보세요.");
+		reportApiError("API 명세 받기 실패", psError);
+	});
+}
+
+/*
+ * "붙여넣기 분석" 버튼에서 click 이벤트 발생 시 호출. 붙여넣기 칸의 JSON 을 분석한다.
+ */
+function onBtnApiPasteClick(e) {
+	var voSpec;
+	try {
+		voSpec = api().parse(app.lookup("txaApiJson").value);
+	} catch (ex) {
+		reportApiError("API 명세 읽기 실패", ex.message);
+		return;
+	}
+	applyApiSpec(voSpec, "붙여넣기");
+}
+
+/*
+ * "JSON 파일…" 버튼에서 click 이벤트 발생 시 호출. 명세 JSON 파일을 골라 분석한다.
+ */
+function onBtnApiFileClick(e) {
+	if (moApiFileInput == null) {
+		moApiFileInput = document.createElement("input");
+		moApiFileInput.type = "file";
+		moApiFileInput.accept = ".json,application/json";
+		moApiFileInput.style.display = "none";
+		moApiFileInput.addEventListener("change", function() {
+			var voFile = moApiFileInput.files && moApiFileInput.files[0];
+			moApiFileInput.value = "";
+			if (voFile == null) {
+				return;
+			}
+			var voReader = new FileReader();
+			voReader.onload = function() {
+				var voSpec;
+				try {
+					voSpec = api().parse(String(voReader.result));
+				} catch (ex) {
+					reportApiError("API 명세 읽기 실패", voFile.name + " : " + ex.message);
+					return;
+				}
+				applyApiSpec(voSpec, voFile.name);
+			};
+			voReader.onerror = function() {
+				reportApiError("API 명세 읽기 실패", voFile.name + " 파일을 읽지 못했습니다.");
+			};
+			voReader.readAsText(voFile, "UTF-8");
+		});
+		document.body.appendChild(moApiFileInput);
+	}
+	moApiFileInput.click();
+}
+
+/** 콤보·목록 상자의 아이템을 모두 지운다(런타임 API 는 deleteAllItems · deleteItem(index)). */
+function clearItems(pcControl) {
+	if (typeof pcControl.deleteAllItems == "function") {
+		pcControl.deleteAllItems();
+		return;
+	}
+	var vnCount = typeof pcControl.getItemCount == "function" ? pcControl.getItemCount() : 0;
+	for (var i = vnCount - 1; i >= 0; i--) {
+		pcControl.deleteItem(i);
+	}
+}
+
+/**
+ * 명세를 분석해 리소스 콤보 · API 목록 상자를 채운다. 모델은 아직 만들지 않는다([화면 생성]·[모델만 적용] 때).
+ * @param {Object} poSpec parse() 결과
+ * @param {String} psSource 어디서 왔는지(상태 표시용)
+ */
+function applyApiSpec(poSpec, psSource) {
+	var voAnalysis;
+	try {
+		voAnalysis = api().analyze(poSpec);
+	} catch (ex) {
+		reportApiError("API 명세 분석 실패", ex.message);
+		return;
+	}
+	moApiAnalysis = voAnalysis;
+	var vbSample = voAnalysis.kind == "sample"; // 명세가 아닌 응답 샘플 JSON : 항목 = DataSet/DataMap
+
+	// 리소스(태그) 콤보 : 전체 + 태그별. 태그가 여럿이면 첫 태그(리소스 하나)가 기본 — 화면 하나는 보통 리소스 하나다.
+	var vcTag = app.lookup("cmbApiTag");
+	clearItems(vcTag);
+	vcTag.addItem(new cpr.controls.Item("전체 (" + voAnalysis.operations.length + ")", "*"));
+	voAnalysis.tags.forEach(function(psTag) {
+		var vnCount = voAnalysis.operations.filter(function(poOp) {
+			return poOp.tags.indexOf(psTag) >= 0;
+		}).length;
+		vcTag.addItem(new cpr.controls.Item(psTag + " (" + vnCount + ")", psTag));
+	});
+	vcTag.value = voAnalysis.tags.length > 1 ? voAnalysis.tags[0] : "*";
+	fillApiOps();
+
+	app.lookup("btnApiGenerate").enabled = voAnalysis.operations.length > 0;
+	app.lookup("btnApiModel").enabled = voAnalysis.operations.length > 0;
+
+	// 출력 미리보기에 API 목록(또는 응답 샘플의 DataSet/DataMap 목록)을 보여 준다.
+	var vaLines;
+	if (vbSample) {
+		var vnSets = voAnalysis.operations.filter(function(poOp) {
+			return poOp.kind == "dataset";
+		}).length;
+		vaLines = ["응답 샘플 JSON (" + psSource + ") — 배열 키는 DataSet, 객체 키는 DataMap",
+				"항목 " + voAnalysis.operations.length + "개 → DataSet " + vnSets + " · DataMap " + (voAnalysis.operations.length - vnSets), ""];
+		voAnalysis.operations.forEach(function(poOp) {
+			vaLines.push("  " + poOp.label);
+			vaLines.push("    " + poOp.columns.map(function(poColumn) {
+				return poColumn.name + (poColumn.datatype != "string" ? "(" + poColumn.datatype + ")" : "");
+			}).join(" · "));
+		});
+	} else {
+		vaLines = ["API 명세 : " + (voAnalysis.title || "(제목 없음)") + (voAnalysis.version ? " " + voAnalysis.version : "") + "  (" + voAnalysis.kind + " · " + psSource + ")",
+				"API " + voAnalysis.operations.length + "개 · 리소스(태그) " + voAnalysis.tags.length + "개 · 스키마 " + voAnalysis.schemaCount + "개", ""];
+		voAnalysis.tags.forEach(function(psTag) {
+			vaLines.push("[" + psTag + "]");
+			voAnalysis.operations.forEach(function(poOp) {
+				if (poOp.tags.indexOf(psTag) >= 0) {
+					vaLines.push("  " + poOp.label + (poOp.deprecated ? " (deprecated)" : ""));
+				}
+			});
+		});
+	}
+	voAnalysis.warnings.forEach(function(psWarning) {
+		vaLines.push("※ " + psWarning);
+	});
+	app.lookup("optPreviewTitle").value = (vbSample ? "응답 샘플 분석 - " : "API 명세 분석 - ") + (voAnalysis.title || psSource);
+	app.lookup("txaPreview").value = vaLines.join("\n");
+	// 응답 샘플은 따로 만드는 것이 없다(모델이 바로 붙는다) — [화면 생성] · [모델만 적용] 은 명세일 때만 보인다.
+	app.lookup("grpApiActions").visible = !vbSample;
+	if (vbSample) {
+		if (voAnalysis.operations.length > 0) {
+			applySampleModel(vaLines.join("\n"));
+		} else {
+			moApiModel = null;
+			setStatus("응답 샘플 JSON 에서 배열·객체 키를 찾지 못했습니다 — {dsList:[{…}], dmPageInfo:{…}} 처럼 넣어 주세요.");
+		}
+	} else {
+		setStatus("API 명세 분석 : " + (voAnalysis.title || psSource) + " · API " + voAnalysis.operations.length + "개 · 리소스 " + voAnalysis.tags.length + "개. 리소스와 API 를 고르고 [화면 생성] 을 누르세요.");
+	}
+}
+
+/**
+ * 응답 샘플 : 목록 상자에서 고른 항목을 이 화면의 데이터 모델로 붙인다(분석 직후 · 선택을 바꿀 때마다).
+ * 응답 샘플은 화면을 만들라는 것이 아니라 "이 화면에 쓸 DataSet · DataMap" 이다 — 미리 배치(템플릿)든 직접 그리든 내보낼 때
+ * <cl:model> 에 들어가고, 그리드는 놓일 때 첫 DataSet 에 저절로 이어진다. 그래서 [화면 생성] · [모델만 적용] 은 응답 샘플에서 쓰지 않는다.
+ * @param {String} psHead 미리보기 칸 머리말(분석 결과 목록). null 이면 모델 요약만 보여 준다.
+ */
+function applySampleModel(psHead) {
+	var vaOps = selectedApiOps();
+	if (vaOps.length == 0) {
+		moApiModel = null;
+		app.lookup("optPreviewTitle").value = "응답 샘플 - 데이터 모델 없음";
+		app.lookup("txaPreview").value = (psHead ? psHead + "\n\n" : "") + "(고른 항목이 없어 데이터 모델을 뗐습니다 — 목록에서 다시 고르면 붙습니다)";
+		setStatus("응답 샘플 항목을 모두 빼서 데이터 모델을 뗐습니다. 목록에서 다시 고르면 붙습니다.");
+		return;
+	}
+	moApiModel = api().mapModel(vaOps, {});
+	var vnBound = autoBindGrids();
+	app.lookup("optPreviewTitle").value = "응답 샘플 - 데이터 모델 (이 화면에 붙음)";
+	app.lookup("txaPreview").value = (psHead ? psHead + "\n\n" : "") + api().describe(moApiModel, moApiAnalysis);
+	setStatus("응답 샘플 JSON → DataSet " + moApiModel.datasets.length + " · DataMap " + moApiModel.datamaps.length + " 을 이 화면에 붙였습니다"
+			+ (vnBound > 0 ? " · 캔버스의 그리드 " + vnBound + "개를 DataSet 에 이음" : "")
+			+ ". 미리 배치나 직접 그린 화면을 내보내면 <cl:model> 에 들어갑니다(그리드는 첫 DataSet 에 자동 연결 · 속성창 Bind 로 변경). 목록에서 빼면 모델에서도 빠집니다.");
+}
+
+/*
+ * API 목록 상자에서 selection-change 이벤트 발생 시 호출.
+ * 응답 샘플이면 고른 항목으로 모델을 바로 다시 붙인다(명세는 [화면 생성] · [모델만 적용] 을 누를 때 만든다).
+ */
+function onLsbApiOpsSelectionChange(e) {
+	if (mbApiOpsSyncing || moApiAnalysis == null || moApiAnalysis.kind != "sample") {
+		return;
+	}
+	applySampleModel(null);
+}
+
+/** 고른 리소스의 API 로 목록 상자를 채운다(폐기 예정이 아닌 것은 모두 선택해 둔다). */
+function fillApiOps() {
+	var vsTag = app.lookup("cmbApiTag").value || "*";
+	var vcList = app.lookup("lsbApiOps");
+	clearItems(vcList);
+	moApiOpOf = {};
+	var vaValues = [];
+	moApiAnalysis.operations.forEach(function(poOp, pnIdx) {
+		if (vsTag != "*" && poOp.tags.indexOf(vsTag) < 0) {
+			return;
+		}
+		var vsValue = "op" + pnIdx;
+		moApiOpOf[vsValue] = poOp;
+		vcList.addItem(new cpr.controls.Item(poOp.label, vsValue));
+		if (!poOp.deprecated) {
+			vaValues.push(vsValue);
+		}
+	});
+	mbApiOpsSyncing = true;
+	try {
+		selectApiOps(vcList, vaValues);
+	} finally {
+		mbApiOpsSyncing = false;
+	}
+	if (moApiAnalysis.kind == "sample") {
+		setApiHint("항목 " + Object.keys(moApiOpOf).length + "개 중 " + selectedApiOps().length + "개 선택 · 배열=DataSet · 객체=DataMap · 고른 항목이 이 화면의 모델로 붙습니다(빼면 모델에서도 빠짐) · Submission 은 만들지 않습니다.");
+	} else {
+		setApiHint("API " + Object.keys(moApiOpOf).length + "개 중 " + selectedApiOps().length + "개 선택 · 목록 응답=그리드, 상세/저장 본문=폼, 나머지=버튼으로 갑니다.");
+	}
+}
+
+/** 목록 상자에서 여러 값을 고른다(다중 선택 ListBox 의 value 는 구분자로 이은 문자열). */
+function selectApiOps(pcList, paValues) {
+	pcList.value = paValues.join(",");
+	if (selectedApiOps().length < paValues.length && typeof pcList.selectItemByValue == "function") {
+		paValues.forEach(function(psValue) {
+			pcList.selectItemByValue(psValue);
+		});
+	}
+}
+
+/*
+ * 리소스 콤보에서 selection-change 이벤트 발생 시 호출.
+ */
+function onCmbApiTagSelectionChange(e) {
+	if (moApiAnalysis != null) {
+		fillApiOps();
+	}
+}
+
+/** 목록 상자에서 고른 API */
+function selectedApiOps() {
+	var vcList = app.lookup("lsbApiOps");
+	var vaOps = [];
+	var vaSelection = typeof vcList.getSelection == "function" ? (vcList.getSelection() || []) : [];
+	vaSelection.forEach(function(poItem) {
+		if (poItem != null && moApiOpOf[poItem.value] != null) {
+			vaOps.push(moApiOpOf[poItem.value]);
+		}
+	});
+	if (vaOps.length == 0 && vcList.value) {
+		String(vcList.value).split(",").forEach(function(psValue) {
+			if (moApiOpOf[psValue] != null) {
+				vaOps.push(moApiOpOf[psValue]);
+			}
+		});
+	}
+	return vaOps;
+}
+
+/** 고른 API 로 데이터 모델을 만든다. 없으면 이유를 알리고 null. */
+function buildApiModel() {
+	if (moApiAnalysis == null) {
+		setStatus("먼저 API 명세를 불러오세요(URL · 붙여넣기 · 파일).");
+		return null;
+	}
+	var vaOps = selectedApiOps();
+	if (vaOps.length == 0) {
+		setStatus("목록에서 API 를 하나 이상 고르세요.");
+		return null;
+	}
+	return api().mapModel(vaOps, {
+		title : moApiAnalysis.title,
+		version : moApiAnalysis.version,
+		server : moApiAnalysis.server
+	});
+}
+
+function showApiModel(poModel, psTitle) {
+	app.lookup("optPreviewTitle").value = psTitle;
+	app.lookup("txaPreview").value = api().describe(poModel, moApiAnalysis);
+}
+
+function modelSummary(poModel) {
+	return "Submission " + poModel.submissions.length + " · DataSet " + poModel.datasets.length + " · DataMap " + poModel.datamaps.length;
+}
+
+/*
+ * "모델만 적용" 버튼에서 click 이벤트 발생 시 호출.
+ * 캔버스는 그대로 두고 데이터 모델만 붙인다. 컨트롤은 속성창 Bind 로 잇는다.
+ */
+function onBtnApiModelClick(e) {
+	var voModel = buildApiModel();
+	if (voModel == null) {
+		return;
+	}
+	moApiModel = voModel;
+	var vnBound = autoBindGrids();
+	showApiModel(voModel, "API 연동 - 데이터 모델 (캔버스에 적용됨)");
+	setStatus("데이터 모델을 캔버스에 붙였습니다 : " + modelSummary(voModel) + (vnBound > 0 ? " · 그리드 " + vnBound + "개를 DataSet 에 이음" : "")
+			+ ". 속성창 Bind(ds: · dm: · sub:)로 컨트롤을 잇거나 [화면 생성] 으로 뼈대를 깔 수 있습니다.");
+}
+
+/*
+ * "화면 생성" 버튼에서 click 이벤트 발생 시 호출.
+ * 데이터 모델을 만들고 바인딩이 붙은 컨트롤(조회 조건 · 그리드 · 폼 · 버튼)을 캔버스에 깐다. 패턴 콤보도 맞춘다.
+ */
+function onBtnApiGenerateClick(e) {
+	var voModel = buildApiModel();
+	if (voModel == null) {
+		return;
+	}
+	if (countItems() > 0 && !confirm("API 명세로 화면을 만들면 캔버스의 기존 항목을 지웁니다. 계속할까요?")) {
+		return;
+	}
+	var voSkeleton = api().skeleton(voModel, canvasRect());
+	if (countItems() > 0) {
+		clearCanvas();
+	}
+	moApiModel = voModel;
+	// 공유 중이면 뼈대 전체를 한 번의 변경으로 묶어 보낸다(모델 자체는 공유하지 않는다 — 상대는 [모델만 적용]).
+	mod("collabSession").transact(function() {
+		voSkeleton.items.forEach(function(poItem) {
+			addCanvasItem(poItem.type, poItem.x, poItem.y, {
+				id : poItem.id || null, // 뼈대가 준 읽기 쉬운 id(ipbEmpNm · btnSearch · grdList …). 없으면 일련번호 id
+				text : poItem.text,
+				width : poItem.width,
+				height : poItem.height,
+				style : poItem.style,
+				bind : poItem.bind,
+				quiet : true
+			});
+		});
+	});
+	select(null);
+	setPatternCombo(voSkeleton.pattern);
+	showApiModel(voModel, "API 연동 - 데이터 모델 + 화면 뼈대");
+
+	var vsRulePattern = "";
+	try {
+		vsRulePattern = mod("templatePlanner").planByRule(extractAst()).pattern;
+	} catch (ex) {
+		vsRulePattern = "";
+	}
+	var vsMessage = "API 명세로 화면 뼈대를 깔았습니다 : 컨트롤 " + voSkeleton.items.length + "개 · 기준 템플릿 " + voSkeleton.pattern
+			+ (vsRulePattern && vsRulePattern != voSkeleton.pattern ? " (좌표 규칙으로는 " + vsRulePattern + ")" : "") + " · " + modelSummary(voModel);
+	if (voSkeleton.notes.length > 0) {
+		vsMessage += " · 참고 : " + voSkeleton.notes[0];
+	}
+	setStatus(vsMessage);
+}
+
+/** 실패 이유를 상태 표시줄(요약)과 출력 미리보기 칸(전문)에 보여 준다. */
+function reportApiError(psTitle, psError) {
+	var vsFirst = String(psError).split("\n")[0];
+	setStatus("[" + psTitle + "] " + vsFirst);
+	app.lookup("optPreviewTitle").value = psTitle;
+	app.lookup("txaPreview").value = psTitle + "\n\n" + psError + "\n\n"
+		+ "확인할 것\n"
+		+ " - 명세가 아닌 응답 JSON 을 넣어도 됩니다 — {dsList:[{…}], dmPageInfo:{…}} 처럼 배열/객체 값을 가진 키가 DataSet/DataMap 이 됩니다\n"
+		+ " - 주소가 Swagger UI 화면이 아니라 JSON 문서(/v3/api-docs · /v2/api-docs · swagger.json)인지\n"
+		+ " - 다른 출처(포트가 다른 서버)면 브라우저가 직접 받지 못할 수 있습니다 → 개발 서버(tools/dev.sh)·Tomcat 의 프록시를 쓰거나 JSON 을 붙여넣으세요\n"
+		+ " - YAML 명세는 JSON 으로 받아 넣으세요(springdoc 은 /v3/api-docs 가 JSON)";
+	console.error("[eX-Canvas] " + psTitle + " : " + psError);
+}
+
 function setPatternCombo(psPattern) {
 	mbPatternSyncing = true;
 	app.lookup("cmbPattern").value = psPattern;
@@ -1096,18 +1632,19 @@ function getAppName() {
 	return mod("fileDownload").sanitizeFileName(app.lookup("ipbAppName").value, "prototype");
 }
 
-/** 캔버스 상태 → JSON AST */
+/** 캔버스 상태 → JSON AST (API 연동으로 붙인 데이터 모델도 함께) */
 function extractAst() {
 	return mod("canvasAst").extract(app.lookup("canvasGroup"), {
 		name : getAppName(),
 		title : "",
-		popup : app.lookup("cbxPopup").value == "Y"
+		popup : app.lookup("cbxPopup").value == "Y",
+		model : moApiModel
 	});
 }
 
 /**
- * 현재 변환 방식에 따라 CLX 문자열을 만든다(비동기 : Gemini 호출이 끼어들 수 있다).
- * @param {function(String, Object)} pfDone (xml, 해석된 계획 또는 null)
+ * 현재 변환 방식에 따라 CLX 문자열과 화면 스크립트를 만든다(비동기 : Gemini 호출이 끼어들 수 있다).
+ * @param {function(String, Object, String)} pfDone (xml, 해석된 계획 또는 null, js)
  */
 function generateClx(pfDone) {
 	var voAst = extractAst();
@@ -1118,6 +1655,7 @@ function generateClx(pfDone) {
 	var serializer = mod("clxSerializer");
 	var planner = mod("templatePlanner");
 	var vsMode = app.lookup("cmbMode").value;
+	var vsName = getAppName();
 	var voOpt = {
 		pattern : app.lookup("cmbPattern").value || "auto",
 		popup : voAst.app.popup
@@ -1130,13 +1668,18 @@ function generateClx(pfDone) {
 		if (voPlan.warnings.length > 0) {
 			vsMessage += " · 참고 " + voPlan.warnings.length + "건 : " + voPlan.warnings[0];
 		}
+		var voOut = serializer.generate(voPlan, "plan", vsName);
+		if (voOut.handlers > 0) {
+			vsMessage += " · 바인딩 핸들러 " + voOut.handlers + "개(.js)";
+		}
 		setStatus(vsMessage);
-		pfDone(serializer.serializePlan(voPlan), voPlan);
+		pfDone(voOut.clx, voPlan, voOut.js);
 	}
 
 	if (vsMode == "xy") {
-		setStatus("XY 좌표 그대로 직렬화했습니다.");
-		pfDone(serializer.serializeXY(voAst), null);
+		var voXy = serializer.generate(voAst, "xy", vsName);
+		setStatus("XY 좌표 그대로 직렬화했습니다." + (voXy.handlers > 0 ? " · 바인딩 핸들러 " + voXy.handlers + "개(.js)" : ""));
+		pfDone(voXy.clx, null, voXy.js);
 		return;
 	}
 	if (vsMode == "gemini") {
@@ -1174,9 +1717,10 @@ function enableExportButtons() {
  * "미리보기" 버튼에서 click 이벤트 발생 시 호출.
  */
 function onBtnPreviewClick(e) {
-	generateClx(function(psXml, poPlan) {
-		app.lookup("optPreviewTitle").value = "출력 미리보기 - " + getAppName() + ".clx";
-		app.lookup("txaPreview").value = psXml;
+	generateClx(function(psXml, poPlan, psJs) {
+		app.lookup("optPreviewTitle").value = "출력 미리보기 - " + getAppName() + ".clx" + (moApiModel != null ? " (+ .js 핸들러는 아래에)" : "");
+		// 바인딩 핸들러가 있으면 .js 도 함께 보여 준다(파일은 저장·다운로드 때 따로 나간다).
+		app.lookup("txaPreview").value = moApiModel != null ? psXml + "\n\n<!-- ===== " + getAppName() + ".js ===== -->\n" + psJs : psXml;
 	});
 }
 
@@ -1196,7 +1740,7 @@ function onBtnJsonClick(e) {
  * "CLX 다운로드" 버튼에서 click 이벤트 발생 시 호출.
  */
 function onBtnDownloadClick(e) {
-	generateClx(function(psXml, poPlan) {
+	generateClx(function(psXml, poPlan, psJs) {
 		var download = mod("fileDownload");
 		var vsName = getAppName();
 		app.lookup("optPreviewTitle").value = "출력 미리보기 - " + vsName + ".clx";
@@ -1204,7 +1748,7 @@ function onBtnDownloadClick(e) {
 		download.downloadClx(vsName, psXml);
 		// 스튜디오는 같은 이름의 .js 를 짝으로 본다. 브라우저가 연속 다운로드를 막지 않도록 조금 늦춘다.
 		window.setTimeout(function() {
-			download.downloadJs(vsName, mod("clxSerializer").makeScriptSkeleton(vsName));
+			download.downloadJs(vsName, psJs);
 		}, 400);
 	});
 }
@@ -1290,10 +1834,10 @@ function onBtnPickSaveDirClick(e) {
  * @param {Object} poDir 폴더 핸들 · null(저장 서버 사용) · false(브라우저 다운로드)
  */
 function saveResult(poDir) {
-	generateClx(function(psXml, poPlan) {
+	generateClx(function(psXml, poPlan, psJs) {
 		var download = mod("fileDownload");
 		var vsName = getAppName();
-		var vsScript = mod("clxSerializer").makeScriptSkeleton(vsName);
+		var vsScript = psJs;
 		var vsPlanNote = app.lookup("optStatus").value;
 		app.lookup("optPreviewTitle").value = "출력 미리보기 - " + vsName + ".clx";
 		app.lookup("txaPreview").value = psXml;
@@ -1553,6 +2097,7 @@ function createItemFromRecord(poRecord) {
 		uid : poRecord.uid,
 		id : poRecord.id,
 		style : poRecord.style,
+		bind : poRecord.bind,
 		quiet : true
 	});
 }
@@ -1584,6 +2129,9 @@ function applyRemoteUpdate(psUid, poPatch) {
 		var vsStyle = normalizeStyle(mod("controlRegistry").getType(vcWrapper.userAttr(ast.ATTR_TYPE)), poPatch.style);
 		vcWrapper.userAttr(ast.ATTR_STYLE, vsStyle);
 		applyStyleClass(vcWrapper.getFirstChild(), vsStyle);
+	}
+	if (poPatch.bind != null && poPatch.bind !== vcWrapper.userAttr(ast.ATTR_BIND)) {
+		vcWrapper.userAttr(ast.ATTR_BIND, normalizeBind(poPatch.bind)); // 데이터 모델 자체는 공유하지 않는다(각자 [모델만 적용]).
 	}
 	if (poPatch.x != null || poPatch.y != null || poPatch.w != null || poPatch.h != null) {
 		var voRect = getItemRect(vcWrapper);
