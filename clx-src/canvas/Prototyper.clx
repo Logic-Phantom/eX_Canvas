@@ -28,10 +28,11 @@
         <cl:output std:sid="output-e0c0001c" class="pt-label" value="변환">
           <cl:flowlayoutdata std:sid="f-data-e0c0001d" width="30px" height="28px" autosize="none"/>
         </cl:output>
-        <cl:combobox std:sid="c-box-e0c0001e" id="cmbMode" value="rule" preventinput="true">
+        <cl:combobox std:sid="c-box-e0c0001e" id="cmbMode" value="rule" preventinput="true" tooltip="템플릿 : 같은 템플릿이 있으면 그 뼈대로, 없으면(요소가 빠지거나 자리가 바뀌면) 템플릿 부품을 이미지 순서대로 쌓습니다. 이미지 기준 배치 : 늘 이미지 순서대로 쌓습니다.">
           <cl:flowlayoutdata std:sid="f-data-e0c0001f" width="140px" height="28px" autosize="none"/>
           <cl:item std:sid="item-e0c00020" label="템플릿(규칙 기반)" value="rule"/>
           <cl:item std:sid="item-e0c00021" label="템플릿(Gemini AI)" value="gemini"/>
+          <cl:item std:sid="item-e0c00150" label="이미지 기준 배치" value="stack"/>
           <cl:item std:sid="item-e0c00022" label="XY 좌표 그대로" value="xy"/>
         </cl:combobox>
         <cl:output std:sid="output-e0c00023" class="pt-label" value="패턴">
@@ -56,6 +57,10 @@
           <cl:listener std:sid="listener-e0c0002a" name="click" handler="onBtnPreviewClick"/>
           <cl:flowlayoutdata std:sid="f-data-e0c0002b" width="64px" height="28px" autosize="none"/>
         </cl:button>
+        <cl:button std:sid="button-e0c00151" id="btnCompare" value="비교" tooltip="원본 이미지와 실제로 띄운 결과 화면을 새 창에서 나란히 · 겹쳐 · 차이로 비교하고, 원본 요소가 얼마나 반영됐는지 알려 줍니다.">
+          <cl:listener std:sid="listener-e0c00152" name="click" handler="onBtnCompareClick"/>
+          <cl:flowlayoutdata std:sid="f-data-e0c00153" width="48px" height="28px" autosize="none"/>
+        </cl:button>
         <cl:button std:sid="button-e0c0002c" id="btnJson" value="AST(JSON)">
           <cl:listener std:sid="listener-e0c0002d" name="click" handler="onBtnJsonClick"/>
           <cl:flowlayoutdata std:sid="f-data-e0c0002e" width="76px" height="28px" autosize="none"/>
@@ -78,7 +83,7 @@
         <cl:rows length="1" unit="FRACTION"/>
         <cl:columns length="230" unit="PIXEL"/>
         <cl:columns length="1" unit="FRACTION"/>
-        <cl:columns length="1170" unit="PIXEL"/>
+        <cl:columns length="1224" unit="PIXEL"/>
       </cl:formlayout>
     </cl:group>
     <cl:group std:sid="group-e0c00040" id="grpPalette" class="pt-panel">

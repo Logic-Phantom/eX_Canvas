@@ -67,6 +67,10 @@
 			var mbImageBusy = false;
 			/** [이미지 파일 선택…] 이 여는 숨은 파일 입력 */
 			var moImageFileInput = null;
+			/** 마지막으로 배치한 원본 이미지 { name, dataUrl, width, height, plan } — [비교] 가 결과 화면과 나란히 보여 준다. 없으면 null */
+			var moImageSource = null;
+			/** 이미지를 읽는 중인 원본(분석이 끝나면 moImageSource 가 된다) */
+			var moPendingImage = null;
 			/** API 연동 : 분석한 명세(openApiPlanner.analyze 결과). 없으면 null */
 			var moApiAnalysis = null;
 			/** API 연동 : 캔버스에 붙인 데이터 모델(DataSet · DataMap · Submission). 내보낼 때 <cl:model> 에 들어간다. */
@@ -384,6 +388,7 @@
 				vcWrapper.userAttr(ast.ATTR_TEXT, vsText);
 				vcWrapper.userAttr(ast.ATTR_STYLE, normalizeStyle(voDef, poOpt.style));
 				vcWrapper.userAttr(ast.ATTR_BIND, normalizeBind(poOpt.bind));
+				vcWrapper.userAttr(ast.ATTR_META, normalizeMeta(poOpt.meta));
 				if (psType == "grid" && attrOf(vcWrapper, ast.ATTR_BIND) == null && poOpt.uid == null) {
 					// 모델(API 연동 · 응답 샘플)이 붙어 있으면 새 그리드는 아직 쓰지 않은 첫 DataSet 에 저절로 잇는다.
 					// (uid 가 온 것은 공유 상대가 만든 항목이라 상대의 bind 값을 그대로 둔다.)
@@ -400,6 +405,7 @@
 					vbGhost = true;
 				}
 				applyStyleClass(vcControl, vcWrapper.userAttr(ast.ATTR_STYLE));
+				applyMetaClass(vcControl, vcWrapper.userAttr(ast.ATTR_META));
 				vcWrapper.addChild(vcControl, fillConstraint());
 
 				// ② 덮개 : 클릭 = 선택, 드래그 = 이동
@@ -519,6 +525,47 @@
 			}
 
 			/**
+			 * 모양 정보(이미지 분석의 문단 종류 · 그리드 셀 · 열 폭)를 저장용 JSON 문자열로 정리한다. 없거나 깨졌으면 빈 값.
+			 * @param {Object|String} pvMeta
+			 * @return {String}
+			 */
+			function normalizeMeta(pvMeta) {
+				if (pvMeta == null || pvMeta === "") {
+					return "";
+				}
+				var voMeta = typeof pvMeta == "string" ? mod("canvasAst").parseMeta(pvMeta) : pvMeta;
+				if (voMeta == null) {
+					return "";
+				}
+				var voClean = {};
+				var vbAny = false;
+				["variant", "cells", "widths"].forEach(function(psKey) {
+					if (voMeta[psKey] != null && voMeta[psKey] !== "") {
+						voClean[psKey] = voMeta[psKey];
+						vbAny = true;
+					}
+				});
+				return vbAny ? JSON.stringify(voClean) : "";
+			}
+
+			/**
+			 * 문단 종류(제목 · 구획 제목 · 설명 · 안내 상자)를 캔버스 미리보기 클래스(pt-variant-*)로 보여 준다.
+			 * 내보낼 때는 템플릿 부품(udc 제목 · card 상자 …)으로 바뀐다. 컨트롤 DOM 은 건드리지 않는다.
+			 */
+			function applyMetaClass(pcControl, psMeta) {
+				if (pcControl == null || pcControl.disposed) {
+					return;
+				}
+				["title", "heading", "desc", "notice", "label"].forEach(function(psVariant) {
+					pcControl.style.removeClass("pt-variant-" + psVariant);
+				});
+				var voMeta = mod("canvasAst").parseMeta(psMeta);
+				if (voMeta != null && voMeta.variant) {
+					pcControl.style.addClass("pt-variant-" + voMeta.variant);
+				}
+			}
+
+			/**
 			 * 스타일 계열을 캔버스 미리보기 클래스(pt-style-*)로 보여 준다. 내보낼 때는 템플릿 클래스로 바뀐다.
 			 * 컨트롤 DOM 은 건드리지 않고 클래스만 준다.
 			 */
@@ -536,7 +583,7 @@
 			/**
 			 * 캔버스 항목 하나를 공유 문서에 넣을 형태로 만든다.
 			 * @param {cpr.controls.Container} pcWrapper
-			 * @return {Object} {uid, type, id, text, x, y, w, h, style, bind}
+			 * @return {Object} {uid, type, id, text, x, y, w, h, style, bind, meta}
 			 */
 			function itemRecord(pcWrapper) {
 				var ast = mod("canvasAst");
@@ -544,6 +591,7 @@
 				var vsText = pcWrapper.userAttr(ast.ATTR_TEXT);
 				var vsStyle = pcWrapper.userAttr(ast.ATTR_STYLE);
 				var vsBind = pcWrapper.userAttr(ast.ATTR_BIND);
+				var vsMeta = pcWrapper.userAttr(ast.ATTR_META);
 				return {
 					uid : attrOf(pcWrapper, ATTR_UID),
 					type : pcWrapper.userAttr(ast.ATTR_TYPE),
@@ -554,7 +602,8 @@
 					w : voRect.width,
 					h : voRect.height,
 					style : vsStyle == null ? "" : vsStyle,
-					bind : vsBind == null ? "" : vsBind
+					bind : vsBind == null ? "" : vsBind,
+					meta : vsMeta == null ? "" : vsMeta
 				};
 			}
 
@@ -853,6 +902,7 @@
 					vcNew = new cpr.controls.Output(vsRuntimeId);
 				}
 				applyStyleClass(vcNew, pcWrapper.userAttr(ast.ATTR_STYLE));
+				applyMetaClass(vcNew, pcWrapper.userAttr(ast.ATTR_META));
 				pcWrapper.insertChild(0, vcNew, fillConstraint());
 			}
 
@@ -890,6 +940,7 @@
 				}
 				clearCanvas();
 				moApiModel = null;
+				moImageSource = null; // [비교] 할 원본 이미지도 뗀다.
 				app.lookup("txaPreview").value = "";
 				setStatus("캔버스를 비웠습니다.");
 			}
@@ -1118,6 +1169,7 @@
 				var vsName = poFile.name || "이미지";
 				saveSettings();
 				setImageBusy(true);
+				readSourceImage(poFile, vsName);
 				setStatus("이미지를 분석하는 중... : " + vsName + " (서버 업로드 또는 Gemini 직접 호출)");
 				image.analyzeFile(poFile, {
 					apiKey : app.lookup("ipbApiKey").value,
@@ -1132,6 +1184,32 @@
 					setImageBusy(false);
 					reportImageError("이미지 분석 실패", psError, vsName);
 				});
+			}
+
+			/** 원본 이미지를 data URL 로 읽어 둔다([비교] 창에서 결과 화면과 같은 크기로 겹쳐 본다). 분석과 따로 돈다. */
+			function readSourceImage(poFile, psName) {
+				var voPending = {
+					name : psName,
+					dataUrl : null,
+					width : 0,
+					height : 0
+				};
+				moPendingImage = voPending;
+				try {
+					var voReader = new FileReader();
+					voReader.onload = function() {
+						var voImg = new Image();
+						voImg.onload = function() {
+							voPending.dataUrl = voReader.result;
+							voPending.width = voImg.naturalWidth;
+							voPending.height = voImg.naturalHeight;
+						};
+						voImg.src = voReader.result;
+					};
+					voReader.readAsDataURL(poFile);
+				} catch (ex) {
+					// 비교용 사본이 없어도 배치는 된다.
+				}
 			}
 
 			/** 화면이 뜰 때 서버 분석 가능 여부를 확인해 속성창 안내 문구에 보여 준다. */
@@ -1185,11 +1263,17 @@
 							width : poItem.width,
 							height : poItem.height,
 							style : poItem.style,
+							meta : poItem.meta,
 							quiet : true
 						});
 					});
 				});
 				select(null);
+				// [비교] 가 쓸 원본 : 이미지 사본 + 분석 결과(요소 목록)
+				moImageSource = moPendingImage || {
+					name : psName
+				};
+				moImageSource.plan = poPlan;
 				if (poPlan.pattern != null) {
 					setPatternCombo(poPlan.pattern);
 				}
@@ -1677,7 +1761,19 @@
 				function finish(poRawPlan, psPlanner, psNote) {
 					voOpt.planner = psPlanner;
 					var voPlan = planner.resolve(poRawPlan, voAst, voOpt);
-					var vsMessage = (psNote ? psNote + " " : "") + "기준 템플릿 " + voPlan.pattern + " (" + psPlanner + ")";
+					// 템플릿 뼈대에 넣으면 빠지거나 자리가 바뀌는 요소가 있으면(= 같은 템플릿이 없으면) 템플릿 부품을 이미지(캔버스) 순서대로 쌓는다.
+					// 변환 = "이미지 기준 배치" 면 늘 그렇게 한다.
+					var voFit = planner.templateFit(voPlan);
+					var vsLayoutNote = "";
+					if (vsMode == "stack" || !voFit.fits) {
+						var voStackRaw = planner.planStack(voAst);
+						if (voStackRaw != null) {
+							voStackRaw.pattern = String(voPlan.pattern).replace(/_P$/, "");
+							voPlan = planner.resolve(voStackRaw, voAst, voOpt);
+							vsLayoutNote = vsMode == "stack" ? "이미지 기준 배치" : "같은 템플릿이 없어(" + voFit.reason + ") 이미지 기준 배치";
+						}
+					}
+					var vsMessage = (psNote ? psNote + " " : "") + (vsLayoutNote ? vsLayoutNote + " · 참고 템플릿 " : "기준 템플릿 ") + voPlan.pattern + " (" + psPlanner + ")";
 					if (voPlan.warnings.length > 0) {
 						vsMessage += " · 참고 " + voPlan.warnings.length + "건 : " + voPlan.warnings[0];
 					}
@@ -1685,10 +1781,19 @@
 					if (voOut.handlers > 0) {
 						vsMessage += " · 바인딩 핸들러 " + voOut.handlers + "개(.js)";
 					}
+					if (moImageSource != null && moImageSource.plan != null) {
+						// 이미지로 배치한 화면이면 원본 요소가 얼마나 들어갔는지 함께 알린다(자세한 것은 [비교]).
+						var voCoverage = mod("imagePlanner").coverage(moImageSource.plan, voOut.clx);
+						vsMessage += " · 원본 반영률 " + voCoverage.score + "%";
+					}
 					setStatus(vsMessage);
 					pfDone(voOut.clx, voPlan, voOut.js);
 				}
 
+				if (vsMode == "stack") {
+					finish(planner.planByRule(voAst), "rule", "");
+					return;
+				}
 				if (vsMode == "xy") {
 					var voXy = serializer.generate(voAst, "xy", vsName);
 					setStatus("XY 좌표 그대로 직렬화했습니다." + (voXy.handlers > 0 ? " · 바인딩 핸들러 " + voXy.handlers + "개(.js)" : ""));
@@ -1735,6 +1840,104 @@
 					// 바인딩 핸들러가 있으면 .js 도 함께 보여 준다(파일은 저장·다운로드 때 따로 나간다).
 					app.lookup("txaPreview").value = moApiModel != null ? psXml + "\n\n<!-- ===== " + getAppName() + ".js ===== -->\n" + psJs : psXml;
 				});
+			}
+
+			/* ================================================================ 원본 이미지 ↔ 결과 화면 비교
+			 *
+			 * [비교] = ① 지금 캔버스로 CLX 를 만들고 ② 서버가 result/_compare/<화면명>.clx 로 그 화면만 컴파일(약 3초)
+			 *          ③ 새 창에 원본 이미지와 "실제 런타임으로 띄운 결과 화면" 을 같은 폭으로 놓는다(나란히 · 겹쳐 보기 · 차이).
+			 *          ④ 원본 요소가 CLX 에 얼마나 들어갔는지(반영률 · 빠진 요소 · 순서 일치)를 창 위와 출력 미리보기 칸에 적는다.
+			 * 창은 클릭 안에서 먼저 열어 둔다(비동기 뒤에 열면 팝업 차단에 걸린다).
+			 */
+
+			/*
+			 * "비교" 버튼에서 click 이벤트 발생 시 호출.
+			 */
+			function onBtnCompareClick(e) {
+				if (countItems() == 0) {
+					setStatus("캔버스가 비어 있습니다. 화면 이미지를 놓거나 컨트롤을 배치한 뒤 비교하세요.");
+					return;
+				}
+				var voWin = window.open("", "excanvas-compare");
+				if (voWin != null) {
+					writeCompareWindow(voWin, null, null, "결과 화면을 만드는 중입니다 (CLX 생성 → 그 화면만 컴파일, 몇 초 걸립니다)…");
+				}
+				generateClx(function(psXml, poPlan, psJs) {
+					var vsName = getAppName();
+					var voReport = moImageSource != null && moImageSource.plan != null ? mod("imagePlanner").coverage(moImageSource.plan, psXml) : null;
+					app.lookup("optPreviewTitle").value = "원본 비교 - " + vsName + ".clx";
+					app.lookup("txaPreview").value = (voReport != null ? "[원본 이미지 ↔ 생성 CLX]\n" + voReport.lines.join("\n") + "\n\n" : "(이미지로 배치한 화면이 아니라 반영률은 계산하지 않았습니다)\n\n") + psXml;
+					mod("fileDownload").previewOnServer(vsName, psXml, psJs, function(poResult) {
+						// 컴파일러는 스키마 오류가 있어도 화면을 만든다 → 문제점을 비교 결과에 함께 적는다.
+						var vsProblems = poResult.problems ? "[컴파일 문제점]\n" + poResult.problems : "";
+						if (vsProblems) {
+							app.lookup("txaPreview").value = vsProblems + "\n\n" + app.lookup("txaPreview").value;
+						}
+						if (voWin != null && !voWin.closed) {
+							writeCompareWindow(voWin, poResult.url, voReport, vsProblems || null);
+						}
+						setStatus("비교 창 : 원본 " + (moImageSource && moImageSource.dataUrl ? "이미지" : "없음") + " ↔ 결과 화면 " + poResult.url + (voReport != null ? " · 반영률 " + voReport.score + "% · 순서 일치 " + voReport.orderScore + "%" : "")
+								+ (vsProblems ? " · 컴파일 문제점 있음(출력 미리보기 칸)" : " · 컴파일 문제점 0건"));
+					}, function(psError) {
+						if (voWin != null && !voWin.closed) {
+							writeCompareWindow(voWin, null, voReport, "결과 화면을 띄우지 못했습니다 : " + psError);
+						}
+						setStatus("[비교] 결과 화면을 컴파일하지 못했습니다 : " + psError.split("\n")[0]);
+					});
+				});
+			}
+
+			function htmlText(psText) {
+				return String(psText == null ? "" : psText).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+			}
+
+			/**
+			 * 비교 창을 그린다. 원본 이미지와 결과 화면(iframe)을 원본의 실제 폭으로 놓고 창 폭에 맞춰 함께 줄인다.
+			 * @param {Window} poWin
+			 * @param {String} psUrl 결과 화면 주소(없으면 원본만)
+			 * @param {Object} poReport imagePlanner.coverage() 결과(없으면 null)
+			 * @param {String} psMessage 안내 문구(준비 중 · 오류)
+			 */
+			function writeCompareWindow(poWin, psUrl, poReport, psMessage) {
+				var voSource = moImageSource || {};
+				var vnWidth = voSource.width || 1440;
+				var vnHeight = voSource.height || 860;
+				var vaReport = poReport != null ? poReport.lines : ["(이미지로 배치한 화면이 아니라 반영률은 계산하지 않았습니다)"];
+				var vsHtml = "<!DOCTYPE html><html lang=\"ko\"><head><meta charset=\"UTF-8\"><title>eX-Canvas 비교 - " + htmlText(getAppName()) + "</title><style>"
+					+ "body{margin:0;font:13px/1.5 'Malgun Gothic',sans-serif;background:#eef1f5;color:#222}"
+					+ ".bar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid #d5dbe3;padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}"
+					+ ".bar b{font-size:14px}.bar button{padding:4px 10px;border:1px solid #b9c2cf;background:#f7f9fb;border-radius:4px;cursor:pointer}.bar button.on{background:#207de9;color:#fff;border-color:#207de9}"
+					+ ".score{padding:2px 8px;border-radius:10px;background:#e7f3ff;color:#0b5cad}.report{white-space:pre-wrap;font-size:12px;color:#555;padding:4px 12px;background:#fff;border-bottom:1px solid #d5dbe3;max-height:120px;overflow:auto}"
+					+ ".stage{padding:12px;display:flex;gap:12px;align-items:flex-start}.pane{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);position:relative;overflow:hidden;flex:none}"
+					+ ".cap{font-size:12px;color:#666;margin-bottom:4px}.inner{position:absolute;left:0;top:0;transform-origin:0 0}.inner img,.inner iframe{position:absolute;left:0;top:0;border:0;display:block}"
+					+ ".msg{padding:24px;color:#a33}</style></head><body>"
+					+ "<div class=\"bar\"><b>원본 이미지 ↔ 결과 화면</b>"
+					+ (poReport != null ? "<span class=\"score\">반영률 " + poReport.score + "%</span><span class=\"score\">순서 일치 " + poReport.orderScore + "%</span>" : "")
+					+ "<button id=\"mSide\" class=\"on\">나란히</button><button id=\"mOver\">겹쳐 보기</button><button id=\"mDiff\">차이</button>"
+					+ "<label>원본 투명도 <input id=\"op\" type=\"range\" min=\"0\" max=\"100\" value=\"50\"></label>"
+					+ (psUrl ? "<a href=\"" + htmlText(psUrl) + "\" target=\"_blank\">결과 화면 새 창</a>" : "")
+					+ "<span style=\"color:#888\">원본 " + vnWidth + "×" + vnHeight + "px · 결과 화면도 같은 크기로 띄움</span></div>"
+					+ "<div class=\"report\">" + htmlText(vaReport.join("\n")) + "</div>"
+					+ (psMessage ? "<div class=\"msg\">" + htmlText(psMessage) + "</div>" : "")
+					+ "<div class=\"stage\" id=\"stage\"></div>"
+					+ "<script>(function(){"
+					+ "var W=" + vnWidth + ",H=" + vnHeight + ",SRC=" + JSON.stringify(voSource.dataUrl || "") + ",URL=" + JSON.stringify(psUrl || "") + ",mode='side';"
+					+ "var stage=document.getElementById('stage');"
+					+ "function pane(cap,w,h){var d=document.createElement('div');var c=document.createElement('div');c.className='cap';c.textContent=cap;d.appendChild(c);var p=document.createElement('div');p.className='pane';p.style.width=w+'px';p.style.height=h+'px';d.appendChild(p);stage.appendChild(d);return p;}"
+					+ "function inner(p,s){var i=document.createElement('div');i.className='inner';i.style.width=W+'px';i.style.height=H+'px';i.style.transform='scale('+s+')';p.appendChild(i);return i;}"
+					+ "function img(i){if(!SRC)return null;var m=document.createElement('img');m.src=SRC;m.style.width=W+'px';m.style.height=H+'px';i.appendChild(m);return m;}"
+					+ "function frame(i){if(!URL)return null;var f=document.createElement('iframe');f.src=URL;f.style.width=W+'px';f.style.height=H+'px';f.style.background='#fff';i.appendChild(f);return f;}"
+					+ "function draw(){stage.innerHTML='';var avail=stage.clientWidth-24;var s;"
+					+ "if(mode=='side'){s=Math.min(1,(avail-12)/2/W);var a=inner(pane('원본 이미지',W*s,H*s),s);img(a);var b=inner(pane('결과 화면(실제 런타임)',W*s,H*s),s);frame(b);}"
+					+ "else{s=Math.min(1,avail/W);var c=inner(pane(mode=='over'?'겹쳐 보기 (위 = 원본)':'차이 (같은 곳은 검게)',W*s,H*s),s);frame(c);var m=img(c);"
+					+ "if(m){m.style.pointerEvents='none';if(mode=='over'){m.style.opacity=document.getElementById('op').value/100;}else{m.style.mixBlendMode='difference';}}}}"
+					+ "function setMode(m){mode=m;['mSide','mOver','mDiff'].forEach(function(id){document.getElementById(id).className=(id=={side:'mSide',over:'mOver',diff:'mDiff'}[m])?'on':'';});draw();}"
+					+ "document.getElementById('mSide').onclick=function(){setMode('side');};document.getElementById('mOver').onclick=function(){setMode('over');};document.getElementById('mDiff').onclick=function(){setMode('diff');};"
+					+ "document.getElementById('op').oninput=function(){var m=stage.querySelector('img');if(m&&mode=='over'){m.style.opacity=this.value/100;}};"
+					+ "window.onresize=function(){draw();};draw();})();</script></body></html>";
+				poWin.document.open();
+				poWin.document.write(vsHtml);
+				poWin.document.close();
 			}
 
 			/*
@@ -2111,6 +2314,7 @@
 					id : poRecord.id,
 					style : poRecord.style,
 					bind : poRecord.bind,
+					meta : poRecord.meta,
 					quiet : true
 				});
 			}
@@ -2145,6 +2349,10 @@
 				}
 				if (poPatch.bind != null && poPatch.bind !== vcWrapper.userAttr(ast.ATTR_BIND)) {
 					vcWrapper.userAttr(ast.ATTR_BIND, normalizeBind(poPatch.bind)); // 데이터 모델 자체는 공유하지 않는다(각자 [모델만 적용]).
+				}
+				if (poPatch.meta != null && poPatch.meta !== vcWrapper.userAttr(ast.ATTR_META)) {
+					vcWrapper.userAttr(ast.ATTR_META, normalizeMeta(poPatch.meta));
+					applyMetaClass(vcWrapper.getFirstChild(), vcWrapper.userAttr(ast.ATTR_META));
 				}
 				if (poPatch.x != null || poPatch.y != null || poPatch.w != null || poPatch.h != null) {
 					var voRect = getItemRect(vcWrapper);
@@ -2375,7 +2583,7 @@
 			formLayout_2.leftMargin = "12px";
 			formLayout_2.horizontalSpacing = "8px";
 			formLayout_2.verticalSpacing = "0px";
-			formLayout_2.setColumns(["230px", "1fr", "1170px"]);
+			formLayout_2.setColumns(["230px", "1fr", "1224px"]);
 			formLayout_2.setRows(["1fr"]);
 			group_1.setLayout(formLayout_2);
 			(function(container){
@@ -2427,11 +2635,13 @@
 						"height": "28px"
 					});
 					var comboBox_1 = new cpr.controls.ComboBox("cmbMode");
+					comboBox_1.tooltip = "템플릿 : 같은 템플릿이 있으면 그 뼈대로, 없으면(요소가 빠지거나 자리가 바뀌면) 템플릿 부품을 이미지 순서대로 쌓습니다. 이미지 기준 배치 : 늘 이미지 순서대로 쌓습니다.";
 					comboBox_1.value = "rule";
 					comboBox_1.preventInput = true;
 					(function(comboBox_1){
 						comboBox_1.addItem(new cpr.controls.Item("템플릿(규칙 기반)", "rule"));
 						comboBox_1.addItem(new cpr.controls.Item("템플릿(Gemini AI)", "gemini"));
+						comboBox_1.addItem(new cpr.controls.Item("이미지 기준 배치", "stack"));
 						comboBox_1.addItem(new cpr.controls.Item("XY 좌표 그대로", "xy"));
 					})(comboBox_1);
 					container.addChild(comboBox_1, {
@@ -2509,43 +2719,54 @@
 						"width": "64px",
 						"height": "28px"
 					});
-					var button_2 = new cpr.controls.Button("btnJson");
-					button_2.value = "AST(JSON)";
-					if(typeof onBtnJsonClick == "function") {
-						button_2.addEventListener("click", onBtnJsonClick);
+					var button_2 = new cpr.controls.Button("btnCompare");
+					button_2.tooltip = "원본 이미지와 실제로 띄운 결과 화면을 새 창에서 나란히 · 겹쳐 · 차이로 비교하고, 원본 요소가 얼마나 반영됐는지 알려 줍니다.";
+					button_2.value = "비교";
+					if(typeof onBtnCompareClick == "function") {
+						button_2.addEventListener("click", onBtnCompareClick);
 					}
 					container.addChild(button_2, {
+						"autoSize": "none",
+						"width": "48px",
+						"height": "28px"
+					});
+					var button_3 = new cpr.controls.Button("btnJson");
+					button_3.value = "AST(JSON)";
+					if(typeof onBtnJsonClick == "function") {
+						button_3.addEventListener("click", onBtnJsonClick);
+					}
+					container.addChild(button_3, {
 						"autoSize": "none",
 						"width": "76px",
 						"height": "28px"
 					});
-					var button_3 = new cpr.controls.Button("btnSaveResult");
-					button_3.value = "result 저장";
-					button_3.style.setClasses(["pt-btn-primary"]);
+					var button_4 = new cpr.controls.Button("btnSaveResult");
+					button_4.value = "result 저장";
+					button_4.style.setClasses(["pt-btn-primary"]);
 					if(typeof onBtnSaveResultClick == "function") {
-						button_3.addEventListener("click", onBtnSaveResultClick);
+						button_4.addEventListener("click", onBtnSaveResultClick);
 					}
-					container.addChild(button_3, {
+					container.addChild(button_4, {
 						"autoSize": "none",
 						"width": "88px",
 						"height": "28px"
 					});
-					var button_4 = new cpr.controls.Button("btnDownload");
-					button_4.value = "CLX 다운로드";
+					var button_5 = new cpr.controls.Button("btnDownload");
+					button_5.value = "CLX 다운로드";
 					if(typeof onBtnDownloadClick == "function") {
-						button_4.addEventListener("click", onBtnDownloadClick);
+						button_5.addEventListener("click", onBtnDownloadClick);
 					}
-					container.addChild(button_4, {
+					container.addChild(button_5, {
 						"autoSize": "none",
 						"width": "96px",
 						"height": "28px"
 					});
-					var button_5 = new cpr.controls.Button("btnClear");
-					button_5.value = "전체 삭제";
+					var button_6 = new cpr.controls.Button("btnClear");
+					button_6.value = "전체 삭제";
 					if(typeof onBtnClearClick == "function") {
-						button_5.addEventListener("click", onBtnClearClick);
+						button_6.addEventListener("click", onBtnClearClick);
 					}
-					container.addChild(button_5, {
+					container.addChild(button_6, {
 						"autoSize": "none",
 						"width": "68px",
 						"height": "28px"
@@ -2850,12 +3071,12 @@
 				flowLayout_2.horizontalAlign = "right";
 				group_8.setLayout(flowLayout_2);
 				(function(container){
-					var button_6 = new cpr.controls.Button("btnPropDelete");
-					button_6.value = "선택 삭제";
+					var button_7 = new cpr.controls.Button("btnPropDelete");
+					button_7.value = "선택 삭제";
 					if(typeof onBtnPropDeleteClick == "function") {
-						button_6.addEventListener("click", onBtnPropDeleteClick);
+						button_7.addEventListener("click", onBtnPropDeleteClick);
 					}
-					container.addChild(button_6, {
+					container.addChild(button_7, {
 						"autoSize": "none",
 						"width": "80px",
 						"height": "26px"
@@ -2897,35 +3118,35 @@
 				flowLayout_3.lineWrap = false;
 				group_9.setLayout(flowLayout_3);
 				(function(container){
-					var button_7 = new cpr.controls.Button("btnApiLoad");
-					button_7.tooltip = "명세 JSON 을 받아 분석합니다. Swagger UI 주소를 넣으면 /v3/api-docs · /v2/api-docs 를 추정해 시도합니다.";
-					button_7.value = "URL 불러오기";
+					var button_8 = new cpr.controls.Button("btnApiLoad");
+					button_8.tooltip = "명세 JSON 을 받아 분석합니다. Swagger UI 주소를 넣으면 /v3/api-docs · /v2/api-docs 를 추정해 시도합니다.";
+					button_8.value = "URL 불러오기";
 					if(typeof onBtnApiLoadClick == "function") {
-						button_7.addEventListener("click", onBtnApiLoadClick);
+						button_8.addEventListener("click", onBtnApiLoadClick);
 					}
-					container.addChild(button_7, {
+					container.addChild(button_8, {
 						"autoSize": "none",
 						"width": "88px",
 						"height": "26px"
 					});
-					var button_8 = new cpr.controls.Button("btnApiFile");
-					button_8.tooltip = "명세 JSON 또는 응답 샘플 JSON 파일을 골라 분석합니다.";
-					button_8.value = "JSON 파일\u2026";
+					var button_9 = new cpr.controls.Button("btnApiFile");
+					button_9.tooltip = "명세 JSON 또는 응답 샘플 JSON 파일을 골라 분석합니다.";
+					button_9.value = "JSON 파일\u2026";
 					if(typeof onBtnApiFileClick == "function") {
-						button_8.addEventListener("click", onBtnApiFileClick);
+						button_9.addEventListener("click", onBtnApiFileClick);
 					}
-					container.addChild(button_8, {
+					container.addChild(button_9, {
 						"autoSize": "none",
 						"width": "80px",
 						"height": "26px"
 					});
-					var button_9 = new cpr.controls.Button("btnApiPaste");
-					button_9.tooltip = "아래 칸에 붙여넣은 JSON 을 분석합니다 \u2014 Swagger 명세, 또는 실제 응답 JSON(배열 키=DataSet · 객체 키=DataMap).";
-					button_9.value = "붙여넣기 분석";
+					var button_10 = new cpr.controls.Button("btnApiPaste");
+					button_10.tooltip = "아래 칸에 붙여넣은 JSON 을 분석합니다 \u2014 Swagger 명세, 또는 실제 응답 JSON(배열 키=DataSet · 객체 키=DataMap).";
+					button_10.value = "붙여넣기 분석";
 					if(typeof onBtnApiPasteClick == "function") {
-						button_9.addEventListener("click", onBtnApiPasteClick);
+						button_10.addEventListener("click", onBtnApiPasteClick);
 					}
-					container.addChild(button_9, {
+					container.addChild(button_10, {
 						"autoSize": "none",
 						"width": "90px",
 						"height": "26px"
@@ -2993,25 +3214,25 @@
 				flowLayout_4.horizontalAlign = "right";
 				group_10.setLayout(flowLayout_4);
 				(function(container){
-					var button_10 = new cpr.controls.Button("btnApiGenerate");
-					button_10.tooltip = "고른 API 로 DataSet · DataMap · Submission 을 만들고, 바인딩된 컨트롤(조회 조건 · 그리드 · 폼 · 버튼)을 캔버스에 깝니다.";
-					button_10.value = "화면 생성";
-					button_10.style.setClasses(["pt-btn-primary"]);
+					var button_11 = new cpr.controls.Button("btnApiGenerate");
+					button_11.tooltip = "고른 API 로 DataSet · DataMap · Submission 을 만들고, 바인딩된 컨트롤(조회 조건 · 그리드 · 폼 · 버튼)을 캔버스에 깝니다.";
+					button_11.value = "화면 생성";
+					button_11.style.setClasses(["pt-btn-primary"]);
 					if(typeof onBtnApiGenerateClick == "function") {
-						button_10.addEventListener("click", onBtnApiGenerateClick);
+						button_11.addEventListener("click", onBtnApiGenerateClick);
 					}
-					container.addChild(button_10, {
+					container.addChild(button_11, {
 						"autoSize": "none",
 						"width": "80px",
 						"height": "26px"
 					});
-					var button_11 = new cpr.controls.Button("btnApiModel");
-					button_11.tooltip = "캔버스는 그대로 두고 데이터 모델만 붙입니다. 속성창 Bind 로 컨트롤을 잇습니다.";
-					button_11.value = "모델만 적용";
+					var button_12 = new cpr.controls.Button("btnApiModel");
+					button_12.tooltip = "캔버스는 그대로 두고 데이터 모델만 붙입니다. 속성창 Bind 로 컨트롤을 잇습니다.";
+					button_12.value = "모델만 적용";
 					if(typeof onBtnApiModelClick == "function") {
-						button_11.addEventListener("click", onBtnApiModelClick);
+						button_12.addEventListener("click", onBtnApiModelClick);
 					}
-					container.addChild(button_11, {
+					container.addChild(button_12, {
 						"autoSize": "none",
 						"width": "84px",
 						"height": "26px"
@@ -3099,13 +3320,13 @@
 				flowLayout_5.horizontalAlign = "right";
 				group_11.setLayout(flowLayout_5);
 				(function(container){
-					var button_12 = new cpr.controls.Button("btnPickSaveDir");
-					button_12.tooltip = "저장 서버가 없을 때 브라우저가 직접 쓸 폴더(clx-src/result)를 고릅니다.";
-					button_12.value = "폴더 지정";
+					var button_13 = new cpr.controls.Button("btnPickSaveDir");
+					button_13.tooltip = "저장 서버가 없을 때 브라우저가 직접 쓸 폴더(clx-src/result)를 고릅니다.";
+					button_13.value = "폴더 지정";
 					if(typeof onBtnPickSaveDirClick == "function") {
-						button_12.addEventListener("click", onBtnPickSaveDirClick);
+						button_13.addEventListener("click", onBtnPickSaveDirClick);
 					}
-					container.addChild(button_12, {
+					container.addChild(button_13, {
 						"autoSize": "none",
 						"width": "80px",
 						"height": "26px"
@@ -3196,13 +3417,13 @@
 						"width": "90px",
 						"height": "26px"
 					});
-					var button_13 = new cpr.controls.Button("btnImageLayout");
-					button_13.tooltip = "화면 캡처·시안 이미지를 Gemini 가 분석해 캔버스에 컨트롤로 배치합니다. 캔버스에 이미지를 끌어다 놓거나 붙여넣어도(Ctrl+V) 됩니다.";
-					button_13.value = "이미지 파일 선택\u2026";
+					var button_14 = new cpr.controls.Button("btnImageLayout");
+					button_14.tooltip = "화면 캡처·시안 이미지를 Gemini 가 분석해 캔버스에 컨트롤로 배치합니다. 캔버스에 이미지를 끌어다 놓거나 붙여넣어도(Ctrl+V) 됩니다.";
+					button_14.value = "이미지 파일 선택\u2026";
 					if(typeof onBtnImageLayoutClick == "function") {
-						button_13.addEventListener("click", onBtnImageLayoutClick);
+						button_14.addEventListener("click", onBtnImageLayoutClick);
 					}
-					container.addChild(button_13, {
+					container.addChild(button_14, {
 						"autoSize": "none",
 						"width": "120px",
 						"height": "26px"

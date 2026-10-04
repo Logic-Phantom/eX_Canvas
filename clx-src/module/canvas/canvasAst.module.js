@@ -10,12 +10,13 @@
  *   pt-text : 속성창 Text 값(유형에 따라 value/text/아이템/컬럼/탭)
  *   pt-style: 스타일 계열(버튼의 primary | secondary, 없으면 자동)
  *   pt-bind : 데이터 바인딩(ds:데이터셋 · dm:데이터맵.컬럼 · sub:서브미션 · clear:데이터 — openApiPlanner 참고)
+ *   pt-meta : 이미지 분석이 붙인 모양 정보(JSON) — { variant : title|heading|desc|notice|label, cells : [열마다 셀 컨트롤], widths : [열 폭 비율] }
  * 위치·크기는 캔버스(XY 레이아웃)의 제약(getConstraint)에서 읽는다 - DOM을 읽지 않는다.
  *
  * AST 형태:
  * {
  *   app : { name, title, popup, canvas : { width, height }, model? },   model = API 연동으로 붙인 데이터 모델(DataSet · DataMap · Submission)
- *   children : [ { type, role, id, text, items?, style?, bind?, layoutData : { x, y, width, height } } ]
+ *   children : [ { type, role, id, text, items?, style?, bind?, meta?, layoutData : { x, y, width, height } } ]
  * }
  ************************************************/
 
@@ -26,6 +27,24 @@ var ATTR_TEXT = "pt-text";
 var ATTR_STYLE = "pt-style";
 /** 데이터 바인딩 표기(openApiPlanner.parseBind 가 해석한다). 비어 있으면 바인딩 없음. */
 var ATTR_BIND = "pt-bind";
+/** 모양 정보(JSON 문자열). 비어 있으면 없음. 이미지 분석이 채운다(문단 종류 · 그리드 셀 컨트롤 · 열 폭). */
+var ATTR_META = "pt-meta";
+
+/**
+ * pt-meta 문자열 → 객체(깨졌거나 비었으면 null)
+ * @param {String} psMeta
+ */
+function parseMeta(psMeta) {
+	if (psMeta == null || psMeta === "") {
+		return null;
+	}
+	try {
+		var voMeta = JSON.parse(psMeta);
+		return voMeta != null && typeof voMeta == "object" ? voMeta : null;
+	} catch (e) {
+		return null;
+	}
+}
 
 /**
  * "120px" · 120 · "120.0px" → 120
@@ -82,6 +101,10 @@ exports.extract = function(pcCanvas, poAppInfo) {
 		if (vsBind != null && vsBind !== "") {
 			voNode.bind = vsBind; // API 연동·속성창에서 정한 데이터 바인딩
 		}
+		var voMeta = parseMeta(pcWrapper.userAttr(ATTR_META));
+		if (voMeta != null) {
+			voNode.meta = voMeta; // 이미지 분석이 붙인 모양 정보(문단 종류 · 그리드 셀 · 열 폭)
+		}
 		if (voDef.udcType) {
 			voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 		}
@@ -92,7 +115,8 @@ exports.extract = function(pcCanvas, poAppInfo) {
 			voNode.text = voDef.uiTemplate.name;
 		}
 		if (voDef.textKind == "items" || voDef.textKind == "columns" || voDef.textKind == "tabs" || voDef.textKind == "sections") {
-			voNode.items = registry.splitCsv(vsText);
+			// 그리드 헤더는 빈 칸(번호 · 체크 열)도 열이므로 자리를 남긴다.
+			voNode.items = registry.splitCsv(vsText, null, voDef.textKind == "columns");
 		}
 		vaChildren.push(voNode);
 	});
@@ -127,3 +151,5 @@ exports.ATTR_ID = ATTR_ID;
 exports.ATTR_TEXT = ATTR_TEXT;
 exports.ATTR_STYLE = ATTR_STYLE;
 exports.ATTR_BIND = ATTR_BIND;
+exports.ATTR_META = ATTR_META;
+exports.parseMeta = parseMeta;

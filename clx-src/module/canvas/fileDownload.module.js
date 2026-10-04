@@ -168,6 +168,43 @@ exports.saveToProject = function(psAppName, psXml, psScript, pfSuccess, pfError)
 	voXhr.send(psXml + SAVE_SEPARATOR + psScript);
 };
 
+/**
+ * 비교용 미리보기 : 서버가 result/_compare/<화면명>.clx 로 덮어쓰고 그 화면만 컴파일한다(약 3초).
+ * 성공하면 실제 런타임 화면 주소를 돌려준다({ ok, app, url }). url 은 컨텍스트 경로를 포함한다.
+ * @param {String} psAppName
+ * @param {String} psXml
+ * @param {String} psScript
+ * @param {function(Object)} pfSuccess
+ * @param {function(String)} pfError
+ */
+exports.previewOnServer = function(psAppName, psXml, psScript, pfSuccess, pfError) {
+	var voXhr = new XMLHttpRequest();
+	voXhr.open("POST", contextPath() + "/canvas/previewResult.do?name=" + encodeURIComponent(sanitizeFileName(psAppName, "prototype")), true);
+	voXhr.setRequestHeader("Content-Type", "text/plain; charset=utf-8");
+	voXhr.setRequestHeader("X-Requested-With", "eX-Canvas");
+	voXhr.timeout = 120000; // 컴파일러를 띄운다
+	voXhr.onreadystatechange = function() {
+		if (voXhr.readyState != 4) {
+			return;
+		}
+		var voResult = null;
+		try {
+			voResult = JSON.parse(voXhr.responseText);
+		} catch (e) {
+			voResult = null;
+		}
+		if (voXhr.status >= 200 && voXhr.status < 300 && voResult != null && voResult.ok) {
+			// DevServer 는 컨텍스트가 없어 "/ui/…" 를 준다. Tomcat 은 컨텍스트를 붙여 준다.
+			pfSuccess(voResult);
+		} else if (voXhr.status == 404) {
+			pfError("서버에 미리보기 엔드포인트(/canvas/previewResult.do)가 없습니다. 최신 코드를 배포(이클립스 Publish)하거나 tools/dev 로 띄우세요.");
+		} else {
+			pfError(voResult != null && voResult.message ? voResult.message : "미리보기 서버에 연결하지 못했습니다(" + voXhr.status + ").");
+		}
+	};
+	voXhr.send(psXml + SAVE_SEPARATOR + psScript);
+};
+
 /* ================================================================ 폴더에 직접 저장(File System Access API)
  *
  * 저장 서버가 없는 환경(스튜디오 내장 미리보기 · -Dexcanvas.src.dir 미설정 Tomcat)에서도

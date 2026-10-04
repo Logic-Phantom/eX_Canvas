@@ -1,3 +1,5 @@
 /clx-build/
 /target/canvas-classes/
 clx-build/
+# [비교] 미리보기가 덮어쓰는 임시 화면(result/_compare/<화면명>.clx · .js)
+/clx-src/result/_compare/

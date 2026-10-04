@@ -12,6 +12,7 @@
  *         ├ grpData(.content-body)     > content / division-group / tabfolder / form-base
  *         └ grpFooter(.content-footer) > footer-button-group(좌·우 flow)
  *     plan 은 templatePlanner.resolve() 가 만든 "해석 완료된 화면 계획"이다.
+ *     plan.layout 이 "stack"(이미지 기준 배치)이면 같은 부품을 이미지 순서대로 위→아래로 쌓는다(stackDocument).
  *  3) generate(source, mode, appName) : 위 둘 중 하나로 XML 을 만들고, 함께 쓸 화면 스크립트(.js)까지 돌려준다 { clx, js }.
  *
  * 데이터 모델 · 바인딩(API 연동, openApiPlanner)
@@ -363,18 +364,54 @@ function matchColumns(paHeaders, paColumns) {
 	});
 }
 
+/** 그리드 디테일 셀 안의 컨트롤(이미지 분석의 cells) : 유형 → [태그, sid 접두] */
+var CELL_TAG = {
+	checkbox : ["cl:checkbox", "c-box"],
+	inputbox : ["cl:inputbox", "i-box"],
+	combobox : ["cl:combobox", "c-box"],
+	numbereditor : ["cl:numbereditor", "n-editor"],
+	dateinput : ["cl:dateinput", "d-input"],
+	button : ["cl:button", "button"]
+};
+
+/** 디테일 셀의 컨트롤 노드(없으면 null). "button:실행" 은 글자를 가진 인라인 버튼. */
+function cellControlEl(poCtx, psCell) {
+	if (psCell == null || psCell === "" || psCell == "text") {
+		return null;
+	}
+	var vnColon = psCell.indexOf(":");
+	var vsKind = vnColon >= 0 ? psCell.substring(0, vnColon) : psCell;
+	var vaTag = CELL_TAG[vsKind];
+	if (vaTag == null) {
+		return null;
+	}
+	var vaAttrs = [["std:sid", sid(poCtx, vaTag[1])]];
+	if (vsKind == "button") {
+		vaAttrs.push(["class", "btn-inline"], ["value", vnColon >= 0 && psCell.substring(vnColon + 1) !== "" ? psCell.substring(vnColon + 1) : "버튼"]);
+	}
+	return el(vaTag[0], vaAttrs, [el("cl:celldata", [["std:sid", sid(poCtx, "c-data")]])]);
+}
+
 /**
  * @param {String[]} paHeaders 헤더 글자
  * @param {Object[]} paColumns 바인딩된 데이터셋의 컬럼(없으면 null) → 있으면 셀에 columnname 을 넣는다.
+ * @param {Object} poMeta 이미지 분석의 모양 정보 { cells : [열마다 셀 컨트롤], widths : [열 폭 비율] } (없으면 null)
  */
-function gridParts(poCtx, paHeaders, paColumns) {
+function gridParts(poCtx, paHeaders, paColumns, poMeta) {
 	var vaHeaders = paHeaders && paHeaders.length > 0 ? paHeaders : (paColumns != null && paColumns.length > 0 ? paColumns.map(function(poColumn) {
 		return poColumn.label || poColumn.name;
 	}) : ["", "", "", "", ""]);
 	var vaNames = matchColumns(vaHeaders, paColumns);
+	var vaCells = poMeta && poMeta.cells instanceof Array && poMeta.cells.length == vaHeaders.length ? poMeta.cells : null;
+	var vaWidths = poMeta && poMeta.widths instanceof Array && poMeta.widths.length == vaHeaders.length ? poMeta.widths : null;
+	var vnWidthSum = vaWidths == null ? 0 : vaWidths.reduce(function(pnSum, pnWidth) {
+		return pnSum + (Number(pnWidth) || 0);
+	}, 0);
 	var vaParts = [];
-	vaHeaders.forEach(function() {
-		vaParts.push(el("cl:gridcolumn", [["std:sid", sid(poCtx, "g-column")], ["width", "80px"]]));
+	vaHeaders.forEach(function(psHeader, pnIdx) {
+		// 열 폭 비율이 있으면 화면 폭(1408px) 기준으로 나눈다(그리드가 폭에 맞춰 늘이므로 비율이 산다).
+		var vnWidth = vaWidths != null && vnWidthSum > 0 ? Math.max(30, Math.round(Number(vaWidths[pnIdx]) / vnWidthSum * 1408)) : 80;
+		vaParts.push(el("cl:gridcolumn", [["std:sid", sid(poCtx, "g-column")], ["width", vnWidth + "px"]]));
 	});
 	var vaHeaderCells = [el("cl:gridrow", [["std:sid", sid(poCtx, "g-row")], ["height", "25px"]])];
 	var vaDetailCells = [el("cl:gridrow", [["std:sid", sid(poCtx, "g-row")], ["height", "25px"]])];
@@ -386,7 +423,9 @@ function gridParts(poCtx, paHeaders, paColumns) {
 			["targetcolumnname", vaNames[pnIdx]],
 			["text", psHeader === "" ? null : psHeader]
 		]));
-		vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx], ["columnname", vaNames[pnIdx]]]));
+		vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx], ["columnname", vaNames[pnIdx]]], [
+			cellControlEl(poCtx, vaCells == null ? null : vaCells[pnIdx])
+		]));
 	});
 	vaParts.push(el("cl:gridheader", [["std:sid", sid(poCtx, "gh-band")]], vaHeaderCells));
 	vaParts.push(el("cl:griddetail", [["std:sid", sid(poCtx, "gd-band")]], vaDetailCells));
@@ -423,6 +462,10 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 	if (vbGridBound) {
 		vaAttrs.push(["datasetid", voBind.dataId]);
 	}
+	if (poCtrl.type == "grid" && poCtrl.meta && poCtrl.meta.widths) {
+		// 이미지의 열 폭 비율을 지키며 그리드 폭에 맞춘다(가로 스크롤 없이 이미지처럼 꽉 차게).
+		vaAttrs.push(["autofit", "all"]);
+	}
 
 	switch (poCtrl.type) {
 		case "output":
@@ -447,7 +490,7 @@ function controlEl(poCtx, poCtrl, poLayoutData, paExtraChildren) {
 			break;
 		case "grid":
 			var voDataSet = vbGridBound ? modelData(poCtx, voBind.dataId) : null;
-			vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items, voDataSet != null ? voDataSet.columns : null));
+			vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items, voDataSet != null ? voDataSet.columns : null, poCtrl.meta));
 			break;
 		case "htmlsnippet":
 			vaAttrs.push(["value", vsText === "" ? null : vsText]);
@@ -963,7 +1006,11 @@ function searchHeaderEl(poCtx, poPlan, pnBodyRow) {
 		var voFlow = flowLayout(poCtx, "right", 6, 0);
 		voFlow.attrs.push(["linewrap", "false"]);
 		vaChildren.push(groupEl(poCtx, "grpBtnSearch", "search-button-group", formData(poCtx, voPlaced.rows.length - 1, vnPairs * 2), vaButtons, voFlow));
-		vaCols.push(PX(97, AUTO));
+		// 템플릿은 97px(초기화 + 조회). 버튼이 더 넓으면 줄바꿈 없이 다 보이도록 그만큼 넓힌다.
+		var vnButtonsWidth = voSearch.buttons.reduce(function(pnSum, poBtn) {
+			return pnSum + buttonWidth(poBtn.text);
+		}, 0) + (voSearch.buttons.length - 1) * 6 + 4;
+		vaCols.push(PX(Math.max(97, vnButtonsWidth), AUTO));
 	}
 
 	var vnHeight = sumRowHeight(voPlaced.rows, 6, 20);
@@ -978,12 +1025,23 @@ function searchHeaderEl(poCtx, poPlan, pnBodyRow) {
 	};
 }
 
-/** 구획 제목: 버튼이 없으면 타이틀 UDC 하나, 있으면 content-title-box(UDC + title-button-group) */
+/**
+ * 구획 제목: 버튼이 없으면 타이틀 UDC 하나, 있으면 content-title-box(UDC + title-button-group)
+ * 이미지 기준(stack) 구획(noTitleUdc)은 이미지에 제목이 없으면 UDC 를 만들지 않는다 — 버튼만 있으면 버튼 묶음만, 둘 다 없으면 null.
+ */
 function sectionTitleEl(poCtx, poSection) {
+	var vaButtons = poSection.buttons || [];
+	if (poSection.noTitleUdc && !poSection.title) {
+		if (vaButtons.length == 0) {
+			return null;
+		}
+		return groupEl(poCtx, null, "title-button-group", formData(poCtx, 0, 0), vaButtons.map(function(poBtn) {
+			return controlEl(poCtx, poBtn, buttonFlowData(poCtx, poBtn, 24));
+		}), flowLayout(poCtx, "right", 6, 0));
+	}
 	var vbGridTitle = poSection.kind == "grid";
 	var vsUdcType = vbGridTitle ? "udc.com.udcComGridTitle" : "udc.com.udcComFormTitle";
 	var vsUdcId = seqId(poCtx, vbGridTitle ? "udccomgridtitle" : "udccomformtitle");
-	var vaButtons = poSection.buttons || [];
 
 	if (vaButtons.length == 0) {
 		return udcEl(poCtx, vsUdcId, vsUdcType, formData(poCtx, 0, 0), poSection.title);
@@ -1056,23 +1114,30 @@ function sectionEl(poCtx, poSection, poLayoutData) {
 			vnFixed = 24;
 			break;
 		case "form":
-			var voForm = formBaseEl(poCtx, poSection, formData(poCtx, 1, 0));
-			voNode = groupEl(poCtx, null, "content", poLayoutData, [sectionTitleEl(poCtx, poSection), voForm.node], formLayout(poCtx, {
+			var voFormTitle = sectionTitleEl(poCtx, poSection);
+			var vnFormRow = voFormTitle == null ? 0 : 1;
+			var voForm = formBaseEl(poCtx, poSection, formData(poCtx, vnFormRow, 0));
+			var vaFormRows = voFormTitle == null ? [] : [PX(24, {
+				autoSizing : true
+			})];
+			vaFormRows.push(PX(voForm.height, AUTO));
+			voNode = groupEl(poCtx, null, "content", poLayoutData, (voFormTitle == null ? [] : [voFormTitle]).concat([voForm.node]), formLayout(poCtx, {
 				hspace : 4,
 				vspace : 4
-			}, [PX(24, {
-				autoSizing : true
-			}), PX(voForm.height, AUTO)], [FR()]));
-			vnFixed = 24 + 4 + voForm.height;
+			}, vaFormRows, [FR()]));
+			vnFixed = (voFormTitle == null ? 0 : 24 + 4) + voForm.height;
 			break;
 		default:
 			// grid · tree · 그 밖의 데이터 컨트롤 : 제목 UDC(0행) + 컨트롤(1행, 1fr) (+ 페이지 인덱서 2행, 템플릿 P1-4)
-			var vaContent = [sectionTitleEl(poCtx, poSection), controlEl(poCtx, poSection.control, formData(poCtx, 1, 0))];
-			var vaContentRows = [PX(24, {
+			// 이미지 기준 구획에 제목·버튼이 없으면 제목 줄 없이 컨트롤이 0행.
+			var voTitleEl = sectionTitleEl(poCtx, poSection);
+			var vnCtrlRow = voTitleEl == null ? 0 : 1;
+			var vaContent = (voTitleEl == null ? [] : [voTitleEl]).concat([controlEl(poCtx, poSection.control, formData(poCtx, vnCtrlRow, 0))]);
+			var vaContentRows = voTitleEl == null ? [FR()] : [PX(24, {
 				autoSizing : true
 			}), FR()];
 			if (poSection.pager != null) {
-				vaContent.push(controlEl(poCtx, poSection.pager, formData(poCtx, 2, 0)));
+				vaContent.push(controlEl(poCtx, poSection.pager, formData(poCtx, vnCtrlRow + 1, 0)));
 				vaContentRows.push(PX(24));
 			}
 			voNode = groupEl(poCtx, null, "content", poLayoutData, vaContent, formLayout(poCtx, {
@@ -1187,7 +1252,7 @@ function footerEl(poCtx, poPlan, pnBodyRow) {
  * @return {String} .clx XML
  */
 exports.serializePlan = function(poPlan) {
-	return planDocument(createContext(), poPlan);
+	return poPlan.layout == "stack" ? stackDocument(createContext(), poPlan) : planDocument(createContext(), poPlan);
 };
 
 function planDocument(voCtx, poPlan) {
@@ -1238,6 +1303,276 @@ function planDocument(voCtx, poPlan) {
 	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (base template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + modelComment(voCtx) + ")");
 }
 
+/* ---------------------------------------------------------------- 3) 이미지 기준(stack) — 템플릿 부품을 이미지 순서대로
+ *
+ *  body.content-wrapper (formlayout, 위→아래)
+ *    ├ udcComAppHeader                    화면 제목
+ *    ├ grpData(.content-body)             이어지는 블록 묶음 : 안내 상자(card) · 설명 문단 · 구획 제목 UDC · content(그리드/글상자) · 버튼 줄 …
+ *    ├ grpHeader(.content-header > .search-box)   조회 조건(이미지에 있던 자리)
+ *    ├ grpData2(.content-body)            …
+ *    └ grpFooter(.content-footer)         하단 버튼(있으면)
+ *  높이는 캔버스(=이미지) 비율 그대로 화면 폭(1408px)에 맞춰 옮기고, 맨 아래 영역 구획 하나만 남는 높이를 채운다(1fr).
+ */
+
+var STACK_WIDTH = 1408;
+var TEXT_LINE = 18;
+
+/** 글 블록 높이 : 줄마다 18px(+ 줄 간격 2) · 안내 상자는 card 의 안쪽 여백(10 × 2)과 테두리 */
+function textBlockHeight(paLines, pbBoxed) {
+	return paLines.length * TEXT_LINE + (paLines.length - 1) * 2 + (pbBoxed ? 22 : 0);
+}
+
+/** 설명 문단 · 안내 상자 · 라벨 : 한 줄이면 아웃풋 하나, 여러 줄(또는 상자)이면 줄마다 아웃풋을 쌓은 그룹(안내 상자는 card) */
+function textBlockEl(poCtx, poBlock, poLayoutData) {
+	var voCtrl = poBlock.control;
+	var vaLines = String(voCtrl.text == null ? "" : voCtrl.text).split("\n");
+	var vbBoxed = poBlock.variant == "notice";
+	if (vaLines.length == 1 && !vbBoxed) {
+		return {
+			node : controlEl(poCtx, {
+				type : "output",
+				id : voCtrl.id,
+				text : vaLines[0]
+			}, poLayoutData),
+			height : 24
+		};
+	}
+	var vaRows = [];
+	var vaChildren = vaLines.map(function(psLine, pnIdx) {
+		vaRows.push(PX(TEXT_LINE));
+		return controlEl(poCtx, {
+			type : "output",
+			id : pnIdx == 0 ? voCtrl.id : null,
+			text : psLine
+		}, formData(poCtx, pnIdx, 0));
+	});
+	return {
+		node : groupEl(poCtx, null, vbBoxed ? "card" : null, poLayoutData, vaChildren, formLayout(poCtx, {
+			hspace : 0,
+			vspace : 2
+		}, vaRows, [FR()])),
+		height : textBlockHeight(vaLines, vbBoxed)
+	};
+}
+
+/** 한 줄 블록 : 캔버스의 가로 위치·폭 비율대로 칸을 나눠 컨트롤을 놓는다(앞 간격은 빈 칸). */
+function rowBlockEl(poCtx, poBlock, poLayoutData, pnScale, pnLeft) {
+	var vaControls = poBlock.controls.slice().sort(function(a, b) {
+		return (a.x || 0) - (b.x || 0);
+	});
+	var vaCols = [];
+	var vaChildren = [];
+	var vnCursor = pnLeft;
+	var vnHeight = 24;
+	vaControls.forEach(function(poCtrl) {
+		var vnGap = Math.round(((poCtrl.x || vnCursor) - vnCursor) * pnScale);
+		if (vnGap > 12) {
+			vaCols.push(PX(vnGap));
+		}
+		var vnLines = poCtrl.type == "output" ? String(poCtrl.text || "").split("\n").length : 1;
+		vnHeight = Math.max(vnHeight, vnLines > 1 ? textBlockHeight(String(poCtrl.text).split("\n"), false) : (poCtrl.type == "button" ? 28 : 24));
+		vaChildren.push(controlEl(poCtx, poCtrl, formData(poCtx, 0, vaCols.length)));
+		vaCols.push(PX(Math.max(24, Math.round((poCtrl.width || 80) * pnScale))));
+		vnCursor = (poCtrl.x || vnCursor) + (poCtrl.width || 80);
+	});
+	vaCols.push(FR());
+	return {
+		node : groupEl(poCtx, null, null, poLayoutData, vaChildren, formLayout(poCtx, {
+			hspace : 8,
+			vspace : 0
+		}, [FR()], vaCols)),
+		height : vnHeight
+	};
+}
+
+/** 버튼 줄 : 이미지에서의 좌·우(가운데) 위치대로 흐름 배치 */
+function buttonRowEl(poCtx, poBlock, poLayoutData) {
+	return {
+		node : groupEl(poCtx, null, "title-button-group", poLayoutData, poBlock.buttons.map(function(poBtn) {
+			return controlEl(poCtx, poBtn, buttonFlowData(poCtx, poBtn, 24));
+		}), flowLayout(poCtx, poBlock.align || null, 6, 0)),
+		height : 24
+	};
+}
+
+/** 영역 구획의 화면 높이(px) : 캔버스 높이 × 배율. 글상자·그리드가 너무 납작해지지 않게 최소 60. */
+function areaHeight(poBox, pnScale) {
+	return Math.max(60, Math.round(((poBox && poBox.height) || 200) * pnScale));
+}
+
+/** 좌우 나란한 구획(division-group) : 폭 비율은 캔버스 그대로 */
+function splitBlockEl(poCtx, poBlock, poLayoutData, pnScale) {
+	var vnHeight = 0;
+	var vaCols = [];
+	var vaChildren = poBlock.parts.map(function(poPart, pnCol) {
+		var voEach = sectionEl(poCtx, poPart.section, formData(poCtx, 0, pnCol));
+		vnHeight = Math.max(vnHeight, voEach.fixedHeight != null ? voEach.fixedHeight : areaHeight(poPart.box, pnScale));
+		vaCols.push(poPart.section.kind == "tree" ? PX(250, {
+			minlength : 250
+		}) : FR(Math.max(1, Math.round(((poPart.box && poPart.box.width) || 100) / 10))));
+		return voEach.node;
+	});
+	return {
+		node : groupEl(poCtx, null, "division-group", poLayoutData, vaChildren, formLayout(poCtx, {
+			hspace : 16,
+			vspace : 12
+		}, [FR()], vaCols)),
+		height : vnHeight
+	};
+}
+
+/**
+ * 이미지 기준(stack) 계획을 CLX 로 직렬화한다.
+ * @param {Object} voCtx
+ * @param {Object} poPlan templatePlanner.resolve() 의 stack 결과
+ */
+function stackDocument(voCtx, poPlan) {
+	voCtx.model = poPlan.model || null;
+	var vbPopup = poPlan.popup === true;
+	var voHead = headEl(voCtx, vbPopup, poPlan.title);
+	var vnScale = STACK_WIDTH / Math.max(320, poPlan.contentWidth || 800);
+	var vnLeft = 0;
+	(poPlan.blocks || []).forEach(function(poBlock) {
+		if (poBlock.box != null) {
+			vnLeft = vnLeft === 0 ? poBlock.box.x : Math.min(vnLeft, poBlock.box.x);
+		}
+	});
+
+	// 남는 높이를 채울 구획 : 맨 아래에 있는 영역 구획 하나(그리드 · 글상자 …)
+	var voFillBlock = null;
+	(poPlan.blocks || []).forEach(function(poBlock) {
+		if ((poBlock.kind == "section" && poBlock.section.kind != "form") || poBlock.kind == "split") {
+			voFillBlock = poBlock;
+		}
+	});
+
+	var vaBodyChildren = [];
+	var vaBodyRows = [];
+	var vnBodyRow = 0;
+
+	voCtx.ids["udcComAppHeader"] = true;
+	vaBodyChildren.push(udcEl(voCtx, "udcComAppHeader", "udc.com.udcComAppHeader", formData(voCtx, vnBodyRow++, 0), poPlan.title, vbPopup));
+	vaBodyRows.push(PX(30, vbPopup ? {
+		hidden : true
+	} : null));
+
+	// 이어지는 블록을 content-body 하나로 묶는다(조회 조건을 만나면 끊는다).
+	var voGroup = null;
+
+	function closeGroup() {
+		if (voGroup == null) {
+			return;
+		}
+		var vnFixedSum = 0;
+		voGroup.rows.forEach(function(poRow, pnIdx) {
+			vnFixedSum += (poRow.unit == "PIXEL" ? poRow.length : (poRow.minlength || 0)) + (pnIdx > 0 ? 12 : 0);
+		});
+		vaBodyChildren.push(groupEl(voCtx, "grpData", vbPopup ? "pop-content-body" : "content-body", formData(voCtx, vnBodyRow++, 0), voGroup.children, formLayout(voCtx, {
+			hspace : 12,
+			vspace : 12
+		}, voGroup.rows, [FR()])));
+		vaBodyRows.push(voGroup.fill ? {
+			length : 1,
+			unit : "FRACTION",
+			minlength : vnFixedSum
+		} : PX(vnFixedSum, AUTO));
+		voGroup = null;
+	}
+
+	function addToGroup(pfMake, poBlock) {
+		if (voGroup == null) {
+			voGroup = {
+				children : [],
+				rows : [],
+				fill : false
+			};
+		}
+		var voMade = pfMake(formData(voCtx, voGroup.rows.length, 0));
+		voGroup.children.push(voMade.node);
+		if (poBlock === voFillBlock) {
+			voGroup.fill = true;
+			voGroup.rows.push({
+				length : 1,
+				unit : "FRACTION",
+				minlength : voMade.height
+			});
+		} else {
+			voGroup.rows.push(PX(voMade.height));
+		}
+	}
+
+	(poPlan.blocks || []).forEach(function(poBlock) {
+		switch (poBlock.kind) {
+			case "search":
+				closeGroup();
+				var voHeader = searchHeaderEl(voCtx, {
+					search : poBlock,
+					popup : vbPopup
+				}, vnBodyRow++);
+				vaBodyChildren.push(voHeader.node);
+				vaBodyRows.push(PX(voHeader.height, AUTO));
+				break;
+			case "heading":
+				addToGroup(function(poLd) {
+					return {
+						node : udcEl(voCtx, seqId(voCtx, "udccomformtitle"), "udc.com.udcComFormTitle", poLd, String(poBlock.control.text || "").split("\n")[0]),
+						height : 24
+					};
+				}, poBlock);
+				break;
+			case "text":
+				addToGroup(function(poLd) {
+					return textBlockEl(voCtx, poBlock, poLd);
+				}, poBlock);
+				break;
+			case "buttons":
+				addToGroup(function(poLd) {
+					return buttonRowEl(voCtx, poBlock, poLd);
+				}, poBlock);
+				break;
+			case "row":
+				addToGroup(function(poLd) {
+					return rowBlockEl(voCtx, poBlock, poLd, vnScale, vnLeft);
+				}, poBlock);
+				break;
+			case "split":
+				addToGroup(function(poLd) {
+					return splitBlockEl(voCtx, poBlock, poLd, vnScale);
+				}, poBlock);
+				break;
+			case "section":
+				addToGroup(function(poLd) {
+					var voEach = sectionEl(voCtx, poBlock.section, poLd);
+					return {
+						node : voEach.node,
+						height : voEach.fixedHeight != null ? voEach.fixedHeight : areaHeight(poBlock.box, vnScale)
+					};
+				}, poBlock);
+				break;
+			default:
+				break;
+		}
+	});
+	closeGroup();
+
+	if (poPlan.footer != null && (poPlan.footer.left.length > 0 || poPlan.footer.right.length > 0)) {
+		vaBodyChildren.push(footerEl(voCtx, poPlan, vnBodyRow++));
+		vaBodyRows.push(PX(vbPopup ? 45 : 50, AUTO));
+	}
+
+	var voBodyLayout = formLayout(voCtx, {
+		hspace : 12,
+		vspace : 12,
+		margin : [10, 16, 10, 16]
+	}, vaBodyRows, [FR()]);
+	// 이미지가 화면보다 길면 잘리지 않고 스크롤된다.
+	voBodyLayout.attrs[1] = ["scrollable", "true"];
+	vaBodyChildren.push(voBodyLayout);
+
+	var voBody = el("body", [["std:sid", sid(voCtx, "body")], ["class", vbPopup ? "pop-content-wrapper" : "content-wrapper"]], vaBodyChildren);
+	return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (layout: image-stack, reference template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + modelComment(voCtx) + ")");
+}
+
 /**
  * XML 과 화면 스크립트를 함께 만든다. 바인딩된 버튼·그리드의 리스너 핸들러가 .js 에 들어간다.
  * @param {Object} poSource psMode 가 "xy" 면 AST, 아니면 해석된 계획
@@ -1247,7 +1582,7 @@ function planDocument(voCtx, poPlan) {
  */
 exports.generate = function(poSource, psMode, psAppName) {
 	var voCtx = createContext();
-	var vsXml = psMode == "xy" ? xyDocument(voCtx, poSource) : planDocument(voCtx, poSource);
+	var vsXml = psMode == "xy" ? xyDocument(voCtx, poSource) : (poSource.layout == "stack" ? stackDocument(voCtx, poSource) : planDocument(voCtx, poSource));
 	return {
 		clx : vsXml,
 		js : scriptFor(voCtx, psAppName),

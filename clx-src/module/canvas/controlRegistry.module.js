@@ -13,19 +13,24 @@
  * 쉼표로 구분한 문자열을 배열로 바꾼다.
  * @param {String} psCsv
  * @param {String[]} paDefault
+ * @param {Boolean} pbKeepEmpty true 면 빈 칸도 자리로 남긴다(그리드 헤더 : 번호 · 체크 열처럼 글자 없는 열). 글자가 하나도 없으면 기본값.
  * @return {String[]}
  */
-function splitCsv(psCsv, paDefault) {
+function splitCsv(psCsv, paDefault, pbKeepEmpty) {
 	var vaResult = [];
+	var vbAnyText = false;
 	if (psCsv != null) {
 		String(psCsv).split(",").forEach(function(psEach) {
 			var vsTrim = psEach.replace(/^\s+|\s+$/g, "");
 			if (vsTrim.length > 0) {
+				vbAnyText = true;
+			}
+			if (vsTrim.length > 0 || pbKeepEmpty) {
 				vaResult.push(vsTrim);
 			}
 		});
 	}
-	return vaResult.length > 0 ? vaResult : (paDefault || []);
+	return vbAnyText ? vaResult : (paDefault || []);
 }
 
 /**
@@ -255,7 +260,7 @@ var TYPES = [{
 	textKind : "columns",
 	create : function(psId, psText) {
 		var vcCtrl = new cpr.controls.Grid(psId);
-		vcCtrl.init(makeGridConfig(splitCsv(psText, ["컬럼1"])));
+		vcCtrl.init(makeGridConfig(splitCsv(psText, ["컬럼1"], true)));
 		return vcCtrl;
 	}
 }, {

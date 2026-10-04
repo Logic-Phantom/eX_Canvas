@@ -16,6 +16,7 @@ React·Vue 같은 외부 프레임워크 없이 **eXBuilder6 앱(`.clx`) + `cpr.
 끄면 지금까지처럼 혼자 씁니다 — 공유는 체크박스를 켠 동안에만 동작합니다.
 
 **화면 캡처·시안 이미지를 캔버스에 끌어다 놓으면**(또는 Ctrl+V) Gemini 가 이미지를 분석해 보이는 컨트롤을 그 자리에 배치하고, 가장 비슷한 템플릿 패턴을 골라 줍니다 — 미리 배치처럼 뼈대가 깔리되 **기준은 이미지**입니다([4.12](#412-이미지로-배치-gemini-비전)).
+**같은 템플릿이 없으면**(템플릿 뼈대에 넣으면 안내 문단 · 구획 제목 · 코드 상자 같은 요소가 빠지거나 자리가 바뀌면) 템플릿 부품을 **이미지 순서 그대로** 쌓아 내보냅니다([4.14](#414-이미지-기준-배치-템플릿-부품을-이미지-순서대로)). 툴바 **[비교]** 는 원본 이미지와 **실제로 컴파일해 띄운 결과 화면**을 나란히 · 겹쳐 · 차이로 보여 주고 원본 요소 반영률을 알려 줍니다([4.15](#415-비교-원본-이미지--결과-화면)).
 
 **백엔드 API 명세(Swagger/OpenAPI JSON)를 넣으면** URL·붙여넣기·파일 어느 쪽이든 명세를 읽어 **DataSet · DataMap · Submission 을 만들고, 바인딩이 끝난 조회 조건·그리드·폼·버튼을 캔버스에 깔아** `.clx` 와 `send()` 핸들러가 든 `.js` 까지 내보냅니다 — AI 를 쓰지 않는 결정적 변환이라 비용이 없고 결과가 늘 같습니다([4.13](#413-api-연동-swaggeropenapi--데이터-모델--바인딩)).
 명세가 없으면 **실제 응답 JSON 한 벌**(`{dsList:[…], dmPageInfo:{…}}` · 계층형도 됨)을 같은 칸에 붙여넣으면 됩니다 — 배열 키는 DataSet, 객체 키는 DataMap 이 되어 **분석 즉시 이 화면의 모델로 붙습니다.** 그 뒤 미리 배치(템플릿)로 깔든 직접 그리든, 내보내는 `.clx` 의 `<cl:model>` 에 그 DataSet · DataMap 이 들어가고 그리드는 첫 DataSet 에 저절로 이어집니다(Submission 은 주소가 없어 만들지 않음 · [4.13](#413-api-연동-swaggeropenapi--데이터-모델--바인딩) 의 "응답 샘플 JSON").
@@ -89,7 +90,7 @@ macOS 에서 처음 쓸 때 한 번만:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 툴바  화면명 | 변환 | 패턴 | 미리 배치 | 팝업 | 공유 | [미리보기] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
+│ 툴바  화면명 | 변환 | 패턴 | 미리 배치 | 팝업 | 공유 | [미리보기] [비교] [AST(JSON)] [result 저장] [CLX 다운로드] [전체 삭제] │
 ├────────────┬─────────────────────────────────────────────────┬───────────────────────────────────────┤
 │ 팔레트      │ 캔버스 (canvasGroup, XYLayout)                   │ 속성창                                 │
 │  [찾기]     │   끌어다 놓은 컨트롤이 실제 cpr.controls.* 로      │  Type / ID / Text                     │
@@ -112,8 +113,9 @@ macOS 에서 처음 쓸 때 한 번만:
 
 | 항목 | 값 | 설명 |
 |---|---|---|
-| 변환 | **템플릿(규칙 기반)** | 좌표를 분석해 템플릿 뼈대로 재배치. AI 불필요(기본값) |
-| | **템플릿(Gemini AI)** | 규칙 기반 초안을 Gemini 가 다듬음(라벨·제목·의미 있는 id·패턴 선택). 실패하면 규칙 기반으로 자동 대체 |
+| 변환 | **템플릿(규칙 기반)** | 좌표를 분석해 템플릿 뼈대로 재배치. AI 불필요(기본값). **뼈대에 넣으면 빠지거나 자리가 바뀌는 요소가 있으면 이미지 기준 배치로 자동 전환**([4.14](#414-이미지-기준-배치-템플릿-부품을-이미지-순서대로)) |
+| | **템플릿(Gemini AI)** | 규칙 기반 초안을 Gemini 가 다듬음(라벨·제목·의미 있는 id·패턴 선택). 실패하면 규칙 기반으로 자동 대체. 자동 전환 규칙은 위와 같음 |
+| | **이미지 기준 배치** | 늘 템플릿 부품(search-box · content · 타이틀 UDC · card …)을 캔버스(이미지) 순서대로 쌓는다 |
 | | **XY 좌표 그대로** | 캔버스 좌표를 `cl:xylayout` 으로 그대로 내보냄 |
 | 패턴 | 자동 선택 / P1-1 … P8-3 | 직접 고르면 그 패턴의 배치(위아래/좌우)를 강제 |
 | 미리 배치 | 체크 | 패턴을 고르는 순간 그 패턴의 뼈대(조회 조건 · 그리드/폼 · 하단 버튼)를 캔버스에 깔아 준다 |
@@ -462,9 +464,12 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
     │         responseSchema 는 기본 OFF(eXConverter-AI 실측 : 스키마를 붙이면 붕괴) · 콘솔에 [eX-Canvas hh:mm:ss] 진행 로그
     │       → { ok, plan, image{width,height}, model, usage, elapsedSeconds }
     └─ [직접]      imagePlanner.readImage()(브라우저 축소 1600px) → geminiPlanner.request()(브라우저 → Google, 화면의 API Key)
-    │  plan = { pattern, title, reason, items : [ { type, text, box[ymin,xmin,ymax,xmax](0~1000), style, required } ] }
+    │  plan = { pattern, title, reason, items : [ { type, variant, text, box[ymin,xmin,ymax,xmax](0~1000), style, required, cells, widths } ] }
+    │         variant = 아웃풋의 문단 종류(title 화면 제목 · heading 구획 제목 · desc 설명 문단 · notice 테두리 상자 안 안내 · label)
+    │         cells / widths = 그리드 열마다 셀 컨트롤(text · checkbox · inputbox · combobox · button:실행 …) / 열 폭 비율
     ▼
- imagePlanner.normalize()       유형·box 검증(모르는 유형 · 깨진 box 는 버림)
+ imagePlanner.normalize()       유형·box 검증(모르는 유형 · 깨진 box 는 버림) · 문단 줄바꿈 유지 · variant/cells/widths → 항목의 pt-meta
+                                · 다른 요소를 감싸는 빈 group(조회 영역 배경 같은 장식 틀)은 뺀다 · 그리드/트리는 아래 요소 앞까지 늘린다(AI 가 마지막 행에서 끊는 일이 잦다)
  imagePlanner.toCanvasItems()   이미지 좌표 → 캔버스 좌표
     │  가로 : 캔버스 폭에 비례(좌우 배치 · 폭 비율 그대로)
     │  세로 : "줄 단위" 로 다시 잰다 — 입력·버튼 줄은 24px, 그리드·트리·탭 같은 큰 영역은 남는 높이를 나눠 쓴다(위아래 순서·겹침은 그대로)
@@ -477,7 +482,7 @@ canned-templates.xmi ── SyncCatalog(빌드 전) ──▶ uiTemplateCatalog.
 | `POST /canvas/analyzeImage.do` | `CanvasImageController`(Tomcat) · `DevServer`(리플렉션) | multipart 첫 파일 파트 = 이미지(20MB). `X-Requested-With: eX-Canvas` 없으면 403, 키 없으면 503, 이미지가 아니면 400 |
 | `GET /canvas/imageStatus.do` | 〃 | `{ ok, configured, model, maxImageSide, responseSchema, thinkingLevel … }` — 키 값은 돌려주지 않는다. 화면이 뜰 때 확인해 속성창 안내 문구에 보여 준다 |
 
-서버 설정(`src/main/resources/canvas/excanvas.properties`, 우선순위 `-Dexcanvas.gemini.xxx` > 환경 변수 `EXCANVAS_GEMINI_XXX` > 파일) : `apiKey`(비면 `GEMINI_API_KEY` → `GOOGLE_API_KEY`) · `model`(기본 `gemini-2.5-flash`) · `url` · `responseSchema`(false) · `maxOutputTokens`(8192) · `maxResponseChars` · `temperature` · `maxImageSide`(1536) · `thinkingLevel`(MINIMAL) · `timeoutSeconds` · `maxRetries` · `proxyHost/Port`.
+서버 설정(`src/main/resources/canvas/excanvas.properties`, 우선순위 `-Dexcanvas.gemini.xxx` > 환경 변수 `EXCANVAS_GEMINI_XXX` > 파일) : `apiKey`(비면 `GEMINI_API_KEY` → `GOOGLE_API_KEY`) · `model`(기본 `gemini-3.5-flash` — 2026-10-04 실측으로 2.5-flash 에서 바꿈, [8](#8-변경-이력)) · `url` · `responseSchema`(false) · `maxOutputTokens`(8192) · `maxResponseChars` · `temperature` · `maxImageSide`(1536) · `thinkingLevel`(MINIMAL) · `timeoutSeconds` · `maxRetries` · `proxyHost/Port`.
 Tomcat 은 이클립스 서버 실행 구성의 VM arguments 에 `-Dexcanvas.gemini.apiKey=AIza…`(또는 환경 변수 `GEMINI_API_KEY`) 를 주고 Publish 합니다. 개발 서버는 `tools/dev.sh` · `dev.cmd` 가 분석기(`CanvasImageAnalyzer`)를 `target/canvas-classes` 에 컴파일해 클래스패스로 올립니다(`java tools/DevServer.java` 만 직접 띄우면 서버 분석은 꺼지고 직접 호출만 됩니다).
 
 - **AI 는 "무엇이 어디에 있는지"만 말합니다.** 조회 조건 · 구획 · 하단 버튼 같은 해석은 규칙 기반 변환(`planByRule`)이 좌표로 합니다 — 손으로 그린 캔버스와 같은 길이라 결과 CLX 의 품질이 같습니다. 상태 표시줄에 AI 가 고른 패턴과 좌표 규칙이 읽은 패턴을 함께 보여 주며, 다르면 패턴 콤보의 값(AI 선택)이 내보내기에 쓰입니다.
@@ -561,6 +566,53 @@ Swagger 명세가 없는 백엔드는 **실제 응답 JSON 한 벌**을 같은 �
 | `GET /canvas/fetchOpenApi.do?url=<주소>` | `DevServer`(개발 서버) · `CanvasOpenApiController`(Tomcat) | 주소의 본문을 그대로 돌려준다(명세든 응답 JSON 이든). `X-Requested-With: eX-Canvas` 없으면 403, http/https 만, 30초, 8MB 상한, 리다이렉트 따라감. 상대 서버 오류는 `{ok:false, message}` |
 | `GET /canvas/fetchOpenApi.do?probe=1` | 〃 | `{ok:true}` — 화면이 뜰 때 프록시가 있는지 확인해 안내 문구를 바꾼다 |
 
+### 4.14 이미지 기준 배치 (템플릿 부품을 이미지 순서대로)
+
+`/templates` 77개의 뼈대는 **조회 조건 → 데이터 구획 → 하단 버튼** 순서입니다. 샘플·가이드 화면처럼 안내 상자 · 구획 제목 · 설명 문단이 조회 조건보다 위에 있거나, 코드 상자 · 복사 버튼처럼 뼈대에 자리가 없는 요소가 있으면 규칙 기반 계획은 그것을 "짝 없는 라벨" 로 **버리거나** 하단 버튼으로 **옮겼습니다**. 이제는 그런 경우 같은 템플릿이 없다고 보고 템플릿의 **부품**을 이미지 순서대로 쌓습니다.
+
+```
+ generateClx()  planByRule → resolve → templateFit()   빠지는 요소(dropped) · 옮겨진 요소(moved)가 0개면 → 지금까지처럼 템플릿 뼈대
+                                          │ 하나라도 있으면(또는 변환 = 이미지 기준 배치)
+                                          ▼
+                templatePlanner.planStack(ast)          위→아래 블록 : 안내 상자 · 설명 · 구획 제목 · 조회 조건 · 구획(그리드/트리/글상자) · 폼 · 버튼 줄 · 하단 버튼
+                  ├ 구획 바로 위 짧은 라벨 = 구획 제목 · 버튼 = 제목 줄 버튼 · 구획 안쪽 위 모서리 버튼([복사]) = 그 구획의 제목 줄 버튼
+                  ├ 입력이 있는 줄 = 조회 조건(데이터 구획보다 위 · 조회 버튼과 같은 줄) 또는 폼(content > form-base) — 사이에 구획이 끼면 끊는다
+                  └ 세로로 절반 이상 겹치는 구획 = 좌우(division-group) · 맨 아래 버튼만 있는 줄 = footer-button-group
+                resolve() (layout = "stack")           ref → 컨트롤 · 남은 컨트롤은 버리지 않고 제 높이에 한 줄 블록으로
+                clxSerializer stackDocument()          body.content-wrapper 아래로 [udcComAppHeader] [content-body …] [content-header > search-box] [content-body …] [content-footer]
+```
+
+| 이미지 요소 | 나가는 부품(템플릿 클래스 · UDC) |
+|---|---|
+| 화면 제목(variant title) | `udcComAppHeader` 의 title · `<cl:appspec title>` |
+| 안내 상자(notice) | `group.card` 안에 줄마다 아웃풋 |
+| 설명 문단(desc) | 줄마다 아웃풋(group) |
+| 구획 제목(heading) | `udcComFormTitle` (구획 바로 위면 그 구획의 타이틀 UDC) |
+| 조회 조건 | `content-header > search-box`(템플릿과 같은 formlayout · `search-button-group`) |
+| 그리드 | `content > grid` · 열 폭 = 이미지 비율(`autofit="all"`) · 디테일 셀 컨트롤(체크박스 · 입력 · 콤보 · `btn-inline` 버튼) |
+| 코드/결과 상자 + [복사] | `content > title-button-group + textarea` |
+
+- 높이는 캔버스(=이미지) 비율대로 화면 폭 1408px 에 맞춰 옮기고, **맨 아래 영역 구획 하나만** 남는 높이를 채웁니다(1fr + 최소 높이). 본문 formlayout 은 스크롤되므로 이미지가 화면보다 길어도 잘리지 않습니다.
+- 손으로 그리거나 미리 배치한 화면은 21개 패턴 모두 템플릿에 그대로 맞아(빠지거나 옮겨지는 요소 0) **지금까지와 같은 뼈대**로 나갑니다. 탭폴더 안에 컨트롤이 든 화면은 이미지 기준 배치를 하지 않습니다(탭 단위 해석이 맞음).
+- 머리 주석이 `layout: image-stack, reference template: P2-1` 처럼 바뀌고, 상태 표시줄에 "같은 템플릿이 없어(빠지는 요소 9개) 이미지 기준 배치 · 참고 템플릿 P2-1" 처럼 이유가 나옵니다.
+
+### 4.15 비교 (원본 이미지 ↔ 결과 화면)
+
+툴바 **[비교]** 는 지금 캔버스로 CLX 를 만들고 **그 화면 하나만 서버에서 컴파일해(약 3초) 실제 런타임으로 띄운 것**을 원본 이미지와 같은 크기로 새 창에 놓습니다.
+
+```
+ [비교] → generateClx() → POST /canvas/previewResult.do?name=<화면명>   (본문 = clx + 구분선 + js, X-Requested-With 필수)
+            서버 : clx-src/result/_compare/<화면명>.clx · .js 에 덮어쓰기 → e6-compiler --include 그 파일만 → 화면 스크립트만 배포 폴더로
+            응답 : { ok, url : "<컨텍스트>/ui/result/_compare/<화면명>.clx", problems : "컴파일러가 보고한 문제점" }
+        → 새 창 : [나란히] 원본 | 결과(iframe)  ·  [겹쳐 보기] 원본을 투명도 슬라이더로 위에  ·  [차이] mix-blend-mode: difference (같은 곳은 검게)
+        → 반영률 : imagePlanner.coverage(분석 결과, 생성 CLX) — 원본 요소마다 CLX 에 같은 글자/헤더/유형이 있는지 · 위→아래 순서 일치(쌍 비교)
+```
+
+- 반영률 · 순서 일치 · 빠진 요소 · 컴파일 문제점은 비교 창 위와 **출력 미리보기 칸**에 함께 나옵니다(팝업이 막혀도 볼 수 있게). 생성할 때마다 상태 표시줄에도 "원본 반영률 n%" 가 붙습니다.
+- e6-compiler 는 스키마 오류가 있어도 `BUILD SUCCESS` 로 끝나므로, 서버가 로그의 `Problem #n … ERROR` 줄을 뽑아 `problems` 로 돌려줍니다.
+- 개발 서버는 `/ui/<앱 경로>.clx` 를 직접 감싸 띄우고, Tomcat 은 기존 `clxviewer`(`*.clx`)가 띄웁니다. `result/_compare/` 는 비교용 임시 폴더라 `.gitignore` 에 있습니다(결과물은 평소대로 [result 저장]).
+- 이미지로 배치한 화면이 아니면 반영률 없이 결과 화면만 보여 줍니다.
+
 ---
 
 ## 5. 확장하는 법
@@ -576,6 +628,11 @@ Swagger 명세가 없는 백엔드는 **실제 응답 JSON 한 벌**을 같은 �
 | AI 프롬프트·응답 스키마 | `geminiPlanner.module.js` (`SYSTEM_TEXT` · `buildResponseSchema`) |
 | 이미지 분석 프롬프트·유형 해석 | 서버 : `CanvasImageAnalyzer.BUILTIN_PROMPT`(또는 `src/main/resources/canvas/prompts/image-items.txt`) · 직접 호출 : `imagePlanner.module.js` 의 `SYSTEM_TEXT`. 유형 목록·카탈로그는 브라우저가 보내므로 서버에 따로 없다. 좌표 변환은 `toCanvasItems()` |
 | 이미지 분석 서버 설정(모델 · 재시도 · 스키마) | `src/main/resources/canvas/excanvas.properties` 또는 `-Dexcanvas.gemini.*` |
+| 템플릿이 "맞는다" 는 기준 · 이미지 기준 배치의 블록 해석 | `templatePlanner.templateFit()`(빠짐 · 옮김 0) · `planStack()`(`isAreaNode` · 구획 제목/버튼 붙이기 · 조회/폼 묶음) |
+| 이미지 기준 배치의 부품 모양(card · 줄 높이 · 1fr 구획) | `clxSerializer.module.js` 의 `stackDocument()` · `textBlockEl()` · `rowBlockEl()` · `STACK_WIDTH` |
+| 그리드 셀 컨트롤 · 열 폭 | `clxSerializer.gridParts()` · `CELL_TAG` · `cellControlEl()` (이미지 분석의 `cells` · `widths` → 항목 `pt-meta`) |
+| 반영률 계산(무엇을 같은 요소로 볼지) | `imagePlanner.coverage()` · `clxEntries()` · `TYPE_TAGS` |
+| 비교 창 모양(나란히 · 겹쳐 · 차이) | `Prototyper.js` 의 `writeCompareWindow()` |
 | API 역할 판정 · 목록 래퍼 인식 | `openApiPlanner.module.js` 의 `inferRole()` · `listProperty()`/`findList()`(`LIST_KEYS` · `WRAPPER_KEYS`) |
 | 응답 샘플 JSON 판정(페이지 정보 · 깊이 · id 접두 · 자료형) · 그리드 자동 연결 | `openApiPlanner.module.js` 의 `analyzeSample()` · `sampleColumns()` · `INFO_COLUMN` · `MAX_DEPTH` · `sampleId()` · `mapSampleModel()`; 화면 쪽은 `Prototyper.js` 의 `applySampleModel()` · `nextDataSetBind()` · `autoBindGrids()` |
 | API 모델 id 규칙(subList · dmDetail …) · 공유 DataMap 판정 | `openApiPlanner.module.js` 의 `ROLE_IDS` · `mapModel()`(`compatible()` 겹침 비율 0.5) |
@@ -623,6 +680,13 @@ Swagger 명세가 없는 백엔드는 **실제 응답 JSON 한 벌**을 같은 �
   ⑥ 껐다 다시 켜도(다른 사람이 방에 남아 있을 때) 내 항목이 사라지지 않음 ·
   ⑦ 마지막 사람이 나가면 릴레이가 방·기록을 버림(서버 로그로 확인).
 
+- **이미지 기준 배치 · 비교** — 2026-10-04, Windows 개발 서버 + 내장 브라우저 + 실제 Gemini(`gemini-3.5-flash`)로 확인했습니다.
+  ① CryptoJS 샘플 캡처(1578×818 · 안내 상자 2 · 구획 제목 · 설명 문단 · 조회 조건 · 그리드 2 · 코드 상자 + 복사)를 붙여넣기 → 14개 배치(문단 줄바꿈 · variant · 그리드 10열 헤더 + 셀 컨트롤 · 열 폭) ·
+  ② 예전에는 규칙 기반이 문단 9줄 · 구획 제목 · 코드 상자를 버리고 `암호화 데이터 표시`(첫 열 헤더)를 표 제목으로, 복사를 하단 버튼으로 옮겼다 → 이제 "같은 템플릿이 없어" 이미지 기준 배치로 바뀌어 **반영률 100% · 순서 일치 99% · 컴파일 문제점 0건**(같은 이미지 3회 연속 같은 결과) ·
+  ③ [비교] 로 `result/_compare/prototype.clx` 를 그 파일만 컴파일(약 2.5초)해 실제 런타임 화면을 원본과 나란히 · 차이로 비교 ·
+  ④ 21개 패턴 뼈대는 모두 템플릿에 그대로 맞아 출력이 바뀌지 않음(`templateFit` = fits), 같은 21개를 이미지 기준 배치로 강제해도 `e6-compiler` 문제점 0건 · 일부러 넣은 잘못된 속성은 `problems` 로 보고됨.
+  ⑤ 2.5-flash 는 같은 이미지에서 첫 열 헤더를 표 제목으로 떼어 내는 오류가 반복돼 서버 기본 모델을 3.5-flash 로 바꿨습니다(응답도 약 20초 → 8초).
+
 **알려진 제약 · 확인이 필요한 것** (상세: [clx-src/canvas/확인필요.md](clx-src/canvas/확인필요.md))
 
 1. **CLI 컴파일러는 `theme/custom-theme.less` 에서 끝나지 않습니다.** 그래서 `BuildOnce` 가 `--exclude theme/**` 로 빌드하고 eXCFrame 테마는 이클립스 빌드 산출물(`clx-build/theme`)에서 가져옵니다.
@@ -651,10 +715,12 @@ Swagger 명세가 없는 백엔드는 **실제 응답 JSON 한 벌**을 같은 �
 19. **명세 프록시(`fetchOpenApi.do`)는 주소를 제한하지 않습니다**(사내 개발 도구 전제). 서버가 대신 어떤 http/https 주소든 받으므로 운영 서버·외부 공개 서버에는 배포하지 마세요. 사설 인증서(https)인 사내 서버는 JVM 이 신뢰하지 않으면 실패합니다 — 그때는 JSON 을 붙여넣으세요.
 20. **API 모델은 공유(CRDT)되지 않고, 화면을 새로 고치면 사라집니다**(캔버스와 같음). 내보내기 전에 [화면 생성]/[모델만 적용] 이 이 세션에서 된 상태여야 `<cl:model>` 이 들어갑니다. 상대와 같이 고칠 때는 각자 같은 명세로 [모델만 적용] 을 하세요.
 21. 빌드 로그의 `token recognition error at: '\'` 는 `e6-compiler` 의 의존성 분석(Planning) 단계 렉서가 `openApiPlanner` 의 정규식 리터럴(`\/` · `\.`)을 못 읽어 내는 경고입니다. `BUILD SUCCESS` 이고 모듈 등록 · 산출물은 온전한 것을 확인했습니다(무시해도 됩니다).
+22. **이미지 기준 배치는 "구조" 를 맞추고 픽셀까지 같게 하지는 않습니다.** 여백 · 글꼴 크기는 사내 테마(템플릿 클래스) 그대로이고, 앱 헤더 제목(`udcComAppHeader`)과 타이틀 UDC 는 공통 모듈(`createCommonUtil`)이 없는 이 프로젝트의 런타임에서는 보이지 않을 수 있습니다(eXCFrame 프로젝트에서는 보임 · 제약 2). [비교] 의 차이 화면에서 남는 어긋남은 대부분 이 여백 차이입니다.
+23. **[비교] 는 서버에서 컴파일러를 띄웁니다**(`ci-lib/clx/e6-compiler.jar` · 서버 JVM 의 `java`). Tomcat 은 배포 폴더(`/ui`)에 쓸 수 있어야 하고, 새 엔드포인트(`CanvasResultController.preview`)는 이클립스 F5 → 빌드 → Publish 뒤에 생깁니다(**Tomcat 에서의 [비교] 는 아직 확인하지 않았습니다** — 개발 서버에서만 확인). 내장 브라우저처럼 팝업을 막는 곳에서는 비교 창이 열리지 않으니 출력 미리보기 칸의 반영률과 상태 표시줄의 결과 화면 주소를 쓰세요.
 
 ---
 
-## 7. 진행 상태와 이어서 할 일 (2026-09-24 기준)
+## 7. 진행 상태와 이어서 할 일 (2026-10-04 기준)
 
 다음 사람(또는 다음 세션의 AI)이 바로 이어갈 수 있게 "지금 어디까지 됐고, 무엇이 안 됐고, 어떻게 확인하는지" 를 적는다. 끝나면 이 절을 갱신할 것.
 
@@ -663,16 +729,21 @@ Swagger 명세가 없는 백엔드는 **실제 응답 JSON 한 벌**을 같은 �
 | 항목 | 상태 |
 |---|---|
 | 팔레트 · 캔버스 · 템플릿 변환 · result 저장 · UI 템플릿 · 미리 배치 · 공유(CRDT) | 완료 · 검증됨([6](#6-검증-현황과-알려진-제약)) |
-| **이미지로 배치**([4.12](#412-이미지로-배치-gemini-비전)) — 드롭 · Ctrl+V · 파일 선택 → 분석 → 배치 · 패턴 콤보 · 버튼 Style | 구현 완료. **가짜 응답/가짜 서버로만 검증**, 실제 Gemini 응답 미확인 |
+| **이미지로 배치**([4.12](#412-이미지로-배치-gemini-비전)) — 드롭 · Ctrl+V · 파일 선택 → 분석 → 배치 · 패턴 콤보 · 버튼 Style | 구현 완료. 2026-10-04 **실제 Gemini(3.5-flash, 서버 경로)로 확인** — 문단 종류 · 그리드 셀 컨트롤 · 열 폭까지 읽음(캡처 1종 · 3회). 다른 모양의 캡처는 더 돌려 볼 것 |
+| **이미지 기준 배치**([4.14](#414-이미지-기준-배치-템플릿-부품을-이미지-순서대로)) — 템플릿에 맞지 않으면 템플릿 부품을 이미지 순서대로 | 구현 완료 · 개발 서버에서 반영률 100% · 컴파일 문제점 0건 · 21개 패턴 뼈대는 출력 그대로 |
+| **[비교]**([4.15](#415-비교-원본-이미지--결과-화면)) — 원본 이미지 ↔ 실제 컴파일한 결과 화면(나란히 · 겹쳐 · 차이) + 반영률 | 개발 서버에서 확인. **Tomcat 의 `/canvas/previewResult.do` 는 미확인**(javac 컴파일만 통과 · 이클립스 Publish 필요) |
 | 이미지 분석 **서버 업로드 경로**(eXConverter-AI 방식 · `CanvasImageAnalyzer` · `/canvas/analyzeImage.do`) | 개발 서버에서 검증 완료. **Tomcat 실배포 미확인**(컴파일만 통과) |
 | **API 연동**([4.13](#413-api-연동-swaggeropenapi--데이터-모델--바인딩)) — 명세 → DataSet · DataMap · Submission → 바인딩된 뼈대 → `.clx` + `.js` 핸들러 | 구현 완료 · 개발 서버에서 샘플 명세로 검증 · 생성 `.clx` 컴파일 통과. **실제 API 서버로 `send()` 실행은 미확인**, Tomcat 프록시(`CanvasOpenApiController`)는 9/24 실 Tomcat 에서 `probe=1` 200 확인(명세 수신은 미확인) |
 | **Tomcat 배포(이클립스 · `:8080`)** | 2026-09-24 : 배포본이 9/22 번들이라 `openApiPlanner` 누락 오류 → 모듈 누락 방어 · `collabInfo.do` 컨트롤러 추가 · 산출물/클래스 동기화([6](#6-검증-현황과-알려진-제약) 제약 1 · [8](#8-변경-이력)). 실 Tomcat 9 에서 `collabInfo.do` · `fetchOpenApi.do?probe=1` 200 · 배포 번들에 모듈 12종 확인. **이클립스 F5 → 빌드 → Publish 를 한 번 해서 이클립스 산출물로도 같은 결과인지 보는 것이 남았다** |
 | **응답 샘플 JSON → DataSet/DataMap**([4.13](#413-api-연동-swaggeropenapi--데이터-모델--바인딩) "응답 샘플 JSON") — 목록형 · 계층형 | 구현 완료 · 실 Tomcat 에서 목록형/계층형 샘플로 분석 → 화면 생성 → 저장 → 컴파일 통과. **Submission 은 만들지 않으므로 스튜디오에서 손으로 잇는다**(중첩 경로 alias 는 런타임 확인 필요) |
-| 이 작업분의 git 커밋 | **아직 안 함** — 작업 트리에 그대로 있다(`git status`). 커밋 전에 7.3 의 실 검증을 한 번 하는 것이 좋다 |
+| 이 작업분의 git 커밋 | 2026-10-04 작업까지 `main` 에 커밋 · 푸시함 |
 
-이 PC(macOS)에는 Gemini API 키도, 실제 백엔드 API 서버도 없다. 실제 호출 검증은 키·서버를 가진 사람이 7.3 대로 한다.
+macOS PC 에는 Gemini API 키도, 실제 백엔드 API 서버도 없다. Windows PC 에는 `GEMINI_API_KEY` 가 있어 이미지 분석 실호출은 여기서 확인했다(백엔드 API 서버는 여전히 없음).
 
 ### 7.2 이어서 할 일 (우선순위 순)
+
+- **(2026-10-04 추가) Tomcat 에서 [비교] 확인** — 이클립스 F5 → 빌드 → Publish(재시작) 뒤 이미지를 놓고 [비교] → `POST /canvas/previewResult.do` 가 200 이고 `/ui/result/_compare/<화면명>.clx` 가 뜨는지. 실패하면 배포 폴더(`getRealPath("/ui")`) 쓰기 권한과 서버 JVM 으로 `ci-lib/clx/e6-compiler.jar` 를 띄울 수 있는지 본다.
+- **(2026-10-04 추가) 다른 모양의 캡처로 이미지 기준 배치 확인** — 탭 · 좌우 분할 · 폼 위주 · 팝업 캡처를 넣어 [비교] 반영률과 차이 화면을 보고, 틀리면 `templatePlanner.planStack()`(조회/폼 구분 · 구획 제목 붙이기)과 프롬프트를 다듬는다.
 
 0. **실제 API 서버로 API 연동 결과 실행** — 사내 springdoc 서버의 `/v3/api-docs` 를 넣어 [화면 생성] → [result 저장] → 스튜디오에서 열어 조회 버튼이 실제로 목록을 그리는지, `data.content` 같은 중첩 alias 를 런타임이 받는지 본다. 안 받으면 `openApiPlanner.mapModel()` 의 응답 alias 를 최상위 키로 바꾸고 `.js` 에 `submit-done` 핸들러를 만들어 넣는 쪽으로 고친다(고칠 곳 : `clxSerializer.scriptFor()`).
 1. **실제 Gemini 로 이미지 분석 품질 확인** — 사내 화면 캡처 3~5장을 서버 경로로 돌려 보고, 잘못 읽는 유형(표를 셀로 쪼갬 · 라벨과 입력을 합침 · 버튼 스타일 오판 · 페이지 인덱서 누락)을 모아 프롬프트를 다듬는다.
@@ -715,6 +786,20 @@ curl -H "X-Requested-With: eX-Canvas" "http://127.0.0.1:8090/canvas/fetchOpenApi
 - 규칙 기반 변환이 이미지와 같은 패턴으로 읽는지는 상태 표시줄의 "기준 템플릿 P.. (좌표 규칙으로는 P..)" 표시로 본다. 다르면 패턴 콤보(AI 선택)가 내보내기에 쓰인다.
 
 ### 7.4 이번 작업에서 손댄 파일 (커밋 안 됨)
+
+2026-10-04 · 이미지 기준 배치 · 원본 비교 · 이미지 분석 프롬프트 개선
+
+| 파일 | 내용 |
+|---|---|
+| `clx-src/module/canvas/imagePlanner.module.js` | 프롬프트(`variant` · `cells` · `widths` · 문단 · 헤더 · 코드 상자) · 응답 스키마 · `normalize()`(문단 줄바꿈 · 모양 정보 · 장식 group 빼기 · 그리드 늘리기) · `toCanvasItems()`(문단은 줄 배율 · 아래로 밀기 · 제목 폭) · `coverage()`(반영률) |
+| `clx-src/module/canvas/templatePlanner.module.js` | `planStack()` · `templateFit()` · `resolve()` 의 stack 분기 · `take()` 가 `meta`/`x` 를 실어 보냄 · 화면 제목 라벨을 consumed 로 · `dropped`/`moved` |
+| `clx-src/module/canvas/clxSerializer.module.js` | `stackDocument()` 와 블록 부품 · 그리드 셀 컨트롤/열 폭/`autofit` · 제목 줄 없는 구획 · 조회 버튼 칸 폭 |
+| `canvasAst` · `controlRegistry` · `collabSession` · `fileDownload` | `pt-meta` · 빈 헤더 열 유지 · 공유 필드 `meta` · `previewOnServer()` |
+| `clx-src/canvas/Prototyper.js` · `Prototyper.clx` · `style/prototyper.less` | [비교] 버튼 · 비교 창 · 변환 "이미지 기준 배치" · 원본 이미지 보관 · 템플릿 맞음 판정 → 자동 전환 · `pt-variant-*` 표시 |
+| `src/main/java/.../service/CanvasImageAnalyzer.java` · `excanvas.properties` | 서버 프롬프트 · 응답 스키마 · 기본 모델 `gemini-3.5-flash` |
+| `src/main/java/.../web/CanvasResultController.java` | `POST /canvas/previewResult.do`(그 화면만 컴파일 · 문제점 보고) |
+| `tools/DevServer.java` | 같은 엔드포인트 · `/ui/<앱>.clx` · Windows 시작 로그 오류 수정 |
+| `.gitignore` · `README.md` | `clx-src/result/_compare/` · 문서 |
 
 2026-09-24 · Tomcat 배포본 오류 조치 · 응답 샘플 JSON → DataSet/DataMap
 
@@ -765,6 +850,15 @@ curl -H "X-Requested-With: eX-Canvas" "http://127.0.0.1:8090/canvas/fetchOpenApi
 ---
 
 ## 8. 변경 이력
+
+### 2026-10-04 · 이미지 기준 배치 · 원본 비교 · 이미지 분석 프롬프트 개선
+
+CryptoJS 샘플 캡처를 넣었더니 결과가 원본과 전혀 달랐던 문제(안내 문단 · 구획 제목 · 코드 상자가 사라지고, 표 첫 열 헤더가 표 제목으로, [복사] 가 하단 버튼으로 감)를 고쳤습니다.
+
+- **원인 1 (분석)** — 프롬프트가 문단 · 구획 제목 · 안내 상자를 구분하지 않고, 표 헤더의 빈 열 · 첫 열을 놓치고, 코드 상자를 장식으로 봤습니다. → 요소에 `variant`(title · heading · desc · notice · label) · `cells`(열마다 셀 컨트롤) · `widths`(열 폭 비율)를 더하고, 문단은 줄바꿈을 살린 output 하나로, 헤더 줄의 글자는 모두 헤더로, 복사 버튼이 붙은 상자는 textarea 로 옮기게 했습니다(서버 `BUILTIN_PROMPT` · 브라우저 `SYSTEM_TEXT` 같은 내용). 서버 기본 모델을 `gemini-3.5-flash` 로(같은 이미지에서 2.5-flash 는 첫 열 헤더 오류가 반복).
+- **원인 2 (변환)** — 규칙 기반 계획은 템플릿 뼈대(조회 → 데이터 → 하단 버튼)에 자리가 없는 라벨을 버렸습니다. → `templateFit()` 으로 빠지거나 옮겨지는 요소가 있으면 `planStack()` + `stackDocument()` 로 템플릿 부품을 이미지 순서대로 쌓습니다([4.14](#414-이미지-기준-배치-템플릿-부품을-이미지-순서대로)). 변환 콤보에 **이미지 기준 배치** 추가.
+- **비교** — 툴바 **[비교]** · `POST /canvas/previewResult.do`(개발 서버 · Tomcat) · 개발 서버 `/ui/<앱>.clx` · `imagePlanner.coverage()` 반영률([4.15](#415-비교-원본-이미지--결과-화면)).
+- 그 밖 : 그리드 빈 헤더 열 유지(`splitCsv` keepEmpty) · 디테일 셀 컨트롤 · `autofit="all"` · 조회 버튼 칸이 `초기화`+`조회` 보다 1px 좁아 조회가 안 보이던 것(97px 고정 → 버튼 폭 합) · 캔버스의 문단 표시(`pt-variant-*`) · 항목 모양 정보 `pt-meta`(AST · 공유 필드 `meta`) · 개발 서버가 Windows 에서 시작 로그(`<yyyyMMdd>` 경로)로 죽던 것.
 
 ### 2026-09-24 · 응답 샘플 JSON → DataSet · DataMap (명세 없이 · 계층형)
 

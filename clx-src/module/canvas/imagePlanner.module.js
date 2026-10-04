@@ -40,6 +40,10 @@ var MIN_CANVAS_WIDTH = 640;
 var MIN_CANVAS_HEIGHT = 420;
 
 var STYLES = ["primary", "secondary", "default"];
+/** 아웃풋의 문단 종류 : 화면 제목 · 구획 제목 · 설명 문단 · 안내 상자(테두리·배경 안의 문단) · 라벨 */
+var VARIANTS = ["title", "heading", "desc", "notice", "label"];
+/** 그리드 데이터 행의 셀 컨트롤(열마다). button 은 "button:글자" */
+var CELL_KINDS = ["text", "checkbox", "inputbox", "combobox", "numbereditor", "dateinput", "button"];
 
 function registry() {
 	return cpr.core.Module.require("module/canvas/controlRegistry");
@@ -133,6 +137,9 @@ function buildResponseSchema(paPatternIds, paTypeIds) {
 			type : S("STRING", {
 				"enum" : paTypeIds
 			}),
+			variant : S("STRING", {
+				"enum" : VARIANTS
+			}),
 			text : S("STRING"),
 			box : S("ARRAY", {
 				items : S("INTEGER")
@@ -140,10 +147,12 @@ function buildResponseSchema(paPatternIds, paTypeIds) {
 			style : S("STRING", {
 				"enum" : STYLES
 			}),
-			required : S("BOOLEAN")
+			required : S("BOOLEAN"),
+			cells : S("STRING"),
+			widths : S("STRING")
 		},
 		required : ["type", "box"],
-		propertyOrdering : ["type", "text", "box", "style", "required"]
+		propertyOrdering : ["type", "variant", "text", "box", "style", "required", "cells", "widths"]
 	});
 	return S("OBJECT", {
 		properties : {
@@ -164,33 +173,49 @@ function buildResponseSchema(paPatternIds, paTypeIds) {
 var SYSTEM_TEXT = [
 	"너는 토마토시스템 eXBuilder6 화면 설계 보조자다.",
 	"사용자가 준 화면 이미지(캡처 · 디자인 시안 · 손그림)를 보고, 화면 본문에 보이는 UI 요소를 eXBuilder6 컨트롤 목록(JSON)으로 옮긴다.",
-	"XML 이나 코드는 쓰지 않는다. 주어진 응답 스키마의 JSON 만 돌려준다.",
+	"XML 이나 코드, 설명 문장은 쓰지 않는다. 주어진 응답 스키마의 JSON 만 돌려준다.",
 	"",
-	"[요소] { type, text, box, style, required }",
+	// ↓ 서버 분석기(CanvasImageAnalyzer.BUILTIN_PROMPT)와 같은 내용이어야 한다.
+	"[요소] { type, variant, text, box, style, required, cells, widths }",
 	"- box : 정수 4개 [ymin, xmin, ymax, xmax]. 이미지의 가로·세로를 각각 0~1000 으로 본 좌표이며 요소가 실제로 차지하는 사각형이다.",
-	"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액) ·",
+	"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액·스핀) ·",
 	"  maskeditor(전화·사업자번호처럼 형식 있는 입력) · searchinput(돋보기 검색 상자) · checkbox(체크 1개) · checkboxgroup(체크 여러 개 묶음) · radiobutton(라디오 묶음) ·",
-	"  listbox · textarea(여러 줄 글상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
+	"  listbox · textarea(여러 줄 글상자 · 코드/로그/결과 표시 상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
 	"  grid(표·목록) · tree(트리) · tabfolder(탭) · accordion · group(빈 상자·카드 틀) · pageindexer(페이지 번호 줄) · calendar(달력) ·",
 	"  fileupload(파일 목록 업로드 영역) · embeddedpage(외부 페이지·iframe) · embeddedapp · uicontrolshell(차트·지도·에디터 같은 서드파티 영역).",
+	"- variant : output 에만. title(화면 맨 위 화면 제목) · heading(구획·영역의 제목, 표 위 제목 — 굵거나 큰 글자) ·",
+	"  desc(설명·안내 문단) · notice(테두리·배경색 상자 안에 든 안내 문단) · label(입력 옆 라벨 · 짧은 글자).",
 	"- text : 유형별 뜻 — output/button/inputbox/textarea: 보이는 글자 · checkbox: 문구 · combobox/radiobutton/checkboxgroup/listbox: 항목을 쉼표로 ·",
 	"  grid: 표 헤더를 왼쪽부터 쉼표로 · tabfolder: 탭 이름을 쉼표로 · accordion: 섹션 제목을 쉼표로 · maskeditor: 마스크 · 그 밖: 빈 문자열.",
-	"  글자는 보이는 그대로 적는다(번역·요약·추측하지 않는다). 안 보이면 비운다.",
+	"  글자는 보이는 그대로 적는다(번역·요약·추측하지 않는다). 안 보이면 비운다. 설명이나 이유를 값에 적지 않는다.",
 	"- style : button 에만. 채워진 강조색(파랑·진한색) 버튼 = primary, 흰·회색 바탕의 보통 버튼 = secondary, 모르면 default.",
 	"- required : output(라벨) 에만. 라벨에 * 나 빨간 필수 표시가 있으면 true 로 하고 text 에서 * 는 뺀다.",
+	"- cells : grid 에만. 첫 데이터 행에서 열마다 보이는 컨트롤을 왼쪽부터 쉼표로 — text(글자만) · checkbox · inputbox · combobox · numbereditor · dateinput · button.",
+	"  button 은 \"button:버튼글자\" 로 적는다(예: \"text,checkbox,button:실행\"). 데이터 행이 없으면 모두 text.",
+	"- widths : grid 에만. 열마다 화면에서 차지하는 폭의 비율을 왼쪽부터 정수로 쉼표로 적는다(합이 100 쯤, 예: \"10,30,60\").",
 	"",
 	"[규칙]",
-	"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서는 뺀다.",
-	"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 헤더 글자를 text 에 쉼표로 적는다.",
-	"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer.",
+	"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서 · 즐겨찾기 같은 아이콘은 뺀다.",
+	"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 데이터 행은 요소가 아니다.",
+	"   헤더는 왼쪽부터 모든 열을 빠짐없이 적는다. 헤더 글자가 없는 열(번호 · 체크 열)도 빈 칸으로 자리를 남긴다(예: \",이벤트/함수명,설명,동작\").",
+	"   표의 맨 윗줄(헤더 줄 · 보통 회색 바탕이고 바로 아래부터 데이터 행)에 있는 글자는 맨 왼쪽 칸까지 모두 헤더다. 헤더 글자를 output 으로 다시 만들지 않는다.",
+	"   표의 box 는 헤더 줄부터 시작해 표 테두리의 맨 아래(데이터 행 아래의 빈 영역 · 가로 스크롤 줄까지)에서 끝난다. 헤더 줄과 같은 높이에 있는 글자를 표 위 제목으로 떼어 내지 않는다.",
+	"   cells · widths 는 헤더와 같은 개수로 적는다.",
+	"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output(variant heading) · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer. '총 0건' 같은 건수 표시와 아이콘은 뺀다.",
 	"4. 조회 조건은 라벨 output + 입력 컨트롤로 각각 옮기고, 라벨은 입력의 왼쪽(또는 바로 위)에 둔다.",
 	"   '시작 ~ 끝' 기간은 입력 2개 사이에 text 가 \"~\" 인 output 을 하나 둔다.",
 	"5. 탭폴더는 탭 머리와 내용 영역을 합친 사각형 하나로 두고, 탭 안의 표·입력은 그 사각형 안의 좌표로 따로 적는다.",
 	"6. 두 표 사이의 이동 버튼(▶ ◀ ▼ ▲ > <)은 button 으로 두고 text 에는 화살표만 적는다.",
 	"7. 요소끼리 겹치지 않게, 이미지의 위치·크기 비율을 그대로 지킨다. 같은 줄의 요소는 ymin 이 거의 같아야 한다.",
 	"8. 라벨과 입력이 한 상자로 붙어 있어도 라벨(output)과 입력을 따로 나눈다. 입력 안의 자리 표시 글자(placeholder)는 text 에 넣지 않는다.",
-	"9. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것을 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
-	"10. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로."
+	"9. 여러 줄로 이어진 설명·안내 문단은 output 하나로 옮기고 text 에는 줄마다 줄바꿈(\\n)을 넣어 이미지의 줄 그대로 적는다. box 는 문단 전체다.",
+	"   문단을 둘러싼 테두리(실선·점선)나 배경색 상자가 있으면 그 문단의 variant 를 notice 로 하고 box 는 상자 전체로 한다. 빈 줄로 나뉜 문단도 같은 상자 안이면 한 output 이다.",
+	"10. 코드·로그·결과를 보여 주는 큰 상자(비어 있어도 · 이미지 아래 끝에서 잘려 있어도)는 textarea 로 옮기고, 그 상자 위·안쪽 모서리의 복사 같은 버튼은 button 으로 따로 둔다.",
+	"    복사 · 지우기 버튼이 붙은 테두리 상자(안이 비어 있어도)는 장식이 아니라 textarea 다. 이미지 가장자리에서 잘린 요소도 보이는 만큼 옮긴다.",
+	"11. 영역을 감싸기만 하는 장식 테두리·배경 상자는 요소로 만들지 않는다(안의 요소만 옮긴다).",
+	"12. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것의 id 를 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
+	"13. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로.",
+	"14. 같은 문장을 두 번 쓰고 있다면 즉시 멈추고 JSON 을 닫는다."
 ].join("\n");
 
 function buildUserText(paCatalog, poImage, psMemo, psForcedPattern) {
@@ -420,10 +445,92 @@ function clampInt(pvValue, pnMin, pnMax) {
 	return Math.max(pnMin, Math.min(pnMax, vnValue));
 }
 
+/** 쉼표 목록 → 배열(빈 칸 유지). 개수가 pnCount 와 다르면 null */
+function csvOf(pvValue, pnCount) {
+	if (pvValue == null || pvValue === "") {
+		return null;
+	}
+	var vaValues = (pvValue instanceof Array ? pvValue : String(pvValue).split(",")).map(function(pvEach) {
+		return String(pvEach == null ? "" : pvEach).replace(/^\s+|\s+$/g, "");
+	});
+	return vaValues.length == pnCount ? vaValues : null;
+}
+
+/**
+ * 요소의 모양 정보(문단 종류 · 그리드 셀 컨트롤 · 열 폭)를 정리한다. 없으면 null.
+ *  - output : variant(없으면 줄 수·높이로 짐작 — 두 줄 이상이면 desc)
+ *  - grid   : cells(열마다 text|checkbox|…|button:글자) · widths(열 폭 비율 정수) — 헤더 수와 맞을 때만
+ */
+function normalizeMeta(poItem, psText) {
+	var voMeta = {};
+	if (poItem.type == "output") {
+		var vsVariant = VARIANTS.indexOf(poItem.variant) >= 0 ? poItem.variant : null;
+		if (vsVariant == null && psText.indexOf("\n") >= 0) {
+			vsVariant = "desc";
+		}
+		if (vsVariant != null && vsVariant != "label") {
+			voMeta.variant = vsVariant;
+		}
+	} else if (poItem.type == "grid") {
+		var vnCount = String(poItem.text == null ? "" : poItem.text).split(",").length;
+		var vaCells = csvOf(poItem.cells, vnCount);
+		if (vaCells != null) {
+			vaCells = vaCells.map(function(psCell) {
+				var vnColon = psCell.indexOf(":");
+				var vsKind = (vnColon >= 0 ? psCell.substring(0, vnColon) : psCell).toLowerCase();
+				if (CELL_KINDS.indexOf(vsKind) < 0) {
+					return "text";
+				}
+				return vsKind == "button" ? "button:" + (vnColon >= 0 ? psCell.substring(vnColon + 1) : "") : vsKind;
+			});
+			if (vaCells.some(function(psCell) {
+				return psCell != "text";
+			})) {
+				voMeta.cells = vaCells;
+			}
+		}
+		var vaWidths = csvOf(poItem.widths, vnCount);
+		if (vaWidths != null) {
+			vaWidths = vaWidths.map(function(psWidth) {
+				var vnWidth = parseInt(psWidth, 10);
+				return isNaN(vnWidth) || vnWidth <= 0 ? 10 : vnWidth;
+			});
+			voMeta.widths = vaWidths;
+		}
+	}
+	for (var vsKey in voMeta) {
+		return voMeta;
+	}
+	return null;
+}
+
+/**
+ * 그리드 · 트리는 보통 아래 요소 바로 앞까지 영역을 채운다. AI 가 사각형을 마지막 데이터 행에서 끊어(빈 영역을 빼고) 주는 일이 잦아,
+ * 바로 아래(가로로 겹치는) 요소까지 빈 틈이 크면(3% 넘게) 그 앞까지 늘린다. 아래에 아무것도 없으면 그대로 둔다.
+ * @param {Object[]} paItems normalize() 의 요소(0~1000 좌표) — 제자리에서 고친다.
+ */
+function extendDataAreas(paItems) {
+	paItems.forEach(function(poItem) {
+		if (poItem.type != "grid" && poItem.type != "tree") {
+			return;
+		}
+		var vnNextTop = null;
+		paItems.forEach(function(poOther) {
+			if (poOther === poItem || poOther.top < poItem.bottom || Math.min(poOther.right, poItem.right) - Math.max(poOther.left, poItem.left) <= 0) {
+				return;
+			}
+			vnNextTop = vnNextTop == null ? poOther.top : Math.min(vnNextTop, poOther.top);
+		});
+		if (vnNextTop != null && vnNextTop - poItem.bottom > 30) {
+			poItem.bottom = vnNextTop - 12;
+		}
+	});
+}
+
 /**
  * AI 응답을 검증·정리한다. 모르는 유형 · 깨진 box 는 버린다.
  * @param {Object} poPlan
- * @return {Object} { pattern, title, reason, items, dropped }
+ * @return {Object} { pattern, title, reason, items, dropped, absorbed(장식 틀로 보고 뺀 group 수) }
  */
 exports.normalize = function(poPlan) {
 	poPlan = poPlan || {};
@@ -453,12 +560,18 @@ exports.normalize = function(poPlan) {
 			vnDropped++;
 			return;
 		}
-		var vsText = poItem.text == null ? "" : String(poItem.text).replace(/^\s+|\s+$/g, "");
 		var voDef = reg.getType(poItem.type);
+		// 문단은 줄바꿈을 살린다(줄마다 앞뒤 공백만 걷고 빈 줄은 뺀다). 그 밖은 한 줄로.
+		var vsText = poItem.text == null ? "" : String(poItem.text).replace(/\r/g, "").split("\n").map(function(psLine) {
+			return psLine.replace(/^\s+|\s+$/g, "");
+		}).filter(function(psLine) {
+			return psLine !== "";
+		}).join(poItem.type == "output" || poItem.type == "textarea" ? "\n" : " ");
 		// 라벨의 필수 표시는 글자 끝 "*" 로 남긴다(규칙 기반 변환이 label required 로 읽는다).
 		if (poItem.required === true && voDef.role == "label" && vsText !== "" && !/\*$/.test(vsText)) {
 			vsText += "*";
 		}
+		var voMeta = normalizeMeta(poItem, vsText);
 		vaItems.push({
 			type : poItem.type,
 			text : vsText,
@@ -466,9 +579,21 @@ exports.normalize = function(poPlan) {
 			left : vnLeft,
 			bottom : vnBottom,
 			right : vnRight,
-			style : voDef.role == "button" && STYLES.indexOf(poItem.style) >= 0 && poItem.style != "default" ? poItem.style : null
+			style : voDef.role == "button" && STYLES.indexOf(poItem.style) >= 0 && poItem.style != "default" ? poItem.style : null,
+			meta : voMeta
 		});
 	});
+	// 다른 요소를 감싸는 빈 상자(group)는 장식 틀이다(조회 영역 배경 · 구획 테두리) — 템플릿의 search-box · content 가 그 역할을 하므로 뺀다.
+	var vnBefore = vaItems.length;
+	vaItems = vaItems.filter(function(poItem) {
+		return poItem.type != "group" || !vaItems.some(function(poOther) {
+			var vnCx = (poOther.left + poOther.right) / 2;
+			var vnCy = (poOther.top + poOther.bottom) / 2;
+			return poOther !== poItem && vnCx > poItem.left && vnCx < poItem.right && vnCy > poItem.top && vnCy < poItem.bottom;
+		});
+	});
+	var vnAbsorbed = vnBefore - vaItems.length;
+	extendDataAreas(vaItems);
 	var vsPattern = null;
 	planner.getCatalog().forEach(function(poEach) {
 		if (poEach.id == poPlan.pattern) {
@@ -480,7 +605,8 @@ exports.normalize = function(poPlan) {
 		title : poPlan.title == null ? "" : String(poPlan.title),
 		reason : poPlan.reason == null ? "" : String(poPlan.reason),
 		items : vaItems,
-		dropped : vnDropped
+		dropped : vnDropped,
+		absorbed : vnAbsorbed
 	};
 };
 
@@ -497,8 +623,299 @@ function minWidthOf(poDef) {
 	return poDef.role == "label" ? 16 : MIN_WIDTH;
 }
 
+/* ---------------------------------------------------------------- 원본 이미지 ↔ 생성 CLX 비교(반영률)
+ *
+ * 이미지 분석이 찾은 요소(원본)가 생성한 CLX 에 들어갔는지 하나씩 맞춰 본다.
+ *  - 글(라벨 · 제목 · 문단) : 줄마다 같은 글자가 아웃풋 값 · 타이틀 UDC 제목 · 화면 제목에 있는가
+ *  - 버튼 : 같은 글자의 버튼(그리드 셀 버튼 포함)
+ *  - 그리드 : 헤더 글자가 80% 이상 같고 열 수가 같은 그리드
+ *  - 그 밖(입력 · 글상자 …) : 같은 유형의 컨트롤(값이 있으면 값까지)
+ * 순서 : 맞춘 요소들의 CLX 문서 순서가 이미지의 위→아래(같은 줄은 왼→오른) 순서와 얼마나 같은가(쌍 비교).
+ */
+
+var CLX_NS = "http://tomatosystem.co.kr/cleopatra";
+
+function squash(psText) {
+	return String(psText == null ? "" : psText).replace(/\s+/g, "").toLowerCase();
+}
+
+/** CLX 를 문서 순서대로 훑어 비교에 쓸 항목 목록을 만든다. */
+function clxEntries(psXml) {
+	var voDoc = new DOMParser().parseFromString(psXml, "application/xml");
+	var vaEntries = [];
+	var vaAll = voDoc.getElementsByTagName("*");
+	for (var i = 0; i < vaAll.length; i++) {
+		var voEl = vaAll[i];
+		if (voEl.namespaceURI != CLX_NS) {
+			continue;
+		}
+		var vsTag = voEl.localName;
+		var vbInCell = voEl.parentNode != null && voEl.parentNode.localName == "gridcell";
+		if (vsTag == "appspec" && voEl.getAttribute("title")) {
+			vaEntries.push({
+				kind : "text",
+				text : voEl.getAttribute("title"),
+				order : i
+			});
+		} else if (vsTag == "property" && voEl.getAttribute("name") == "title") {
+			vaEntries.push({
+				kind : "text",
+				text : voEl.getAttribute("value"),
+				order : i
+			});
+		} else if (vsTag == "output") {
+			vaEntries.push({
+				kind : "text",
+				text : voEl.getAttribute("value"),
+				order : i
+			});
+		} else if (vsTag == "button") {
+			vaEntries.push({
+				kind : "button",
+				text : voEl.getAttribute("value"),
+				order : i
+			});
+		} else if (vsTag == "grid") {
+			var vaHeaders = [];
+			var vaHeaderCells = voEl.getElementsByTagNameNS(CLX_NS, "gridheader");
+			if (vaHeaderCells.length > 0) {
+				var vaCells = vaHeaderCells[0].getElementsByTagNameNS(CLX_NS, "gridcell");
+				for (var j = 0; j < vaCells.length; j++) {
+					vaHeaders.push(vaCells[j].getAttribute("text") || "");
+				}
+			}
+			vaEntries.push({
+				kind : "grid",
+				headers : vaHeaders,
+				order : i
+			});
+		} else if (!vbInCell && TYPE_TAGS[vsTag]) {
+			vaEntries.push({
+				kind : vsTag,
+				text : voEl.getAttribute("value") || voEl.getAttribute("text") || "",
+				order : i
+			});
+		}
+	}
+	return vaEntries;
+}
+
+/** 비교 대상 컨트롤 태그(유형 키와 같다) */
+var TYPE_TAGS = {
+	group : true,
+	inputbox : true,
+	combobox : true,
+	dateinput : true,
+	numbereditor : true,
+	maskeditor : true,
+	searchinput : true,
+	checkbox : true,
+	checkboxgroup : true,
+	radiobutton : true,
+	listbox : true,
+	textarea : true,
+	slider : true,
+	fileinput : true,
+	img : true,
+	htmlsnippet : true,
+	progress : true,
+	tree : true,
+	tabfolder : true,
+	accordion : true,
+	pageindexer : true,
+	calendar : true,
+	fileupload : true,
+	embeddedpage : true,
+	embeddedapp : true,
+	uicontrolshell : true
+};
+
+/**
+ * 원본 이미지의 요소가 생성한 CLX 에 얼마나 반영됐는지 비교한다.
+ * @param {Object} poPlan normalize() 결과(이미지 분석 원본)
+ * @param {String} psXml 생성한 .clx
+ * @return {{total:Number, matched:Number, score:Number, orderScore:Number, missing:Object[], partial:Object[], lines:String[]}}
+ */
+exports.coverage = function(poPlan, psXml) {
+	var vaEntries = clxEntries(psXml);
+	var voTaken = {};
+	var vaItems = (poPlan.items || []).slice().sort(function(a, b) {
+		return Math.abs(a.top - b.top) > 8 ? a.top - b.top : a.left - b.left;
+	});
+	var vnUnits = 0;
+	var vnMatchedUnits = 0;
+	var vaMissing = [];
+	var vaPartial = [];
+	var vaOrders = []; // 맞춘 요소의 CLX 문서 순서(이미지 순서대로)
+
+	function takeEntry(pfTest) {
+		for (var i = 0; i < vaEntries.length; i++) {
+			if (!voTaken[i] && pfTest(vaEntries[i])) {
+				voTaken[i] = true;
+				return vaEntries[i];
+			}
+		}
+		return null;
+	}
+
+	vaItems.forEach(function(poItem) {
+		var voEntry = null;
+		var vnScore = 0;
+		if (poItem.type == "output") {
+			var vaLines = String(poItem.text || "").replace(/\*$/, "").split("\n").filter(function(psLine) {
+				return squash(psLine) !== "";
+			});
+			if (vaLines.length == 0) {
+				return; // 빈 라벨은 세지 않는다.
+			}
+			var vnHit = 0;
+			var vnFirstOrder = null;
+			vaLines.forEach(function(psLine) {
+				var vsKey = squash(psLine);
+				var voHit = takeEntry(function(poEntry) {
+					return poEntry.kind == "text" && squash(poEntry.text) == vsKey;
+				}) || takeEntry(function(poEntry) {
+					return (poEntry.kind == "text" || poEntry.kind == "button") && squash(poEntry.text) !== "" && (squash(poEntry.text).indexOf(vsKey) >= 0 || vsKey.indexOf(squash(poEntry.text)) >= 0);
+				});
+				if (voHit != null) {
+					vnHit++;
+					if (vnFirstOrder == null) {
+						vnFirstOrder = voHit.order;
+					}
+				}
+			});
+			vnScore = vnHit / vaLines.length;
+			voEntry = vnFirstOrder == null ? null : {
+				order : vnFirstOrder
+			};
+		} else if (poItem.type == "button") {
+			voEntry = takeEntry(function(poEntry) {
+				return poEntry.kind == "button" && squash(poEntry.text) == squash(poItem.text);
+			});
+			vnScore = voEntry != null ? 1 : 0;
+		} else if (poItem.type == "grid") {
+			var vaHeaders = String(poItem.text || "").split(",");
+			var vnBest = 0;
+			var vnBestIdx = -1;
+			vaEntries.forEach(function(poEntry, pnIdx) {
+				if (voTaken[pnIdx] || poEntry.kind != "grid") {
+					return;
+				}
+				var voHas = {};
+				poEntry.headers.forEach(function(psHeader) {
+					voHas[squash(psHeader)] = true;
+				});
+				var vaNamed = vaHeaders.filter(function(psHeader) {
+					return squash(psHeader) !== "";
+				});
+				var vnSame = vaNamed.filter(function(psHeader) {
+					return voHas[squash(psHeader)];
+				}).length;
+				var vnEach = (vaNamed.length == 0 ? 1 : vnSame / vaNamed.length) * (poEntry.headers.length == vaHeaders.length ? 1 : 0.8);
+				if (vnEach > vnBest) {
+					vnBest = vnEach;
+					vnBestIdx = pnIdx;
+				}
+			});
+			if (vnBestIdx >= 0) {
+				voTaken[vnBestIdx] = true;
+				voEntry = vaEntries[vnBestIdx];
+			}
+			vnScore = vnBest;
+		} else {
+			var vsKey = squash(poItem.text);
+			voEntry = takeEntry(function(poEntry) {
+				return poEntry.kind == poItem.type && vsKey !== "" && squash(poEntry.text) == vsKey;
+			}) || takeEntry(function(poEntry) {
+				return poEntry.kind == poItem.type;
+			});
+			vnScore = voEntry != null ? 1 : 0;
+		}
+		vnUnits++;
+		vnMatchedUnits += vnScore;
+		var voLabel = {
+			type : poItem.type,
+			text : String(poItem.text || "").split("\n")[0]
+		};
+		if (vnScore <= 0) {
+			vaMissing.push(voLabel);
+		} else if (vnScore < 0.999) {
+			voLabel.score = Math.round(vnScore * 100);
+			vaPartial.push(voLabel);
+		}
+		if (voEntry != null) {
+			vaOrders.push(voEntry.order);
+		}
+	});
+
+	// 순서 일치 : 이미지 순서로 늘어놓은 CLX 순번이 커지는 쌍의 비율
+	var vnPairs = 0;
+	var vnInOrder = 0;
+	for (var i = 0; i < vaOrders.length; i++) {
+		for (var j = i + 1; j < vaOrders.length; j++) {
+			vnPairs++;
+			if (vaOrders[i] < vaOrders[j]) {
+				vnInOrder++;
+			}
+		}
+	}
+	var vnScorePct = vnUnits == 0 ? 100 : Math.round(vnMatchedUnits / vnUnits * 100);
+	var vnOrderPct = vnPairs == 0 ? 100 : Math.round(vnInOrder / vnPairs * 100);
+	var vaLines = ["원본 이미지 요소 " + vnUnits + "개 중 반영 " + (Math.round(vnMatchedUnits * 10) / 10) + "개 (반영률 " + vnScorePct + "%) · 위→아래 순서 일치 " + vnOrderPct + "%"];
+	vaMissing.forEach(function(poEach) {
+		vaLines.push("  - 빠짐 : " + poEach.type + (poEach.text ? " \"" + poEach.text + "\"" : ""));
+	});
+	vaPartial.forEach(function(poEach) {
+		vaLines.push("  - 일부만 : " + poEach.type + (poEach.text ? " \"" + poEach.text + "\"" : "") + " (" + poEach.score + "%)");
+	});
+	return {
+		total : vnUnits,
+		matched : vnMatchedUnits,
+		score : vnScorePct,
+		orderScore : vnOrderPct,
+		missing : vaMissing,
+		partial : vaPartial,
+		lines : vaLines
+	};
+};
+
+/** 글 줄 수(문단은 줄바꿈으로 나뉜다) */
+function lineCount(poItem) {
+	return poItem.type == "output" && poItem.text ? poItem.text.split("\n").length : 1;
+}
+
+/**
+ * 제목 · 문단이 캔버스에서 잘리지 않을 폭(px) 어림 : 가장 긴 줄의 글자 수 × 글자 폭(한글 12 · 그 밖 7, 제목은 굵고 커서 더 넓게).
+ * 한 줄 라벨은 옆 입력과 겹치지 않게 늘리지 않는다(0).
+ */
+function textWidthOf(poItem) {
+	var vsVariant = poItem.meta && poItem.meta.variant;
+	if (poItem.type != "output" || !(vsVariant == "title" || vsVariant == "heading" || vsVariant == "desc" || vsVariant == "notice")) {
+		return 0;
+	}
+	var vnFactor = vsVariant == "title" ? 1.35 : (vsVariant == "heading" ? 1.2 : 1);
+	var vnMax = 0;
+	String(poItem.text || "").split("\n").forEach(function(psLine) {
+		var vnWidth = 0;
+		for (var i = 0; i < psLine.length; i++) {
+			vnWidth += psLine.charCodeAt(i) >= 0x2E80 ? 12 : 7;
+		}
+		vnMax = Math.max(vnMax, vnWidth);
+	});
+	return Math.round(vnMax * vnFactor) + (vsVariant == "notice" ? 24 : 8);
+}
+
+/** 글 영역인가(라벨 · 제목 · 문단) — 세로는 줄 배율로 잰다(그리드처럼 늘이지 않는다). */
+function isTextItem(poItem) {
+	return poItem.type == "output";
+}
+
 /** 유형별 최소 높이(캔버스 px) */
-function minHeightOf(poDef) {
+function minHeightOf(poDef, poItem) {
+	if (poItem != null && isTextItem(poItem) && lineCount(poItem) > 1) {
+		// 여러 줄 문단 : 줄마다 18px + 안내 상자면 안쪽 여백
+		return lineCount(poItem) * 18 + (poItem.meta && poItem.meta.variant == "notice" ? 16 : 4);
+	}
 	if (isShortType(poDef)) {
 		return ROW_HEIGHT;
 	}
@@ -546,7 +963,9 @@ exports.toCanvasItems = function(poPlan, poImage, poCanvas) {
 		return {
 			item : poItem,
 			def : voDef,
-			isShort : isShortType(voDef),
+			// 여러 줄 문단은 "한 줄짜리" 가 아니다(줄 높이 중간값을 흐리지 않게) — 대신 isText 로 줄 배율을 쓴다.
+			isShort : isShortType(voDef) && lineCount(poItem) == 1,
+			isText : isTextItem(poItem),
 			x : poItem.left / 1000 * vnImageWidth,
 			right : poItem.right / 1000 * vnImageWidth,
 			y : poItem.top / 1000 * vnImageHeight,
@@ -579,6 +998,8 @@ exports.toCanvasItems = function(poPlan, poImage, poCanvas) {
 	var vnShortLimit = vnRowHeightInImage > 0 ? vnRowHeightInImage * 1.8 : Infinity;
 	vaBoxes.forEach(function(b) {
 		b.isShort = b.isShort && (b.bottom - b.y) <= vnShortLimit;
+		// 글 영역(라벨 · 문단 · 안내 상자)이 지나는 띠는 줄 배율로 잰다 — 글이 그리드처럼 늘어나지 않는다.
+		b.isRowLike = b.isShort || b.isText;
 	});
 
 	// 띠 나누기 : 모든 요소의 위·아래 경계
@@ -605,7 +1026,7 @@ exports.toCanvasItems = function(poPlan, poImage, poCanvas) {
 		vaBoxes.forEach(function(b) {
 			if (b.y <= vnA + 0.05 && b.bottom >= vnB - 0.05) {
 				vbCovered = true;
-				if (b.isShort) {
+				if (b.isRowLike) {
 					vbRow = true;
 				}
 			}
@@ -623,10 +1044,11 @@ exports.toCanvasItems = function(poPlan, poImage, poCanvas) {
 		}
 	}
 
-	// 남는 높이를 큰 영역·빈 띠가 나눠 쓴다. 너무 줄지도(0.25) 너무 늘지도(가로 배율·줄 배율 중 큰 값) 않게.
+	// 남는 높이를 큰 영역·빈 띠가 나눠 쓴다. 너무 늘지(가로 배율·줄 배율 중 큰 값) 않게,
+	// 그리고 이미지의 가로세로 비율보다는 줄지 않게(캔버스가 짧으면 아래로 스크롤된다) — 그리드·글상자가 납작해지면 내보낸 화면도 납작해진다.
 	var vnAvailable = vnCanvasHeight - MARGIN * 2 - vnRowLength * vnScaleRow;
 	var vnScaleFree = vnFreeLength > 0 ? vnAvailable / vnFreeLength : vnScaleRow;
-	vnScaleFree = Math.max(0.25, Math.min(Math.max(vnScaleX, vnScaleRow), vnScaleFree));
+	vnScaleFree = Math.max(Math.min(vnScaleX, vnScaleRow) * 0.9, Math.min(Math.max(vnScaleX, vnScaleRow), vnScaleFree));
 
 	// 누적 높이표 : 이미지 y → 캔버스 y
 	var vaMapped = [];
@@ -662,19 +1084,37 @@ exports.toCanvasItems = function(poPlan, poImage, poCanvas) {
 		return voLast.start + (pnY - voLast.from) * voLast.scale;
 	}
 
+	// 최소 높이로 늘어난 요소(여러 줄 문단 등)가 아래 요소를 덮지 않게, 늘어난 만큼 그 아래를 모두 내린다(순서는 그대로).
+	vaBoxes.forEach(function(b) {
+		b.mappedTop = mapY(b.y);
+		b.mappedBottom = mapY(b.bottom);
+		b.excess = Math.max(0, minHeightOf(b.def, b.item) - (b.mappedBottom - b.mappedTop));
+	});
+	function shiftAt(pnY) {
+		var vnShift = 0;
+		vaBoxes.forEach(function(b) {
+			if (b.excess > 0 && b.mappedBottom <= pnY + 0.5) {
+				vnShift += b.excess;
+			}
+		});
+		return vnShift;
+	}
+
 	return vaBoxes.map(function(b) {
-		var vnTop = Math.round(mapY(b.y));
-		var vnBottom = Math.round(mapY(b.bottom));
+		var vnTop = Math.round(b.mappedTop + shiftAt(b.mappedTop));
+		var vnBottom = Math.round(b.mappedBottom + shiftAt(b.mappedBottom) - (b.excess > 0 ? b.excess : 0));
 		var vnLeft = Math.round(MARGIN + (b.x - vnMinX) * vnScaleX);
-		var vnWidth = Math.round((b.right - b.x) * vnScaleX);
+		// 제목 · 문단은 글이 잘리지 않을 만큼(캔버스 오른쪽 여백 안에서) 넓힌다.
+		var vnWidth = Math.max(Math.round((b.right - b.x) * vnScaleX), Math.min(textWidthOf(b.item), vnCanvasWidth - MARGIN - vnLeft));
 		return {
 			type : b.item.type,
 			text : b.item.text,
 			style : b.item.style,
+			meta : b.item.meta || null,
 			x : Math.max(0, vnLeft),
 			y : Math.max(0, vnTop),
 			width : Math.max(minWidthOf(b.def), vnWidth),
-			height : Math.max(minHeightOf(b.def), vnBottom - vnTop)
+			height : Math.max(minHeightOf(b.def, b.item), vnBottom - vnTop)
 		};
 	});
 };

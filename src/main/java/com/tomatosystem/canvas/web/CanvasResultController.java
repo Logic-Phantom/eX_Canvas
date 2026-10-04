@@ -110,6 +110,118 @@ public class CanvasResultController {
 				"{\"ok\":true,\"dir\":\"" + json(srcRoot.getFileName().toString() + "/result/" + date) + "\",\"name\":\"" + json(safeName) + "\"}");
 	}
 
+	/**
+	 * 비교용 미리보기 : 생성물을 clx-src/result/_compare/&lt;이름&gt;.clx 에 덮어쓰고 그 파일 하나만 컴파일(e6-compiler --include)해
+	 * 배포 폴더(/ui)에 화면 스크립트를 넣는다. 응답의 url(&lt;컨텍스트&gt;/ui/result/_compare/&lt;이름&gt;.clx)을 clxviewer 가 띄운다.
+	 * 이클립스 빌드를 기다리지 않고 바로 실제 런타임 화면을 볼 수 있게 하려는 것이다(tools/DevServer.java 와 같은 계약).
+	 */
+	@RequestMapping(value = "/canvas/previewResult.do", method = RequestMethod.POST)
+	public void preview(@RequestParam(value = "name", defaultValue = "prototype") String name,
+			HttpServletRequest request, HttpServletResponse response) throws IOException {
+		if (!"eX-Canvas".equals(request.getHeader("X-Requested-With"))) {
+			write(response, HttpServletResponse.SC_FORBIDDEN, "{\"ok\":false,\"message\":\"forbidden\"}");
+			return;
+		}
+		Path srcRoot = resolveSrcDir(request);
+		String uiDir = request.getServletContext().getRealPath("/ui");
+		if (srcRoot == null || uiDir == null) {
+			write(response, HttpServletResponse.SC_SERVICE_UNAVAILABLE, "{\"ok\":false,\"message\":\"" + (srcRoot == null ? notFoundMessage() : "배포 폴더(/ui)를 찾지 못했습니다.") + "\"}");
+			return;
+		}
+		String safeName = name.replaceAll("[^\\p{L}\\p{N}_-]", "");
+		if (safeName.isEmpty()) {
+			safeName = "prototype";
+		}
+		byte[] raw = readAll(request.getInputStream(), MAX_BODY_BYTES);
+		if (raw == null) {
+			write(response, HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "{\"ok\":false,\"message\":\"요청이 너무 큽니다.\"}");
+			return;
+		}
+		String body = new String(raw, StandardCharsets.UTF_8);
+		int cut = body.indexOf(SEPARATOR);
+		String clx = cut < 0 ? body : body.substring(0, cut);
+		String js = cut < 0 ? "" : body.substring(cut + SEPARATOR.length());
+
+		String[] compiled = compilePreview(srcRoot, safeName, clx, js, Paths.get(uiDir));
+		if (compiled[0] != null) {
+			write(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "{\"ok\":false,\"message\":\"" + jsonText(compiled[0]) + "\"}");
+			return;
+		}
+		write(response, HttpServletResponse.SC_OK, "{\"ok\":true,\"app\":\"result/_compare/" + json(safeName) + "\",\"url\":\""
+				+ json(request.getContextPath() + "/ui/result/_compare/" + safeName + ".clx") + "\",\"problems\":\"" + jsonText(compiled[1]) + "\"}");
+	}
+
+	/**
+	 * result/_compare/&lt;이름&gt;.clx 를 쓰고 그 파일만 컴파일해 &lt;출력&gt;/result/_compare/&lt;이름&gt;.clx.js 로 넣는다.
+	 * 컴파일러 출력은 임시 폴더에 받아 화면 스크립트만 옮긴다(env.json 등 다른 산출물은 건드리지 않는다).
+	 * 컴파일러는 스키마 오류("Problem #n … ERROR")가 있어도 BUILD SUCCESS 로 끝나므로 로그에서 문제점을 따로 뽑는다.
+	 * @return { 실패 이유(성공이면 null), 문제점(없으면 "") }
+	 */
+	static String[] compilePreview(Path clxSrc, String name, String clx, String js, Path outDir) throws IOException {
+		Path dir = clxSrc.resolve("result").resolve("_compare");
+		Files.createDirectories(dir);
+		Files.write(dir.resolve(name + ".clx"), clx.getBytes(StandardCharsets.UTF_8));
+		Files.write(dir.resolve(name + ".js"), js.getBytes(StandardCharsets.UTF_8));
+		Path project = clxSrc.toAbsolutePath().getParent();
+		Path compiler = project.resolve("ci-lib/clx/e6-compiler.jar");
+		if (!Files.isRegularFile(compiler)) {
+			return new String[] { "컴파일러를 찾지 못했습니다 : " + compiler, "" };
+		}
+		Path temp = Files.createTempDirectory("excanvas-compare");
+		try {
+			String javaBin = Paths.get(System.getProperty("java.home"), "bin", "java").toString();
+			ProcessBuilder builder = new ProcessBuilder(javaBin, "-Dfile.encoding=UTF-8", "-jar", compiler.toString(),
+					"-s", project.toString(), "-o", temp.toString(), "--include", "result/_compare/" + name + ".clx");
+			builder.directory(project.toFile());
+			builder.redirectErrorStream(true);
+			Process process = builder.start();
+			byte[] logBytes = readAll(process.getInputStream(), Integer.MAX_VALUE);
+			String log = logBytes == null ? "" : new String(logBytes, StandardCharsets.UTF_8);
+			try {
+				process.waitFor();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return new String[] { "컴파일이 중단되었습니다.", "" };
+			}
+			Path built = temp.resolve("result").resolve("_compare").resolve(name + ".clx.js");
+			if (process.exitValue() != 0 || !Files.isRegularFile(built)) {
+				String tail = log.length() > 1500 ? log.substring(log.length() - 1500) : log;
+				return new String[] { "생성한 CLX 를 컴파일하지 못했습니다(exit " + process.exitValue() + ").\n" + tail, "" };
+			}
+			Path target = outDir.resolve("result").resolve("_compare").resolve(name + ".clx.js");
+			Files.createDirectories(target.getParent());
+			Files.copy(built, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			return new String[] { null, compileProblems(log) };
+		} finally {
+			deleteTree(temp);
+		}
+	}
+
+	/** 컴파일러 로그에서 "  1. ERROR: (Line: 20) Feature 'x' not found. (file…)" 줄만 모은다. */
+	static String compileProblems(String log) {
+		StringBuilder problems = new StringBuilder();
+		for (String line : log.split("\r?\n")) {
+			String trimmed = line.trim();
+			if (trimmed.matches("^\\d+\\.\\s+(ERROR|WARNING|WARN)\\b.*")) {
+				int file = trimmed.indexOf(" (file:");
+				problems.append(problems.length() > 0 ? "\n" : "").append(file > 0 ? trimmed.substring(0, file) : trimmed);
+			}
+		}
+		return problems.toString();
+	}
+
+	private static void deleteTree(Path root) {
+		try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
+			walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+		} catch (IOException ignored) {
+			// 임시 폴더 정리 실패는 무시한다.
+		}
+	}
+
+	private static String jsonText(String value) {
+		return json(value).replace("\r", "").replace("\n", "\\n").replace("\t", " ");
+	}
+
 	/* ================================================================ 소스 경로 찾기 */
 
 	private Path resolveSrcDir(HttpServletRequest request) {

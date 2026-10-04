@@ -97,6 +97,26 @@
   border-color: #aab3c5;
   color: #2b3140;
 }
+/* 문단 종류(이미지 분석의 variant) — 캔버스 미리보기용. 내보낼 때는 템플릿 부품(앱 헤더 · udcComFormTitle · card)으로 바뀐다. */
+.cl-container.pt-item .cl-output.pt-variant-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+.cl-container.pt-item .cl-output.pt-variant-heading {
+  font-size: 14px;
+  font-weight: bold;
+}
+.cl-container.pt-item .cl-output.pt-variant-desc,
+.cl-container.pt-item .cl-output.pt-variant-notice {
+  white-space: pre-line;
+  line-height: 18px;
+  align-items: flex-start;
+}
+.cl-container.pt-item .cl-output.pt-variant-notice {
+  border: 1px dashed #9aa6b8;
+  background-color: #f5f9ff;
+  padding: 6px 8px;
+}
 /* 캔버스에 놓인 항목(래퍼 그룹) */
 .cl-container.pt-item {
   outline: 1px dashed transparent;

@@ -19,12 +19,13 @@
 		 *   pt-text : 속성창 Text 값(유형에 따라 value/text/아이템/컬럼/탭)
 		 *   pt-style: 스타일 계열(버튼의 primary | secondary, 없으면 자동)
 		 *   pt-bind : 데이터 바인딩(ds:데이터셋 · dm:데이터맵.컬럼 · sub:서브미션 · clear:데이터 — openApiPlanner 참고)
+		 *   pt-meta : 이미지 분석이 붙인 모양 정보(JSON) — { variant : title|heading|desc|notice|label, cells : [열마다 셀 컨트롤], widths : [열 폭 비율] }
 		 * 위치·크기는 캔버스(XY 레이아웃)의 제약(getConstraint)에서 읽는다 - DOM을 읽지 않는다.
 		 *
 		 * AST 형태:
 		 * {
 		 *   app : { name, title, popup, canvas : { width, height }, model? },   model = API 연동으로 붙인 데이터 모델(DataSet · DataMap · Submission)
-		 *   children : [ { type, role, id, text, items?, style?, bind?, layoutData : { x, y, width, height } } ]
+		 *   children : [ { type, role, id, text, items?, style?, bind?, meta?, layoutData : { x, y, width, height } } ]
 		 * }
 		 ************************************************/
 
@@ -35,6 +36,24 @@
 		var ATTR_STYLE = "pt-style";
 		/** 데이터 바인딩 표기(openApiPlanner.parseBind 가 해석한다). 비어 있으면 바인딩 없음. */
 		var ATTR_BIND = "pt-bind";
+		/** 모양 정보(JSON 문자열). 비어 있으면 없음. 이미지 분석이 채운다(문단 종류 · 그리드 셀 컨트롤 · 열 폭). */
+		var ATTR_META = "pt-meta";
+
+		/**
+		 * pt-meta 문자열 → 객체(깨졌거나 비었으면 null)
+		 * @param {String} psMeta
+		 */
+		function parseMeta(psMeta) {
+			if (psMeta == null || psMeta === "") {
+				return null;
+			}
+			try {
+				var voMeta = JSON.parse(psMeta);
+				return voMeta != null && typeof voMeta == "object" ? voMeta : null;
+			} catch (e) {
+				return null;
+			}
+		}
 
 		/**
 		 * "120px" · 120 · "120.0px" → 120
@@ -91,6 +110,10 @@
 				if (vsBind != null && vsBind !== "") {
 					voNode.bind = vsBind; // API 연동·속성창에서 정한 데이터 바인딩
 				}
+				var voMeta = parseMeta(pcWrapper.userAttr(ATTR_META));
+				if (voMeta != null) {
+					voNode.meta = voMeta; // 이미지 분석이 붙인 모양 정보(문단 종류 · 그리드 셀 · 열 폭)
+				}
 				if (voDef.udcType) {
 					voNode.udcType = voDef.udcType; // 예: udc.com.udcComGridTitle
 				}
@@ -101,7 +124,8 @@
 					voNode.text = voDef.uiTemplate.name;
 				}
 				if (voDef.textKind == "items" || voDef.textKind == "columns" || voDef.textKind == "tabs" || voDef.textKind == "sections") {
-					voNode.items = registry.splitCsv(vsText);
+					// 그리드 헤더는 빈 칸(번호 · 체크 열)도 열이므로 자리를 남긴다.
+					voNode.items = registry.splitCsv(vsText, null, voDef.textKind == "columns");
 				}
 				vaChildren.push(voNode);
 			});
@@ -136,6 +160,8 @@
 		exports.ATTR_TEXT = ATTR_TEXT;
 		exports.ATTR_STYLE = ATTR_STYLE;
 		exports.ATTR_BIND = ATTR_BIND;
+		exports.ATTR_META = ATTR_META;
+		exports.parseMeta = parseMeta;
 	});
 })();
 /// end - module/canvas/canvasAst
@@ -162,6 +188,7 @@
 		 *         ├ grpData(.content-body)     > content / division-group / tabfolder / form-base
 		 *         └ grpFooter(.content-footer) > footer-button-group(좌·우 flow)
 		 *     plan 은 templatePlanner.resolve() 가 만든 "해석 완료된 화면 계획"이다.
+		 *     plan.layout 이 "stack"(이미지 기준 배치)이면 같은 부품을 이미지 순서대로 위→아래로 쌓는다(stackDocument).
 		 *  3) generate(source, mode, appName) : 위 둘 중 하나로 XML 을 만들고, 함께 쓸 화면 스크립트(.js)까지 돌려준다 { clx, js }.
 		 *
 		 * 데이터 모델 · 바인딩(API 연동, openApiPlanner)
@@ -513,18 +540,54 @@
 			});
 		}
 
+		/** 그리드 디테일 셀 안의 컨트롤(이미지 분석의 cells) : 유형 → [태그, sid 접두] */
+		var CELL_TAG = {
+			checkbox : ["cl:checkbox", "c-box"],
+			inputbox : ["cl:inputbox", "i-box"],
+			combobox : ["cl:combobox", "c-box"],
+			numbereditor : ["cl:numbereditor", "n-editor"],
+			dateinput : ["cl:dateinput", "d-input"],
+			button : ["cl:button", "button"]
+		};
+
+		/** 디테일 셀의 컨트롤 노드(없으면 null). "button:실행" 은 글자를 가진 인라인 버튼. */
+		function cellControlEl(poCtx, psCell) {
+			if (psCell == null || psCell === "" || psCell == "text") {
+				return null;
+			}
+			var vnColon = psCell.indexOf(":");
+			var vsKind = vnColon >= 0 ? psCell.substring(0, vnColon) : psCell;
+			var vaTag = CELL_TAG[vsKind];
+			if (vaTag == null) {
+				return null;
+			}
+			var vaAttrs = [["std:sid", sid(poCtx, vaTag[1])]];
+			if (vsKind == "button") {
+				vaAttrs.push(["class", "btn-inline"], ["value", vnColon >= 0 && psCell.substring(vnColon + 1) !== "" ? psCell.substring(vnColon + 1) : "버튼"]);
+			}
+			return el(vaTag[0], vaAttrs, [el("cl:celldata", [["std:sid", sid(poCtx, "c-data")]])]);
+		}
+
 		/**
 		 * @param {String[]} paHeaders 헤더 글자
 		 * @param {Object[]} paColumns 바인딩된 데이터셋의 컬럼(없으면 null) → 있으면 셀에 columnname 을 넣는다.
+		 * @param {Object} poMeta 이미지 분석의 모양 정보 { cells : [열마다 셀 컨트롤], widths : [열 폭 비율] } (없으면 null)
 		 */
-		function gridParts(poCtx, paHeaders, paColumns) {
+		function gridParts(poCtx, paHeaders, paColumns, poMeta) {
 			var vaHeaders = paHeaders && paHeaders.length > 0 ? paHeaders : (paColumns != null && paColumns.length > 0 ? paColumns.map(function(poColumn) {
 				return poColumn.label || poColumn.name;
 			}) : ["", "", "", "", ""]);
 			var vaNames = matchColumns(vaHeaders, paColumns);
+			var vaCells = poMeta && poMeta.cells instanceof Array && poMeta.cells.length == vaHeaders.length ? poMeta.cells : null;
+			var vaWidths = poMeta && poMeta.widths instanceof Array && poMeta.widths.length == vaHeaders.length ? poMeta.widths : null;
+			var vnWidthSum = vaWidths == null ? 0 : vaWidths.reduce(function(pnSum, pnWidth) {
+				return pnSum + (Number(pnWidth) || 0);
+			}, 0);
 			var vaParts = [];
-			vaHeaders.forEach(function() {
-				vaParts.push(el("cl:gridcolumn", [["std:sid", sid(poCtx, "g-column")], ["width", "80px"]]));
+			vaHeaders.forEach(function(psHeader, pnIdx) {
+				// 열 폭 비율이 있으면 화면 폭(1408px) 기준으로 나눈다(그리드가 폭에 맞춰 늘이므로 비율이 산다).
+				var vnWidth = vaWidths != null && vnWidthSum > 0 ? Math.max(30, Math.round(Number(vaWidths[pnIdx]) / vnWidthSum * 1408)) : 80;
+				vaParts.push(el("cl:gridcolumn", [["std:sid", sid(poCtx, "g-column")], ["width", vnWidth + "px"]]));
 			});
 			var vaHeaderCells = [el("cl:gridrow", [["std:sid", sid(poCtx, "g-row")], ["height", "25px"]])];
 			var vaDetailCells = [el("cl:gridrow", [["std:sid", sid(poCtx, "g-row")], ["height", "25px"]])];
@@ -536,7 +599,9 @@
 					["targetcolumnname", vaNames[pnIdx]],
 					["text", psHeader === "" ? null : psHeader]
 				]));
-				vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx], ["columnname", vaNames[pnIdx]]]));
+				vaDetailCells.push(el("cl:gridcell", [["std:sid", sid(poCtx, "gd-cell")], ["rowindex", 0], ["colindex", pnIdx], ["columnname", vaNames[pnIdx]]], [
+					cellControlEl(poCtx, vaCells == null ? null : vaCells[pnIdx])
+				]));
 			});
 			vaParts.push(el("cl:gridheader", [["std:sid", sid(poCtx, "gh-band")]], vaHeaderCells));
 			vaParts.push(el("cl:griddetail", [["std:sid", sid(poCtx, "gd-band")]], vaDetailCells));
@@ -573,6 +638,10 @@
 			if (vbGridBound) {
 				vaAttrs.push(["datasetid", voBind.dataId]);
 			}
+			if (poCtrl.type == "grid" && poCtrl.meta && poCtrl.meta.widths) {
+				// 이미지의 열 폭 비율을 지키며 그리드 폭에 맞춘다(가로 스크롤 없이 이미지처럼 꽉 차게).
+				vaAttrs.push(["autofit", "all"]);
+			}
 
 			switch (poCtrl.type) {
 				case "output":
@@ -597,7 +666,7 @@
 					break;
 				case "grid":
 					var voDataSet = vbGridBound ? modelData(poCtx, voBind.dataId) : null;
-					vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items, voDataSet != null ? voDataSet.columns : null));
+					vaChildren = vaChildren.concat(gridParts(poCtx, poCtrl.items, voDataSet != null ? voDataSet.columns : null, poCtrl.meta));
 					break;
 				case "htmlsnippet":
 					vaAttrs.push(["value", vsText === "" ? null : vsText]);
@@ -1113,7 +1182,11 @@
 				var voFlow = flowLayout(poCtx, "right", 6, 0);
 				voFlow.attrs.push(["linewrap", "false"]);
 				vaChildren.push(groupEl(poCtx, "grpBtnSearch", "search-button-group", formData(poCtx, voPlaced.rows.length - 1, vnPairs * 2), vaButtons, voFlow));
-				vaCols.push(PX(97, AUTO));
+				// 템플릿은 97px(초기화 + 조회). 버튼이 더 넓으면 줄바꿈 없이 다 보이도록 그만큼 넓힌다.
+				var vnButtonsWidth = voSearch.buttons.reduce(function(pnSum, poBtn) {
+					return pnSum + buttonWidth(poBtn.text);
+				}, 0) + (voSearch.buttons.length - 1) * 6 + 4;
+				vaCols.push(PX(Math.max(97, vnButtonsWidth), AUTO));
 			}
 
 			var vnHeight = sumRowHeight(voPlaced.rows, 6, 20);
@@ -1128,12 +1201,23 @@
 			};
 		}
 
-		/** 구획 제목: 버튼이 없으면 타이틀 UDC 하나, 있으면 content-title-box(UDC + title-button-group) */
+		/**
+		 * 구획 제목: 버튼이 없으면 타이틀 UDC 하나, 있으면 content-title-box(UDC + title-button-group)
+		 * 이미지 기준(stack) 구획(noTitleUdc)은 이미지에 제목이 없으면 UDC 를 만들지 않는다 — 버튼만 있으면 버튼 묶음만, 둘 다 없으면 null.
+		 */
 		function sectionTitleEl(poCtx, poSection) {
+			var vaButtons = poSection.buttons || [];
+			if (poSection.noTitleUdc && !poSection.title) {
+				if (vaButtons.length == 0) {
+					return null;
+				}
+				return groupEl(poCtx, null, "title-button-group", formData(poCtx, 0, 0), vaButtons.map(function(poBtn) {
+					return controlEl(poCtx, poBtn, buttonFlowData(poCtx, poBtn, 24));
+				}), flowLayout(poCtx, "right", 6, 0));
+			}
 			var vbGridTitle = poSection.kind == "grid";
 			var vsUdcType = vbGridTitle ? "udc.com.udcComGridTitle" : "udc.com.udcComFormTitle";
 			var vsUdcId = seqId(poCtx, vbGridTitle ? "udccomgridtitle" : "udccomformtitle");
-			var vaButtons = poSection.buttons || [];
 
 			if (vaButtons.length == 0) {
 				return udcEl(poCtx, vsUdcId, vsUdcType, formData(poCtx, 0, 0), poSection.title);
@@ -1206,23 +1290,30 @@
 					vnFixed = 24;
 					break;
 				case "form":
-					var voForm = formBaseEl(poCtx, poSection, formData(poCtx, 1, 0));
-					voNode = groupEl(poCtx, null, "content", poLayoutData, [sectionTitleEl(poCtx, poSection), voForm.node], formLayout(poCtx, {
+					var voFormTitle = sectionTitleEl(poCtx, poSection);
+					var vnFormRow = voFormTitle == null ? 0 : 1;
+					var voForm = formBaseEl(poCtx, poSection, formData(poCtx, vnFormRow, 0));
+					var vaFormRows = voFormTitle == null ? [] : [PX(24, {
+						autoSizing : true
+					})];
+					vaFormRows.push(PX(voForm.height, AUTO));
+					voNode = groupEl(poCtx, null, "content", poLayoutData, (voFormTitle == null ? [] : [voFormTitle]).concat([voForm.node]), formLayout(poCtx, {
 						hspace : 4,
 						vspace : 4
-					}, [PX(24, {
-						autoSizing : true
-					}), PX(voForm.height, AUTO)], [FR()]));
-					vnFixed = 24 + 4 + voForm.height;
+					}, vaFormRows, [FR()]));
+					vnFixed = (voFormTitle == null ? 0 : 24 + 4) + voForm.height;
 					break;
 				default:
 					// grid · tree · 그 밖의 데이터 컨트롤 : 제목 UDC(0행) + 컨트롤(1행, 1fr) (+ 페이지 인덱서 2행, 템플릿 P1-4)
-					var vaContent = [sectionTitleEl(poCtx, poSection), controlEl(poCtx, poSection.control, formData(poCtx, 1, 0))];
-					var vaContentRows = [PX(24, {
+					// 이미지 기준 구획에 제목·버튼이 없으면 제목 줄 없이 컨트롤이 0행.
+					var voTitleEl = sectionTitleEl(poCtx, poSection);
+					var vnCtrlRow = voTitleEl == null ? 0 : 1;
+					var vaContent = (voTitleEl == null ? [] : [voTitleEl]).concat([controlEl(poCtx, poSection.control, formData(poCtx, vnCtrlRow, 0))]);
+					var vaContentRows = voTitleEl == null ? [FR()] : [PX(24, {
 						autoSizing : true
 					}), FR()];
 					if (poSection.pager != null) {
-						vaContent.push(controlEl(poCtx, poSection.pager, formData(poCtx, 2, 0)));
+						vaContent.push(controlEl(poCtx, poSection.pager, formData(poCtx, vnCtrlRow + 1, 0)));
 						vaContentRows.push(PX(24));
 					}
 					voNode = groupEl(poCtx, null, "content", poLayoutData, vaContent, formLayout(poCtx, {
@@ -1337,7 +1428,7 @@
 		 * @return {String} .clx XML
 		 */
 		exports.serializePlan = function(poPlan) {
-			return planDocument(createContext(), poPlan);
+			return poPlan.layout == "stack" ? stackDocument(createContext(), poPlan) : planDocument(createContext(), poPlan);
 		};
 
 		function planDocument(voCtx, poPlan) {
@@ -1388,6 +1479,276 @@
 			return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (base template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + modelComment(voCtx) + ")");
 		}
 
+		/* ---------------------------------------------------------------- 3) 이미지 기준(stack) — 템플릿 부품을 이미지 순서대로
+		 *
+		 *  body.content-wrapper (formlayout, 위→아래)
+		 *    ├ udcComAppHeader                    화면 제목
+		 *    ├ grpData(.content-body)             이어지는 블록 묶음 : 안내 상자(card) · 설명 문단 · 구획 제목 UDC · content(그리드/글상자) · 버튼 줄 …
+		 *    ├ grpHeader(.content-header > .search-box)   조회 조건(이미지에 있던 자리)
+		 *    ├ grpData2(.content-body)            …
+		 *    └ grpFooter(.content-footer)         하단 버튼(있으면)
+		 *  높이는 캔버스(=이미지) 비율 그대로 화면 폭(1408px)에 맞춰 옮기고, 맨 아래 영역 구획 하나만 남는 높이를 채운다(1fr).
+		 */
+
+		var STACK_WIDTH = 1408;
+		var TEXT_LINE = 18;
+
+		/** 글 블록 높이 : 줄마다 18px(+ 줄 간격 2) · 안내 상자는 card 의 안쪽 여백(10 × 2)과 테두리 */
+		function textBlockHeight(paLines, pbBoxed) {
+			return paLines.length * TEXT_LINE + (paLines.length - 1) * 2 + (pbBoxed ? 22 : 0);
+		}
+
+		/** 설명 문단 · 안내 상자 · 라벨 : 한 줄이면 아웃풋 하나, 여러 줄(또는 상자)이면 줄마다 아웃풋을 쌓은 그룹(안내 상자는 card) */
+		function textBlockEl(poCtx, poBlock, poLayoutData) {
+			var voCtrl = poBlock.control;
+			var vaLines = String(voCtrl.text == null ? "" : voCtrl.text).split("\n");
+			var vbBoxed = poBlock.variant == "notice";
+			if (vaLines.length == 1 && !vbBoxed) {
+				return {
+					node : controlEl(poCtx, {
+						type : "output",
+						id : voCtrl.id,
+						text : vaLines[0]
+					}, poLayoutData),
+					height : 24
+				};
+			}
+			var vaRows = [];
+			var vaChildren = vaLines.map(function(psLine, pnIdx) {
+				vaRows.push(PX(TEXT_LINE));
+				return controlEl(poCtx, {
+					type : "output",
+					id : pnIdx == 0 ? voCtrl.id : null,
+					text : psLine
+				}, formData(poCtx, pnIdx, 0));
+			});
+			return {
+				node : groupEl(poCtx, null, vbBoxed ? "card" : null, poLayoutData, vaChildren, formLayout(poCtx, {
+					hspace : 0,
+					vspace : 2
+				}, vaRows, [FR()])),
+				height : textBlockHeight(vaLines, vbBoxed)
+			};
+		}
+
+		/** 한 줄 블록 : 캔버스의 가로 위치·폭 비율대로 칸을 나눠 컨트롤을 놓는다(앞 간격은 빈 칸). */
+		function rowBlockEl(poCtx, poBlock, poLayoutData, pnScale, pnLeft) {
+			var vaControls = poBlock.controls.slice().sort(function(a, b) {
+				return (a.x || 0) - (b.x || 0);
+			});
+			var vaCols = [];
+			var vaChildren = [];
+			var vnCursor = pnLeft;
+			var vnHeight = 24;
+			vaControls.forEach(function(poCtrl) {
+				var vnGap = Math.round(((poCtrl.x || vnCursor) - vnCursor) * pnScale);
+				if (vnGap > 12) {
+					vaCols.push(PX(vnGap));
+				}
+				var vnLines = poCtrl.type == "output" ? String(poCtrl.text || "").split("\n").length : 1;
+				vnHeight = Math.max(vnHeight, vnLines > 1 ? textBlockHeight(String(poCtrl.text).split("\n"), false) : (poCtrl.type == "button" ? 28 : 24));
+				vaChildren.push(controlEl(poCtx, poCtrl, formData(poCtx, 0, vaCols.length)));
+				vaCols.push(PX(Math.max(24, Math.round((poCtrl.width || 80) * pnScale))));
+				vnCursor = (poCtrl.x || vnCursor) + (poCtrl.width || 80);
+			});
+			vaCols.push(FR());
+			return {
+				node : groupEl(poCtx, null, null, poLayoutData, vaChildren, formLayout(poCtx, {
+					hspace : 8,
+					vspace : 0
+				}, [FR()], vaCols)),
+				height : vnHeight
+			};
+		}
+
+		/** 버튼 줄 : 이미지에서의 좌·우(가운데) 위치대로 흐름 배치 */
+		function buttonRowEl(poCtx, poBlock, poLayoutData) {
+			return {
+				node : groupEl(poCtx, null, "title-button-group", poLayoutData, poBlock.buttons.map(function(poBtn) {
+					return controlEl(poCtx, poBtn, buttonFlowData(poCtx, poBtn, 24));
+				}), flowLayout(poCtx, poBlock.align || null, 6, 0)),
+				height : 24
+			};
+		}
+
+		/** 영역 구획의 화면 높이(px) : 캔버스 높이 × 배율. 글상자·그리드가 너무 납작해지지 않게 최소 60. */
+		function areaHeight(poBox, pnScale) {
+			return Math.max(60, Math.round(((poBox && poBox.height) || 200) * pnScale));
+		}
+
+		/** 좌우 나란한 구획(division-group) : 폭 비율은 캔버스 그대로 */
+		function splitBlockEl(poCtx, poBlock, poLayoutData, pnScale) {
+			var vnHeight = 0;
+			var vaCols = [];
+			var vaChildren = poBlock.parts.map(function(poPart, pnCol) {
+				var voEach = sectionEl(poCtx, poPart.section, formData(poCtx, 0, pnCol));
+				vnHeight = Math.max(vnHeight, voEach.fixedHeight != null ? voEach.fixedHeight : areaHeight(poPart.box, pnScale));
+				vaCols.push(poPart.section.kind == "tree" ? PX(250, {
+					minlength : 250
+				}) : FR(Math.max(1, Math.round(((poPart.box && poPart.box.width) || 100) / 10))));
+				return voEach.node;
+			});
+			return {
+				node : groupEl(poCtx, null, "division-group", poLayoutData, vaChildren, formLayout(poCtx, {
+					hspace : 16,
+					vspace : 12
+				}, [FR()], vaCols)),
+				height : vnHeight
+			};
+		}
+
+		/**
+		 * 이미지 기준(stack) 계획을 CLX 로 직렬화한다.
+		 * @param {Object} voCtx
+		 * @param {Object} poPlan templatePlanner.resolve() 의 stack 결과
+		 */
+		function stackDocument(voCtx, poPlan) {
+			voCtx.model = poPlan.model || null;
+			var vbPopup = poPlan.popup === true;
+			var voHead = headEl(voCtx, vbPopup, poPlan.title);
+			var vnScale = STACK_WIDTH / Math.max(320, poPlan.contentWidth || 800);
+			var vnLeft = 0;
+			(poPlan.blocks || []).forEach(function(poBlock) {
+				if (poBlock.box != null) {
+					vnLeft = vnLeft === 0 ? poBlock.box.x : Math.min(vnLeft, poBlock.box.x);
+				}
+			});
+
+			// 남는 높이를 채울 구획 : 맨 아래에 있는 영역 구획 하나(그리드 · 글상자 …)
+			var voFillBlock = null;
+			(poPlan.blocks || []).forEach(function(poBlock) {
+				if ((poBlock.kind == "section" && poBlock.section.kind != "form") || poBlock.kind == "split") {
+					voFillBlock = poBlock;
+				}
+			});
+
+			var vaBodyChildren = [];
+			var vaBodyRows = [];
+			var vnBodyRow = 0;
+
+			voCtx.ids["udcComAppHeader"] = true;
+			vaBodyChildren.push(udcEl(voCtx, "udcComAppHeader", "udc.com.udcComAppHeader", formData(voCtx, vnBodyRow++, 0), poPlan.title, vbPopup));
+			vaBodyRows.push(PX(30, vbPopup ? {
+				hidden : true
+			} : null));
+
+			// 이어지는 블록을 content-body 하나로 묶는다(조회 조건을 만나면 끊는다).
+			var voGroup = null;
+
+			function closeGroup() {
+				if (voGroup == null) {
+					return;
+				}
+				var vnFixedSum = 0;
+				voGroup.rows.forEach(function(poRow, pnIdx) {
+					vnFixedSum += (poRow.unit == "PIXEL" ? poRow.length : (poRow.minlength || 0)) + (pnIdx > 0 ? 12 : 0);
+				});
+				vaBodyChildren.push(groupEl(voCtx, "grpData", vbPopup ? "pop-content-body" : "content-body", formData(voCtx, vnBodyRow++, 0), voGroup.children, formLayout(voCtx, {
+					hspace : 12,
+					vspace : 12
+				}, voGroup.rows, [FR()])));
+				vaBodyRows.push(voGroup.fill ? {
+					length : 1,
+					unit : "FRACTION",
+					minlength : vnFixedSum
+				} : PX(vnFixedSum, AUTO));
+				voGroup = null;
+			}
+
+			function addToGroup(pfMake, poBlock) {
+				if (voGroup == null) {
+					voGroup = {
+						children : [],
+						rows : [],
+						fill : false
+					};
+				}
+				var voMade = pfMake(formData(voCtx, voGroup.rows.length, 0));
+				voGroup.children.push(voMade.node);
+				if (poBlock === voFillBlock) {
+					voGroup.fill = true;
+					voGroup.rows.push({
+						length : 1,
+						unit : "FRACTION",
+						minlength : voMade.height
+					});
+				} else {
+					voGroup.rows.push(PX(voMade.height));
+				}
+			}
+
+			(poPlan.blocks || []).forEach(function(poBlock) {
+				switch (poBlock.kind) {
+					case "search":
+						closeGroup();
+						var voHeader = searchHeaderEl(voCtx, {
+							search : poBlock,
+							popup : vbPopup
+						}, vnBodyRow++);
+						vaBodyChildren.push(voHeader.node);
+						vaBodyRows.push(PX(voHeader.height, AUTO));
+						break;
+					case "heading":
+						addToGroup(function(poLd) {
+							return {
+								node : udcEl(voCtx, seqId(voCtx, "udccomformtitle"), "udc.com.udcComFormTitle", poLd, String(poBlock.control.text || "").split("\n")[0]),
+								height : 24
+							};
+						}, poBlock);
+						break;
+					case "text":
+						addToGroup(function(poLd) {
+							return textBlockEl(voCtx, poBlock, poLd);
+						}, poBlock);
+						break;
+					case "buttons":
+						addToGroup(function(poLd) {
+							return buttonRowEl(voCtx, poBlock, poLd);
+						}, poBlock);
+						break;
+					case "row":
+						addToGroup(function(poLd) {
+							return rowBlockEl(voCtx, poBlock, poLd, vnScale, vnLeft);
+						}, poBlock);
+						break;
+					case "split":
+						addToGroup(function(poLd) {
+							return splitBlockEl(voCtx, poBlock, poLd, vnScale);
+						}, poBlock);
+						break;
+					case "section":
+						addToGroup(function(poLd) {
+							var voEach = sectionEl(voCtx, poBlock.section, poLd);
+							return {
+								node : voEach.node,
+								height : voEach.fixedHeight != null ? voEach.fixedHeight : areaHeight(poBlock.box, vnScale)
+							};
+						}, poBlock);
+						break;
+					default:
+						break;
+				}
+			});
+			closeGroup();
+
+			if (poPlan.footer != null && (poPlan.footer.left.length > 0 || poPlan.footer.right.length > 0)) {
+				vaBodyChildren.push(footerEl(voCtx, poPlan, vnBodyRow++));
+				vaBodyRows.push(PX(vbPopup ? 45 : 50, AUTO));
+			}
+
+			var voBodyLayout = formLayout(voCtx, {
+				hspace : 12,
+				vspace : 12,
+				margin : [10, 16, 10, 16]
+			}, vaBodyRows, [FR()]);
+			// 이미지가 화면보다 길면 잘리지 않고 스크롤된다.
+			voBodyLayout.attrs[1] = ["scrollable", "true"];
+			vaBodyChildren.push(voBodyLayout);
+
+			var voBody = el("body", [["std:sid", sid(voCtx, "body")], ["class", vbPopup ? "pop-content-wrapper" : "content-wrapper"]], vaBodyChildren);
+			return documentString(voCtx, voHead, voBody, "generated by eX-Canvas Web Prototyper (layout: image-stack, reference template: " + poPlan.pattern + ", planner: " + (poPlan.planner || "rule") + modelComment(voCtx) + ")");
+		}
+
 		/**
 		 * XML 과 화면 스크립트를 함께 만든다. 바인딩된 버튼·그리드의 리스너 핸들러가 .js 에 들어간다.
 		 * @param {Object} poSource psMode 가 "xy" 면 AST, 아니면 해석된 계획
@@ -1397,7 +1758,7 @@
 		 */
 		exports.generate = function(poSource, psMode, psAppName) {
 			var voCtx = createContext();
-			var vsXml = psMode == "xy" ? xyDocument(voCtx, poSource) : planDocument(voCtx, poSource);
+			var vsXml = psMode == "xy" ? xyDocument(voCtx, poSource) : (poSource.layout == "stack" ? stackDocument(voCtx, poSource) : planDocument(voCtx, poSource));
 			return {
 				clx : vsXml,
 				js : scriptFor(voCtx, psAppName),
@@ -1732,7 +2093,7 @@
 		var mnRetryTimer = 0;
 		var mnSyncTimer = 0;
 
-		var FIELDS = ["uid", "type", "id", "text", "x", "y", "w", "h", "style", "bind"];
+		var FIELDS = ["uid", "type", "id", "text", "x", "y", "w", "h", "style", "bind", "meta"];
 
 		function handler(psName) {
 			return typeof moHandlers[psName] == "function" ? moHandlers[psName] : function() {
@@ -2344,19 +2705,24 @@
 		 * 쉼표로 구분한 문자열을 배열로 바꾼다.
 		 * @param {String} psCsv
 		 * @param {String[]} paDefault
+		 * @param {Boolean} pbKeepEmpty true 면 빈 칸도 자리로 남긴다(그리드 헤더 : 번호 · 체크 열처럼 글자 없는 열). 글자가 하나도 없으면 기본값.
 		 * @return {String[]}
 		 */
-		function splitCsv(psCsv, paDefault) {
+		function splitCsv(psCsv, paDefault, pbKeepEmpty) {
 			var vaResult = [];
+			var vbAnyText = false;
 			if (psCsv != null) {
 				String(psCsv).split(",").forEach(function(psEach) {
 					var vsTrim = psEach.replace(/^\s+|\s+$/g, "");
 					if (vsTrim.length > 0) {
+						vbAnyText = true;
+					}
+					if (vsTrim.length > 0 || pbKeepEmpty) {
 						vaResult.push(vsTrim);
 					}
 				});
 			}
-			return vaResult.length > 0 ? vaResult : (paDefault || []);
+			return vbAnyText ? vaResult : (paDefault || []);
 		}
 
 		/**
@@ -2586,7 +2952,7 @@
 			textKind : "columns",
 			create : function(psId, psText) {
 				var vcCtrl = new cpr.controls.Grid(psId);
-				vcCtrl.init(makeGridConfig(splitCsv(psText, ["컬럼1"])));
+				vcCtrl.init(makeGridConfig(splitCsv(psText, ["컬럼1"], true)));
 				return vcCtrl;
 			}
 		}, {
@@ -3348,6 +3714,43 @@
 			voXhr.send(psXml + SAVE_SEPARATOR + psScript);
 		};
 
+		/**
+		 * 비교용 미리보기 : 서버가 result/_compare/<화면명>.clx 로 덮어쓰고 그 화면만 컴파일한다(약 3초).
+		 * 성공하면 실제 런타임 화면 주소를 돌려준다({ ok, app, url }). url 은 컨텍스트 경로를 포함한다.
+		 * @param {String} psAppName
+		 * @param {String} psXml
+		 * @param {String} psScript
+		 * @param {function(Object)} pfSuccess
+		 * @param {function(String)} pfError
+		 */
+		exports.previewOnServer = function(psAppName, psXml, psScript, pfSuccess, pfError) {
+			var voXhr = new XMLHttpRequest();
+			voXhr.open("POST", contextPath() + "/canvas/previewResult.do?name=" + encodeURIComponent(sanitizeFileName(psAppName, "prototype")), true);
+			voXhr.setRequestHeader("Content-Type", "text/plain; charset=utf-8");
+			voXhr.setRequestHeader("X-Requested-With", "eX-Canvas");
+			voXhr.timeout = 120000; // 컴파일러를 띄운다
+			voXhr.onreadystatechange = function() {
+				if (voXhr.readyState != 4) {
+					return;
+				}
+				var voResult = null;
+				try {
+					voResult = JSON.parse(voXhr.responseText);
+				} catch (e) {
+					voResult = null;
+				}
+				if (voXhr.status >= 200 && voXhr.status < 300 && voResult != null && voResult.ok) {
+					// DevServer 는 컨텍스트가 없어 "/ui/…" 를 준다. Tomcat 은 컨텍스트를 붙여 준다.
+					pfSuccess(voResult);
+				} else if (voXhr.status == 404) {
+					pfError("서버에 미리보기 엔드포인트(/canvas/previewResult.do)가 없습니다. 최신 코드를 배포(이클립스 Publish)하거나 tools/dev 로 띄우세요.");
+				} else {
+					pfError(voResult != null && voResult.message ? voResult.message : "미리보기 서버에 연결하지 못했습니다(" + voXhr.status + ").");
+				}
+			};
+			voXhr.send(psXml + SAVE_SEPARATOR + psScript);
+		};
+
 		/* ================================================================ 폴더에 직접 저장(File System Access API)
 		 *
 		 * 저장 서버가 없는 환경(스튜디오 내장 미리보기 · -Dexcanvas.src.dir 미설정 Tomcat)에서도
@@ -3987,6 +4390,10 @@
 		var MIN_CANVAS_HEIGHT = 420;
 
 		var STYLES = ["primary", "secondary", "default"];
+		/** 아웃풋의 문단 종류 : 화면 제목 · 구획 제목 · 설명 문단 · 안내 상자(테두리·배경 안의 문단) · 라벨 */
+		var VARIANTS = ["title", "heading", "desc", "notice", "label"];
+		/** 그리드 데이터 행의 셀 컨트롤(열마다). button 은 "button:글자" */
+		var CELL_KINDS = ["text", "checkbox", "inputbox", "combobox", "numbereditor", "dateinput", "button"];
 
 		function registry() {
 			return cpr.core.Module.require("module/canvas/controlRegistry");
@@ -4080,6 +4487,9 @@
 					type : S("STRING", {
 						"enum" : paTypeIds
 					}),
+					variant : S("STRING", {
+						"enum" : VARIANTS
+					}),
 					text : S("STRING"),
 					box : S("ARRAY", {
 						items : S("INTEGER")
@@ -4087,10 +4497,12 @@
 					style : S("STRING", {
 						"enum" : STYLES
 					}),
-					required : S("BOOLEAN")
+					required : S("BOOLEAN"),
+					cells : S("STRING"),
+					widths : S("STRING")
 				},
 				required : ["type", "box"],
-				propertyOrdering : ["type", "text", "box", "style", "required"]
+				propertyOrdering : ["type", "variant", "text", "box", "style", "required", "cells", "widths"]
 			});
 			return S("OBJECT", {
 				properties : {
@@ -4111,33 +4523,49 @@
 		var SYSTEM_TEXT = [
 			"너는 토마토시스템 eXBuilder6 화면 설계 보조자다.",
 			"사용자가 준 화면 이미지(캡처 · 디자인 시안 · 손그림)를 보고, 화면 본문에 보이는 UI 요소를 eXBuilder6 컨트롤 목록(JSON)으로 옮긴다.",
-			"XML 이나 코드는 쓰지 않는다. 주어진 응답 스키마의 JSON 만 돌려준다.",
+			"XML 이나 코드, 설명 문장은 쓰지 않는다. 주어진 응답 스키마의 JSON 만 돌려준다.",
 			"",
-			"[요소] { type, text, box, style, required }",
+			// ↓ 서버 분석기(CanvasImageAnalyzer.BUILTIN_PROMPT)와 같은 내용이어야 한다.
+			"[요소] { type, variant, text, box, style, required, cells, widths }",
 			"- box : 정수 4개 [ymin, xmin, ymax, xmax]. 이미지의 가로·세로를 각각 0~1000 으로 본 좌표이며 요소가 실제로 차지하는 사각형이다.",
-			"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액) ·",
+			"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액·스핀) ·",
 			"  maskeditor(전화·사업자번호처럼 형식 있는 입력) · searchinput(돋보기 검색 상자) · checkbox(체크 1개) · checkboxgroup(체크 여러 개 묶음) · radiobutton(라디오 묶음) ·",
-			"  listbox · textarea(여러 줄 글상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
+			"  listbox · textarea(여러 줄 글상자 · 코드/로그/결과 표시 상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
 			"  grid(표·목록) · tree(트리) · tabfolder(탭) · accordion · group(빈 상자·카드 틀) · pageindexer(페이지 번호 줄) · calendar(달력) ·",
 			"  fileupload(파일 목록 업로드 영역) · embeddedpage(외부 페이지·iframe) · embeddedapp · uicontrolshell(차트·지도·에디터 같은 서드파티 영역).",
+			"- variant : output 에만. title(화면 맨 위 화면 제목) · heading(구획·영역의 제목, 표 위 제목 — 굵거나 큰 글자) ·",
+			"  desc(설명·안내 문단) · notice(테두리·배경색 상자 안에 든 안내 문단) · label(입력 옆 라벨 · 짧은 글자).",
 			"- text : 유형별 뜻 — output/button/inputbox/textarea: 보이는 글자 · checkbox: 문구 · combobox/radiobutton/checkboxgroup/listbox: 항목을 쉼표로 ·",
 			"  grid: 표 헤더를 왼쪽부터 쉼표로 · tabfolder: 탭 이름을 쉼표로 · accordion: 섹션 제목을 쉼표로 · maskeditor: 마스크 · 그 밖: 빈 문자열.",
-			"  글자는 보이는 그대로 적는다(번역·요약·추측하지 않는다). 안 보이면 비운다.",
+			"  글자는 보이는 그대로 적는다(번역·요약·추측하지 않는다). 안 보이면 비운다. 설명이나 이유를 값에 적지 않는다.",
 			"- style : button 에만. 채워진 강조색(파랑·진한색) 버튼 = primary, 흰·회색 바탕의 보통 버튼 = secondary, 모르면 default.",
 			"- required : output(라벨) 에만. 라벨에 * 나 빨간 필수 표시가 있으면 true 로 하고 text 에서 * 는 뺀다.",
+			"- cells : grid 에만. 첫 데이터 행에서 열마다 보이는 컨트롤을 왼쪽부터 쉼표로 — text(글자만) · checkbox · inputbox · combobox · numbereditor · dateinput · button.",
+			"  button 은 \"button:버튼글자\" 로 적는다(예: \"text,checkbox,button:실행\"). 데이터 행이 없으면 모두 text.",
+			"- widths : grid 에만. 열마다 화면에서 차지하는 폭의 비율을 왼쪽부터 정수로 쉼표로 적는다(합이 100 쯤, 예: \"10,30,60\").",
 			"",
 			"[규칙]",
-			"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서는 뺀다.",
-			"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 헤더 글자를 text 에 쉼표로 적는다.",
-			"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer.",
+			"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서 · 즐겨찾기 같은 아이콘은 뺀다.",
+			"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 데이터 행은 요소가 아니다.",
+			"   헤더는 왼쪽부터 모든 열을 빠짐없이 적는다. 헤더 글자가 없는 열(번호 · 체크 열)도 빈 칸으로 자리를 남긴다(예: \",이벤트/함수명,설명,동작\").",
+			"   표의 맨 윗줄(헤더 줄 · 보통 회색 바탕이고 바로 아래부터 데이터 행)에 있는 글자는 맨 왼쪽 칸까지 모두 헤더다. 헤더 글자를 output 으로 다시 만들지 않는다.",
+			"   표의 box 는 헤더 줄부터 시작해 표 테두리의 맨 아래(데이터 행 아래의 빈 영역 · 가로 스크롤 줄까지)에서 끝난다. 헤더 줄과 같은 높이에 있는 글자를 표 위 제목으로 떼어 내지 않는다.",
+			"   cells · widths 는 헤더와 같은 개수로 적는다.",
+			"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output(variant heading) · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer. '총 0건' 같은 건수 표시와 아이콘은 뺀다.",
 			"4. 조회 조건은 라벨 output + 입력 컨트롤로 각각 옮기고, 라벨은 입력의 왼쪽(또는 바로 위)에 둔다.",
 			"   '시작 ~ 끝' 기간은 입력 2개 사이에 text 가 \"~\" 인 output 을 하나 둔다.",
 			"5. 탭폴더는 탭 머리와 내용 영역을 합친 사각형 하나로 두고, 탭 안의 표·입력은 그 사각형 안의 좌표로 따로 적는다.",
 			"6. 두 표 사이의 이동 버튼(▶ ◀ ▼ ▲ > <)은 button 으로 두고 text 에는 화살표만 적는다.",
 			"7. 요소끼리 겹치지 않게, 이미지의 위치·크기 비율을 그대로 지킨다. 같은 줄의 요소는 ymin 이 거의 같아야 한다.",
 			"8. 라벨과 입력이 한 상자로 붙어 있어도 라벨(output)과 입력을 따로 나눈다. 입력 안의 자리 표시 글자(placeholder)는 text 에 넣지 않는다.",
-			"9. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것을 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
-			"10. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로."
+			"9. 여러 줄로 이어진 설명·안내 문단은 output 하나로 옮기고 text 에는 줄마다 줄바꿈(\\n)을 넣어 이미지의 줄 그대로 적는다. box 는 문단 전체다.",
+			"   문단을 둘러싼 테두리(실선·점선)나 배경색 상자가 있으면 그 문단의 variant 를 notice 로 하고 box 는 상자 전체로 한다. 빈 줄로 나뉜 문단도 같은 상자 안이면 한 output 이다.",
+			"10. 코드·로그·결과를 보여 주는 큰 상자(비어 있어도 · 이미지 아래 끝에서 잘려 있어도)는 textarea 로 옮기고, 그 상자 위·안쪽 모서리의 복사 같은 버튼은 button 으로 따로 둔다.",
+			"    복사 · 지우기 버튼이 붙은 테두리 상자(안이 비어 있어도)는 장식이 아니라 textarea 다. 이미지 가장자리에서 잘린 요소도 보이는 만큼 옮긴다.",
+			"11. 영역을 감싸기만 하는 장식 테두리·배경 상자는 요소로 만들지 않는다(안의 요소만 옮긴다).",
+			"12. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것의 id 를 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
+			"13. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로.",
+			"14. 같은 문장을 두 번 쓰고 있다면 즉시 멈추고 JSON 을 닫는다."
 		].join("\n");
 
 		function buildUserText(paCatalog, poImage, psMemo, psForcedPattern) {
@@ -4367,10 +4795,92 @@
 			return Math.max(pnMin, Math.min(pnMax, vnValue));
 		}
 
+		/** 쉼표 목록 → 배열(빈 칸 유지). 개수가 pnCount 와 다르면 null */
+		function csvOf(pvValue, pnCount) {
+			if (pvValue == null || pvValue === "") {
+				return null;
+			}
+			var vaValues = (pvValue instanceof Array ? pvValue : String(pvValue).split(",")).map(function(pvEach) {
+				return String(pvEach == null ? "" : pvEach).replace(/^\s+|\s+$/g, "");
+			});
+			return vaValues.length == pnCount ? vaValues : null;
+		}
+
+		/**
+		 * 요소의 모양 정보(문단 종류 · 그리드 셀 컨트롤 · 열 폭)를 정리한다. 없으면 null.
+		 *  - output : variant(없으면 줄 수·높이로 짐작 — 두 줄 이상이면 desc)
+		 *  - grid   : cells(열마다 text|checkbox|…|button:글자) · widths(열 폭 비율 정수) — 헤더 수와 맞을 때만
+		 */
+		function normalizeMeta(poItem, psText) {
+			var voMeta = {};
+			if (poItem.type == "output") {
+				var vsVariant = VARIANTS.indexOf(poItem.variant) >= 0 ? poItem.variant : null;
+				if (vsVariant == null && psText.indexOf("\n") >= 0) {
+					vsVariant = "desc";
+				}
+				if (vsVariant != null && vsVariant != "label") {
+					voMeta.variant = vsVariant;
+				}
+			} else if (poItem.type == "grid") {
+				var vnCount = String(poItem.text == null ? "" : poItem.text).split(",").length;
+				var vaCells = csvOf(poItem.cells, vnCount);
+				if (vaCells != null) {
+					vaCells = vaCells.map(function(psCell) {
+						var vnColon = psCell.indexOf(":");
+						var vsKind = (vnColon >= 0 ? psCell.substring(0, vnColon) : psCell).toLowerCase();
+						if (CELL_KINDS.indexOf(vsKind) < 0) {
+							return "text";
+						}
+						return vsKind == "button" ? "button:" + (vnColon >= 0 ? psCell.substring(vnColon + 1) : "") : vsKind;
+					});
+					if (vaCells.some(function(psCell) {
+						return psCell != "text";
+					})) {
+						voMeta.cells = vaCells;
+					}
+				}
+				var vaWidths = csvOf(poItem.widths, vnCount);
+				if (vaWidths != null) {
+					vaWidths = vaWidths.map(function(psWidth) {
+						var vnWidth = parseInt(psWidth, 10);
+						return isNaN(vnWidth) || vnWidth <= 0 ? 10 : vnWidth;
+					});
+					voMeta.widths = vaWidths;
+				}
+			}
+			for (var vsKey in voMeta) {
+				return voMeta;
+			}
+			return null;
+		}
+
+		/**
+		 * 그리드 · 트리는 보통 아래 요소 바로 앞까지 영역을 채운다. AI 가 사각형을 마지막 데이터 행에서 끊어(빈 영역을 빼고) 주는 일이 잦아,
+		 * 바로 아래(가로로 겹치는) 요소까지 빈 틈이 크면(3% 넘게) 그 앞까지 늘린다. 아래에 아무것도 없으면 그대로 둔다.
+		 * @param {Object[]} paItems normalize() 의 요소(0~1000 좌표) — 제자리에서 고친다.
+		 */
+		function extendDataAreas(paItems) {
+			paItems.forEach(function(poItem) {
+				if (poItem.type != "grid" && poItem.type != "tree") {
+					return;
+				}
+				var vnNextTop = null;
+				paItems.forEach(function(poOther) {
+					if (poOther === poItem || poOther.top < poItem.bottom || Math.min(poOther.right, poItem.right) - Math.max(poOther.left, poItem.left) <= 0) {
+						return;
+					}
+					vnNextTop = vnNextTop == null ? poOther.top : Math.min(vnNextTop, poOther.top);
+				});
+				if (vnNextTop != null && vnNextTop - poItem.bottom > 30) {
+					poItem.bottom = vnNextTop - 12;
+				}
+			});
+		}
+
 		/**
 		 * AI 응답을 검증·정리한다. 모르는 유형 · 깨진 box 는 버린다.
 		 * @param {Object} poPlan
-		 * @return {Object} { pattern, title, reason, items, dropped }
+		 * @return {Object} { pattern, title, reason, items, dropped, absorbed(장식 틀로 보고 뺀 group 수) }
 		 */
 		exports.normalize = function(poPlan) {
 			poPlan = poPlan || {};
@@ -4400,12 +4910,18 @@
 					vnDropped++;
 					return;
 				}
-				var vsText = poItem.text == null ? "" : String(poItem.text).replace(/^\s+|\s+$/g, "");
 				var voDef = reg.getType(poItem.type);
+				// 문단은 줄바꿈을 살린다(줄마다 앞뒤 공백만 걷고 빈 줄은 뺀다). 그 밖은 한 줄로.
+				var vsText = poItem.text == null ? "" : String(poItem.text).replace(/\r/g, "").split("\n").map(function(psLine) {
+					return psLine.replace(/^\s+|\s+$/g, "");
+				}).filter(function(psLine) {
+					return psLine !== "";
+				}).join(poItem.type == "output" || poItem.type == "textarea" ? "\n" : " ");
 				// 라벨의 필수 표시는 글자 끝 "*" 로 남긴다(규칙 기반 변환이 label required 로 읽는다).
 				if (poItem.required === true && voDef.role == "label" && vsText !== "" && !/\*$/.test(vsText)) {
 					vsText += "*";
 				}
+				var voMeta = normalizeMeta(poItem, vsText);
 				vaItems.push({
 					type : poItem.type,
 					text : vsText,
@@ -4413,9 +4929,21 @@
 					left : vnLeft,
 					bottom : vnBottom,
 					right : vnRight,
-					style : voDef.role == "button" && STYLES.indexOf(poItem.style) >= 0 && poItem.style != "default" ? poItem.style : null
+					style : voDef.role == "button" && STYLES.indexOf(poItem.style) >= 0 && poItem.style != "default" ? poItem.style : null,
+					meta : voMeta
 				});
 			});
+			// 다른 요소를 감싸는 빈 상자(group)는 장식 틀이다(조회 영역 배경 · 구획 테두리) — 템플릿의 search-box · content 가 그 역할을 하므로 뺀다.
+			var vnBefore = vaItems.length;
+			vaItems = vaItems.filter(function(poItem) {
+				return poItem.type != "group" || !vaItems.some(function(poOther) {
+					var vnCx = (poOther.left + poOther.right) / 2;
+					var vnCy = (poOther.top + poOther.bottom) / 2;
+					return poOther !== poItem && vnCx > poItem.left && vnCx < poItem.right && vnCy > poItem.top && vnCy < poItem.bottom;
+				});
+			});
+			var vnAbsorbed = vnBefore - vaItems.length;
+			extendDataAreas(vaItems);
 			var vsPattern = null;
 			planner.getCatalog().forEach(function(poEach) {
 				if (poEach.id == poPlan.pattern) {
@@ -4427,7 +4955,8 @@
 				title : poPlan.title == null ? "" : String(poPlan.title),
 				reason : poPlan.reason == null ? "" : String(poPlan.reason),
 				items : vaItems,
-				dropped : vnDropped
+				dropped : vnDropped,
+				absorbed : vnAbsorbed
 			};
 		};
 
@@ -4444,8 +4973,299 @@
 			return poDef.role == "label" ? 16 : MIN_WIDTH;
 		}
 
+		/* ---------------------------------------------------------------- 원본 이미지 ↔ 생성 CLX 비교(반영률)
+		 *
+		 * 이미지 분석이 찾은 요소(원본)가 생성한 CLX 에 들어갔는지 하나씩 맞춰 본다.
+		 *  - 글(라벨 · 제목 · 문단) : 줄마다 같은 글자가 아웃풋 값 · 타이틀 UDC 제목 · 화면 제목에 있는가
+		 *  - 버튼 : 같은 글자의 버튼(그리드 셀 버튼 포함)
+		 *  - 그리드 : 헤더 글자가 80% 이상 같고 열 수가 같은 그리드
+		 *  - 그 밖(입력 · 글상자 …) : 같은 유형의 컨트롤(값이 있으면 값까지)
+		 * 순서 : 맞춘 요소들의 CLX 문서 순서가 이미지의 위→아래(같은 줄은 왼→오른) 순서와 얼마나 같은가(쌍 비교).
+		 */
+
+		var CLX_NS = "http://tomatosystem.co.kr/cleopatra";
+
+		function squash(psText) {
+			return String(psText == null ? "" : psText).replace(/\s+/g, "").toLowerCase();
+		}
+
+		/** CLX 를 문서 순서대로 훑어 비교에 쓸 항목 목록을 만든다. */
+		function clxEntries(psXml) {
+			var voDoc = new DOMParser().parseFromString(psXml, "application/xml");
+			var vaEntries = [];
+			var vaAll = voDoc.getElementsByTagName("*");
+			for (var i = 0; i < vaAll.length; i++) {
+				var voEl = vaAll[i];
+				if (voEl.namespaceURI != CLX_NS) {
+					continue;
+				}
+				var vsTag = voEl.localName;
+				var vbInCell = voEl.parentNode != null && voEl.parentNode.localName == "gridcell";
+				if (vsTag == "appspec" && voEl.getAttribute("title")) {
+					vaEntries.push({
+						kind : "text",
+						text : voEl.getAttribute("title"),
+						order : i
+					});
+				} else if (vsTag == "property" && voEl.getAttribute("name") == "title") {
+					vaEntries.push({
+						kind : "text",
+						text : voEl.getAttribute("value"),
+						order : i
+					});
+				} else if (vsTag == "output") {
+					vaEntries.push({
+						kind : "text",
+						text : voEl.getAttribute("value"),
+						order : i
+					});
+				} else if (vsTag == "button") {
+					vaEntries.push({
+						kind : "button",
+						text : voEl.getAttribute("value"),
+						order : i
+					});
+				} else if (vsTag == "grid") {
+					var vaHeaders = [];
+					var vaHeaderCells = voEl.getElementsByTagNameNS(CLX_NS, "gridheader");
+					if (vaHeaderCells.length > 0) {
+						var vaCells = vaHeaderCells[0].getElementsByTagNameNS(CLX_NS, "gridcell");
+						for (var j = 0; j < vaCells.length; j++) {
+							vaHeaders.push(vaCells[j].getAttribute("text") || "");
+						}
+					}
+					vaEntries.push({
+						kind : "grid",
+						headers : vaHeaders,
+						order : i
+					});
+				} else if (!vbInCell && TYPE_TAGS[vsTag]) {
+					vaEntries.push({
+						kind : vsTag,
+						text : voEl.getAttribute("value") || voEl.getAttribute("text") || "",
+						order : i
+					});
+				}
+			}
+			return vaEntries;
+		}
+
+		/** 비교 대상 컨트롤 태그(유형 키와 같다) */
+		var TYPE_TAGS = {
+			group : true,
+			inputbox : true,
+			combobox : true,
+			dateinput : true,
+			numbereditor : true,
+			maskeditor : true,
+			searchinput : true,
+			checkbox : true,
+			checkboxgroup : true,
+			radiobutton : true,
+			listbox : true,
+			textarea : true,
+			slider : true,
+			fileinput : true,
+			img : true,
+			htmlsnippet : true,
+			progress : true,
+			tree : true,
+			tabfolder : true,
+			accordion : true,
+			pageindexer : true,
+			calendar : true,
+			fileupload : true,
+			embeddedpage : true,
+			embeddedapp : true,
+			uicontrolshell : true
+		};
+
+		/**
+		 * 원본 이미지의 요소가 생성한 CLX 에 얼마나 반영됐는지 비교한다.
+		 * @param {Object} poPlan normalize() 결과(이미지 분석 원본)
+		 * @param {String} psXml 생성한 .clx
+		 * @return {{total:Number, matched:Number, score:Number, orderScore:Number, missing:Object[], partial:Object[], lines:String[]}}
+		 */
+		exports.coverage = function(poPlan, psXml) {
+			var vaEntries = clxEntries(psXml);
+			var voTaken = {};
+			var vaItems = (poPlan.items || []).slice().sort(function(a, b) {
+				return Math.abs(a.top - b.top) > 8 ? a.top - b.top : a.left - b.left;
+			});
+			var vnUnits = 0;
+			var vnMatchedUnits = 0;
+			var vaMissing = [];
+			var vaPartial = [];
+			var vaOrders = []; // 맞춘 요소의 CLX 문서 순서(이미지 순서대로)
+
+			function takeEntry(pfTest) {
+				for (var i = 0; i < vaEntries.length; i++) {
+					if (!voTaken[i] && pfTest(vaEntries[i])) {
+						voTaken[i] = true;
+						return vaEntries[i];
+					}
+				}
+				return null;
+			}
+
+			vaItems.forEach(function(poItem) {
+				var voEntry = null;
+				var vnScore = 0;
+				if (poItem.type == "output") {
+					var vaLines = String(poItem.text || "").replace(/\*$/, "").split("\n").filter(function(psLine) {
+						return squash(psLine) !== "";
+					});
+					if (vaLines.length == 0) {
+						return; // 빈 라벨은 세지 않는다.
+					}
+					var vnHit = 0;
+					var vnFirstOrder = null;
+					vaLines.forEach(function(psLine) {
+						var vsKey = squash(psLine);
+						var voHit = takeEntry(function(poEntry) {
+							return poEntry.kind == "text" && squash(poEntry.text) == vsKey;
+						}) || takeEntry(function(poEntry) {
+							return (poEntry.kind == "text" || poEntry.kind == "button") && squash(poEntry.text) !== "" && (squash(poEntry.text).indexOf(vsKey) >= 0 || vsKey.indexOf(squash(poEntry.text)) >= 0);
+						});
+						if (voHit != null) {
+							vnHit++;
+							if (vnFirstOrder == null) {
+								vnFirstOrder = voHit.order;
+							}
+						}
+					});
+					vnScore = vnHit / vaLines.length;
+					voEntry = vnFirstOrder == null ? null : {
+						order : vnFirstOrder
+					};
+				} else if (poItem.type == "button") {
+					voEntry = takeEntry(function(poEntry) {
+						return poEntry.kind == "button" && squash(poEntry.text) == squash(poItem.text);
+					});
+					vnScore = voEntry != null ? 1 : 0;
+				} else if (poItem.type == "grid") {
+					var vaHeaders = String(poItem.text || "").split(",");
+					var vnBest = 0;
+					var vnBestIdx = -1;
+					vaEntries.forEach(function(poEntry, pnIdx) {
+						if (voTaken[pnIdx] || poEntry.kind != "grid") {
+							return;
+						}
+						var voHas = {};
+						poEntry.headers.forEach(function(psHeader) {
+							voHas[squash(psHeader)] = true;
+						});
+						var vaNamed = vaHeaders.filter(function(psHeader) {
+							return squash(psHeader) !== "";
+						});
+						var vnSame = vaNamed.filter(function(psHeader) {
+							return voHas[squash(psHeader)];
+						}).length;
+						var vnEach = (vaNamed.length == 0 ? 1 : vnSame / vaNamed.length) * (poEntry.headers.length == vaHeaders.length ? 1 : 0.8);
+						if (vnEach > vnBest) {
+							vnBest = vnEach;
+							vnBestIdx = pnIdx;
+						}
+					});
+					if (vnBestIdx >= 0) {
+						voTaken[vnBestIdx] = true;
+						voEntry = vaEntries[vnBestIdx];
+					}
+					vnScore = vnBest;
+				} else {
+					var vsKey = squash(poItem.text);
+					voEntry = takeEntry(function(poEntry) {
+						return poEntry.kind == poItem.type && vsKey !== "" && squash(poEntry.text) == vsKey;
+					}) || takeEntry(function(poEntry) {
+						return poEntry.kind == poItem.type;
+					});
+					vnScore = voEntry != null ? 1 : 0;
+				}
+				vnUnits++;
+				vnMatchedUnits += vnScore;
+				var voLabel = {
+					type : poItem.type,
+					text : String(poItem.text || "").split("\n")[0]
+				};
+				if (vnScore <= 0) {
+					vaMissing.push(voLabel);
+				} else if (vnScore < 0.999) {
+					voLabel.score = Math.round(vnScore * 100);
+					vaPartial.push(voLabel);
+				}
+				if (voEntry != null) {
+					vaOrders.push(voEntry.order);
+				}
+			});
+
+			// 순서 일치 : 이미지 순서로 늘어놓은 CLX 순번이 커지는 쌍의 비율
+			var vnPairs = 0;
+			var vnInOrder = 0;
+			for (var i = 0; i < vaOrders.length; i++) {
+				for (var j = i + 1; j < vaOrders.length; j++) {
+					vnPairs++;
+					if (vaOrders[i] < vaOrders[j]) {
+						vnInOrder++;
+					}
+				}
+			}
+			var vnScorePct = vnUnits == 0 ? 100 : Math.round(vnMatchedUnits / vnUnits * 100);
+			var vnOrderPct = vnPairs == 0 ? 100 : Math.round(vnInOrder / vnPairs * 100);
+			var vaLines = ["원본 이미지 요소 " + vnUnits + "개 중 반영 " + (Math.round(vnMatchedUnits * 10) / 10) + "개 (반영률 " + vnScorePct + "%) · 위→아래 순서 일치 " + vnOrderPct + "%"];
+			vaMissing.forEach(function(poEach) {
+				vaLines.push("  - 빠짐 : " + poEach.type + (poEach.text ? " \"" + poEach.text + "\"" : ""));
+			});
+			vaPartial.forEach(function(poEach) {
+				vaLines.push("  - 일부만 : " + poEach.type + (poEach.text ? " \"" + poEach.text + "\"" : "") + " (" + poEach.score + "%)");
+			});
+			return {
+				total : vnUnits,
+				matched : vnMatchedUnits,
+				score : vnScorePct,
+				orderScore : vnOrderPct,
+				missing : vaMissing,
+				partial : vaPartial,
+				lines : vaLines
+			};
+		};
+
+		/** 글 줄 수(문단은 줄바꿈으로 나뉜다) */
+		function lineCount(poItem) {
+			return poItem.type == "output" && poItem.text ? poItem.text.split("\n").length : 1;
+		}
+
+		/**
+		 * 제목 · 문단이 캔버스에서 잘리지 않을 폭(px) 어림 : 가장 긴 줄의 글자 수 × 글자 폭(한글 12 · 그 밖 7, 제목은 굵고 커서 더 넓게).
+		 * 한 줄 라벨은 옆 입력과 겹치지 않게 늘리지 않는다(0).
+		 */
+		function textWidthOf(poItem) {
+			var vsVariant = poItem.meta && poItem.meta.variant;
+			if (poItem.type != "output" || !(vsVariant == "title" || vsVariant == "heading" || vsVariant == "desc" || vsVariant == "notice")) {
+				return 0;
+			}
+			var vnFactor = vsVariant == "title" ? 1.35 : (vsVariant == "heading" ? 1.2 : 1);
+			var vnMax = 0;
+			String(poItem.text || "").split("\n").forEach(function(psLine) {
+				var vnWidth = 0;
+				for (var i = 0; i < psLine.length; i++) {
+					vnWidth += psLine.charCodeAt(i) >= 0x2E80 ? 12 : 7;
+				}
+				vnMax = Math.max(vnMax, vnWidth);
+			});
+			return Math.round(vnMax * vnFactor) + (vsVariant == "notice" ? 24 : 8);
+		}
+
+		/** 글 영역인가(라벨 · 제목 · 문단) — 세로는 줄 배율로 잰다(그리드처럼 늘이지 않는다). */
+		function isTextItem(poItem) {
+			return poItem.type == "output";
+		}
+
 		/** 유형별 최소 높이(캔버스 px) */
-		function minHeightOf(poDef) {
+		function minHeightOf(poDef, poItem) {
+			if (poItem != null && isTextItem(poItem) && lineCount(poItem) > 1) {
+				// 여러 줄 문단 : 줄마다 18px + 안내 상자면 안쪽 여백
+				return lineCount(poItem) * 18 + (poItem.meta && poItem.meta.variant == "notice" ? 16 : 4);
+			}
 			if (isShortType(poDef)) {
 				return ROW_HEIGHT;
 			}
@@ -4493,7 +5313,9 @@
 				return {
 					item : poItem,
 					def : voDef,
-					isShort : isShortType(voDef),
+					// 여러 줄 문단은 "한 줄짜리" 가 아니다(줄 높이 중간값을 흐리지 않게) — 대신 isText 로 줄 배율을 쓴다.
+					isShort : isShortType(voDef) && lineCount(poItem) == 1,
+					isText : isTextItem(poItem),
 					x : poItem.left / 1000 * vnImageWidth,
 					right : poItem.right / 1000 * vnImageWidth,
 					y : poItem.top / 1000 * vnImageHeight,
@@ -4526,6 +5348,8 @@
 			var vnShortLimit = vnRowHeightInImage > 0 ? vnRowHeightInImage * 1.8 : Infinity;
 			vaBoxes.forEach(function(b) {
 				b.isShort = b.isShort && (b.bottom - b.y) <= vnShortLimit;
+				// 글 영역(라벨 · 문단 · 안내 상자)이 지나는 띠는 줄 배율로 잰다 — 글이 그리드처럼 늘어나지 않는다.
+				b.isRowLike = b.isShort || b.isText;
 			});
 
 			// 띠 나누기 : 모든 요소의 위·아래 경계
@@ -4552,7 +5376,7 @@
 				vaBoxes.forEach(function(b) {
 					if (b.y <= vnA + 0.05 && b.bottom >= vnB - 0.05) {
 						vbCovered = true;
-						if (b.isShort) {
+						if (b.isRowLike) {
 							vbRow = true;
 						}
 					}
@@ -4570,10 +5394,11 @@
 				}
 			}
 
-			// 남는 높이를 큰 영역·빈 띠가 나눠 쓴다. 너무 줄지도(0.25) 너무 늘지도(가로 배율·줄 배율 중 큰 값) 않게.
+			// 남는 높이를 큰 영역·빈 띠가 나눠 쓴다. 너무 늘지(가로 배율·줄 배율 중 큰 값) 않게,
+			// 그리고 이미지의 가로세로 비율보다는 줄지 않게(캔버스가 짧으면 아래로 스크롤된다) — 그리드·글상자가 납작해지면 내보낸 화면도 납작해진다.
 			var vnAvailable = vnCanvasHeight - MARGIN * 2 - vnRowLength * vnScaleRow;
 			var vnScaleFree = vnFreeLength > 0 ? vnAvailable / vnFreeLength : vnScaleRow;
-			vnScaleFree = Math.max(0.25, Math.min(Math.max(vnScaleX, vnScaleRow), vnScaleFree));
+			vnScaleFree = Math.max(Math.min(vnScaleX, vnScaleRow) * 0.9, Math.min(Math.max(vnScaleX, vnScaleRow), vnScaleFree));
 
 			// 누적 높이표 : 이미지 y → 캔버스 y
 			var vaMapped = [];
@@ -4609,19 +5434,37 @@
 				return voLast.start + (pnY - voLast.from) * voLast.scale;
 			}
 
+			// 최소 높이로 늘어난 요소(여러 줄 문단 등)가 아래 요소를 덮지 않게, 늘어난 만큼 그 아래를 모두 내린다(순서는 그대로).
+			vaBoxes.forEach(function(b) {
+				b.mappedTop = mapY(b.y);
+				b.mappedBottom = mapY(b.bottom);
+				b.excess = Math.max(0, minHeightOf(b.def, b.item) - (b.mappedBottom - b.mappedTop));
+			});
+			function shiftAt(pnY) {
+				var vnShift = 0;
+				vaBoxes.forEach(function(b) {
+					if (b.excess > 0 && b.mappedBottom <= pnY + 0.5) {
+						vnShift += b.excess;
+					}
+				});
+				return vnShift;
+			}
+
 			return vaBoxes.map(function(b) {
-				var vnTop = Math.round(mapY(b.y));
-				var vnBottom = Math.round(mapY(b.bottom));
+				var vnTop = Math.round(b.mappedTop + shiftAt(b.mappedTop));
+				var vnBottom = Math.round(b.mappedBottom + shiftAt(b.mappedBottom) - (b.excess > 0 ? b.excess : 0));
 				var vnLeft = Math.round(MARGIN + (b.x - vnMinX) * vnScaleX);
-				var vnWidth = Math.round((b.right - b.x) * vnScaleX);
+				// 제목 · 문단은 글이 잘리지 않을 만큼(캔버스 오른쪽 여백 안에서) 넓힌다.
+				var vnWidth = Math.max(Math.round((b.right - b.x) * vnScaleX), Math.min(textWidthOf(b.item), vnCanvasWidth - MARGIN - vnLeft));
 				return {
 					type : b.item.type,
 					text : b.item.text,
 					style : b.item.style,
+					meta : b.item.meta || null,
 					x : Math.max(0, vnLeft),
 					y : Math.max(0, vnTop),
 					width : Math.max(minWidthOf(b.def), vnWidth),
-					height : Math.max(minHeightOf(b.def), vnBottom - vnTop)
+					height : Math.max(minHeightOf(b.def, b.item), vnBottom - vnTop)
 				};
 			});
 		};
@@ -8047,6 +8890,7 @@
 			vaAboveRows.forEach(function(poRow, pnIdx) {
 				if (pbTopLevel && pnIdx == 0 && vaAboveRows.length > 1 && poRow.nodes.length == 1 && poRow.nodes[0].role == "label") {
 					voResult.title = poRow.nodes[0].text; // 맨 위에 홀로 있는 라벨 = 화면 제목
+					voResult.consumed.push(poRow.nodes[0].id);
 					return;
 				}
 				vaSearchNodes = vaSearchNodes.concat(poRow.nodes);
@@ -8330,6 +9174,471 @@
 			};
 		};
 
+		/* ---------------------------------------------------------------- 이미지 기준 배치(stack)
+		 *
+		 * 템플릿 뼈대(조회 조건 → 데이터 → 하단 버튼)에 넣으면 요소가 빠지거나 자리가 바뀌는 화면(안내 문단 · 구획 제목 · 코드 상자 …)을 위해,
+		 * 템플릿의 부품을 캔버스(=이미지)에 보이는 순서 그대로 위→아래로 쌓는다. 아무것도 버리지 않는다.
+		 *   부품 : content-header > search-box(조회 조건) · content > 타이틀 UDC + 그리드/트리/글상자 · content > form-base(입력 폼)
+		 *          · card(안내 상자) · 설명 문단 · 구획 제목(udcComFormTitle) · 버튼 줄 · footer-button-group
+		 *
+		 * 원시 계획(stack)
+		 * { layout : "stack", title, titleRef, blocks : [ 블록 ], footer : { left, right }, consumed, warnings }
+		 *   블록 = { kind : "text", ref, variant } | { kind : "heading", ref } | { kind : "search", columns, fields, buttons }
+		 *        | { kind : "form", title, titleRef, columns, fields, buttons } | { kind : "section", section : { kind, ref, title, titleRef, buttons, pagerRef } }
+		 *        | { kind : "buttons", align, buttons } | { kind : "row", refs } | { kind : "split", parts : [ 블록 ] }
+		 */
+
+		/** 그리드처럼 영역을 차지하는 입력 유형(라벨 없이 홀로 크게 놓이면 구획으로 본다 — 코드 · 결과 상자) */
+		var AREA_INPUT = {
+			textarea : true,
+			listbox : true,
+			img : true,
+			htmlsnippet : true,
+			fileupload : true
+		};
+
+		function variantOf(poNode) {
+			return poNode.meta && poNode.meta.variant ? poNode.meta.variant : null;
+		}
+
+		/** 여러 줄 문단이거나 설명·안내 문단인가(라벨·제목으로 쓰지 않는다) */
+		function isParagraph(poNode) {
+			var vsVariant = variantOf(poNode);
+			return poNode.role == "label" && (vsVariant == "desc" || vsVariant == "notice" || String(poNode.text || "").indexOf("\n") >= 0);
+		}
+
+		/** 구획(영역)으로 볼 노드 : 데이터 컨트롤 · 왼쪽에 라벨 없이 크게(키가 크거나 폭의 절반 이상) 놓인 글상자류 */
+		function isAreaNode(poNode, paAll, pnCanvasWidth) {
+			if (poNode.role == "data") {
+				return true;
+			}
+			if (!AREA_INPUT[poNode.type] || (poNode.layoutData.height < 48 && poNode.layoutData.width < pnCanvasWidth * 0.5)) {
+				return false;
+			}
+			var r = rectOf(poNode);
+			return !paAll.some(function(poOther) {
+				if (poOther === poNode || poOther.role != "label" || isParagraph(poOther)) {
+					return false;
+				}
+				var l = rectOf(poOther);
+				return l.cy >= r.y && l.cy <= r.bottom && l.right <= r.x + 8;
+			});
+		}
+
+		/**
+		 * 이미지 기준 원시 계획을 만든다(stack). 탭폴더 안에 컨트롤이 든 화면은 지원하지 않는다(null — 템플릿 계획을 쓴다).
+		 * @param {Object} poAst
+		 * @return {Object} 원시 계획(stack) 또는 null
+		 */
+		exports.planStack = function(poAst) {
+			var vaWarnings = [];
+			var vaNodes = poAst.children;
+			var voUsed = {};
+			var vaConsumed = [];
+			var vsTitle = "";
+			var vsTitleRef = null;
+
+			// 탭 안에 컨트롤이 있는 화면은 탭 단위 해석(planByRule)이 맞다.
+			var vbTabWithContent = vaNodes.some(function(poTab) {
+				if (poTab.type != "tabfolder") {
+					return false;
+				}
+				var t = rectOf(poTab);
+				return vaNodes.some(function(poNode) {
+					var r = rectOf(poNode);
+					return poNode !== poTab && r.cx > t.x && r.cx < t.right && r.cy > t.y && r.cy < t.bottom;
+				});
+			});
+			if (vbTabWithContent) {
+				return null;
+			}
+
+			function use(poNode) {
+				voUsed[poNode.id] = true;
+			}
+
+			// ── 화면 제목 : 앱 헤더 UDC 의 제목 → 맨 위 "title" 문단 → (위에 홀로 있는 라벨은 아래 문단 규칙에서 처리)
+			vaNodes.forEach(function(poNode) {
+				if (poNode.role == "header") {
+					if (poNode.text) {
+						vsTitle = poNode.text;
+					}
+					use(poNode);
+					vaConsumed.push(poNode.id);
+				}
+			});
+			var vaTitles = vaNodes.filter(function(poNode) {
+				return poNode.role == "label" && variantOf(poNode) == "title";
+			});
+			if (vaTitles.length > 0) {
+				vsTitle = vsTitle || vaTitles[0].text.split("\n")[0];
+				vsTitleRef = vaTitles[0].id;
+				use(vaTitles[0]);
+				vaConsumed.push(vaTitles[0].id);
+			}
+
+			// ── 구획 : 데이터 컨트롤 · 홀로 큰 글상자
+			var vaBlocks = [];
+			var vaSections = [];
+			vaNodes.forEach(function(poNode) {
+				if (voUsed[poNode.id] || !isAreaNode(poNode, vaNodes, poAst.app.canvas.width || 800)) {
+					return;
+				}
+				var voSection = {
+					kind : poNode.type == "tabfolder" ? "tab" : poNode.type,
+					title : "",
+					ref : poNode.id,
+					buttons : [],
+					_rect : rectOf(poNode)
+				};
+				use(poNode);
+				vaSections.push(voSection);
+				vaBlocks.push({
+					kind : "section",
+					section : voSection,
+					_rect : voSection._rect
+				});
+			});
+
+			// 페이지 인덱서 → 바로 위 그리드
+			vaNodes.forEach(function(poNode) {
+				if (voUsed[poNode.id] || poNode.role != "pager") {
+					return;
+				}
+				var p = rectOf(poNode);
+				var voBest = null;
+				var vnBestGap = 61;
+				vaSections.forEach(function(poSection) {
+					var vnGap = p.y - poSection._rect.bottom;
+					if (poSection.pagerRef == null && vnGap >= -10 && vnGap < vnBestGap && overlap(p.x, p.right, poSection._rect.x, poSection._rect.right) > 0) {
+						voBest = poSection;
+						vnBestGap = vnGap;
+					}
+				});
+				if (voBest != null) {
+					voBest.pagerRef = poNode.id;
+					use(poNode);
+				}
+			});
+
+			// 구획 안쪽 위 모서리에 얹힌 버튼(코드 상자의 [복사] 등) → 그 구획의 제목 줄 버튼
+			vaNodes.forEach(function(poNode) {
+				if (voUsed[poNode.id] || poNode.role != "button") {
+					return;
+				}
+				var b = rectOf(poNode);
+				vaSections.forEach(function(poSection) {
+					var s = poSection._rect;
+					if (!voUsed[poNode.id] && b.cx > s.x && b.cx < s.right && b.cy > s.y && b.cy < s.y + Math.min(60, s.h / 2)) {
+						poSection.buttons.push({
+							ref : poNode.id,
+							cls : buttonClass(poNode.text, "title")
+						});
+						use(poNode);
+					}
+				});
+			});
+
+			// 구획 바로 위(50px 이내)의 입력 없는 줄 : 버튼 → 제목 줄 버튼, 짧은 라벨 → 구획 제목
+			clusterRows(vaNodes.filter(function(poNode) {
+				return !voUsed[poNode.id];
+			})).forEach(function(poRow) {
+				if (countRole(poRow.nodes, "input") > 0) {
+					return;
+				}
+				poRow.nodes.forEach(function(poNode) {
+					var r = rectOf(poNode);
+					var voBest = null;
+					var vnBestGap = 50;
+					vaSections.forEach(function(poSection) {
+						var vnGap = poSection._rect.y - r.bottom;
+						if (vnGap >= -4 && vnGap < vnBestGap && overlap(r.x, r.right, poSection._rect.x, poSection._rect.right) > 0) {
+							voBest = poSection;
+							vnBestGap = vnGap;
+						}
+					});
+					if (voBest == null) {
+						return;
+					}
+					if (poNode.role == "button") {
+						voBest.buttons.push({
+							ref : poNode.id,
+							cls : buttonClass(poNode.text, "title")
+						});
+						use(poNode);
+					} else if ((poNode.role == "label" || poNode.role == "title") && !isParagraph(poNode) && voBest.title == "") {
+						voBest.title = poNode.text;
+						voBest.titleRef = poNode.id;
+						use(poNode);
+					}
+				});
+			});
+
+			// ── 나머지 : 줄 단위로 묶어 조회 조건 · 폼 · 문단 · 제목 · 버튼 줄로
+			var vaRows = clusterRows(vaNodes.filter(function(poNode) {
+				return !voUsed[poNode.id];
+			}));
+			var vnFirstDataTop = Infinity;
+			vaSections.forEach(function(poSection) {
+				if (poSection.kind != "textarea" && poSection.kind != "listbox" && poSection.kind != "img" && poSection.kind != "htmlsnippet" && poSection.kind != "fileupload") {
+					vnFirstDataTop = Math.min(vnFirstDataTop, poSection._rect.y);
+				}
+			});
+			var vnBottomOfAll = 0;
+			vaNodes.forEach(function(poNode) {
+				vnBottomOfAll = Math.max(vnBottomOfAll, rectOf(poNode).bottom);
+			});
+			var vbSearchTaken = false;
+
+			function flushBand(paBandNodes) {
+				if (paBandNodes.length == 0) {
+					return;
+				}
+				var voBox = bbox(paBandNodes);
+				var vaButtons = paBandNodes.filter(function(poNode) {
+					return poNode.role == "button";
+				});
+				var vbSearchLike = vaButtons.some(function(poNode) {
+					return /조회|검색|search/i.test(poNode.text || "") || poNode.style == "primary";
+				});
+				// 데이터 구획보다 위에 있거나 조회 버튼이 함께 있으면 조회 조건(첫 번째 것만), 그 밖은 입력 폼
+				if (!vbSearchTaken && (voBox.bottom <= vnFirstDataTop || vbSearchLike)) {
+					vbSearchTaken = true;
+					vaBlocks.push({
+						kind : "search",
+						columns : Math.max(1, Math.min(4, maxFieldsPerRow(paBandNodes))),
+						fields : buildFields(paBandNodes, vaWarnings),
+						buttons : vaButtons.map(function(poNode) {
+							return {
+								ref : poNode.id,
+								cls : buttonClass(poNode.text, "search")
+							};
+						}),
+						_rect : voBox
+					});
+				} else {
+					var voForm = makeFormSection(paBandNodes, vaWarnings);
+					voForm._rect = voBox;
+					vaBlocks.push(voForm);
+				}
+				paBandNodes.forEach(use);
+			}
+
+			var vaBand = [];
+			var vnBandBottom = 0;
+			vaRows.forEach(function(poRow, pnIdx) {
+				var vbInput = countRole(poRow.nodes, "input") > 0;
+				// 줄 사이에 구획(그리드 · 글상자 …)이 끼어 있으면 같은 묶음이 아니다(위아래가 다른 조회 조건 · 폼).
+				if (vaBand.length > 0 && vaSections.some(function(poSection) {
+					return poSection._rect.y >= vnBandBottom - 2 && poSection._rect.y < poRow.top;
+				})) {
+					flushBand(vaBand);
+					vaBand = [];
+				}
+				var voNext = vaRows[pnIdx + 1];
+				// 입력 바로 위(16px 이내)의 짧은 라벨 줄은 다음 입력 줄과 한 묶음(라벨이 위에 오는 배치)
+				var vbLabelsAboveInputs = !vbInput && voNext != null && countRole(voNext.nodes, "input") > 0 && voNext.top - poRow.bottom <= 16
+						&& poRow.nodes.every(function(poNode) {
+							return poNode.role == "label" && !isParagraph(poNode) && variantOf(poNode) == null;
+						});
+				if (vbInput || vbLabelsAboveInputs) {
+					vaBand = vaBand.concat(poRow.nodes);
+					vnBandBottom = poRow.bottom;
+					return;
+				}
+				flushBand(vaBand);
+				vaBand = [];
+
+				var vaButtonsOnly = poRow.nodes.filter(function(poNode) {
+					return poNode.role == "button";
+				});
+				// 맨 아래 버튼 줄(아래에 아무것도 없음) → 하단 버튼
+				if (vaButtonsOnly.length == poRow.nodes.length && poRow.bottom >= vnBottomOfAll - 1) {
+					vaBlocks.push({
+						kind : "footer",
+						buttons : poRow.nodes.map(function(poNode) {
+							return poNode.id;
+						}),
+						_rect : bbox(poRow.nodes)
+					});
+					poRow.nodes.forEach(use);
+					return;
+				}
+				if (vaButtonsOnly.length == poRow.nodes.length) {
+					var voButtonBox = bbox(poRow.nodes);
+					var vnCanvasWidth = poAst.app.canvas.width || 800;
+					vaBlocks.push({
+						kind : "buttons",
+						align : voButtonBox.x > vnCanvasWidth / 2 ? "right" : (voButtonBox.cx > vnCanvasWidth * 0.4 && voButtonBox.cx < vnCanvasWidth * 0.6 ? "center" : null),
+						buttons : poRow.nodes.map(function(poNode) {
+							return {
+								ref : poNode.id,
+								cls : buttonClass(poNode.text, "title")
+							};
+						}),
+						_rect : voButtonBox
+					});
+					poRow.nodes.forEach(use);
+					return;
+				}
+				if (poRow.nodes.length == 1 && (poRow.nodes[0].role == "label" || poRow.nodes[0].role == "title")) {
+					var voText = poRow.nodes[0];
+					var vsVariant = variantOf(voText);
+					var vbHeading = vsVariant == "heading" || vsVariant == "title" || voText.role == "title";
+					vaBlocks.push(vbHeading ? {
+						kind : "heading",
+						ref : voText.id,
+						_rect : rectOf(voText)
+					} : {
+						kind : "text",
+						ref : voText.id,
+						variant : vsVariant || (isParagraph(voText) ? "desc" : "label"),
+						_rect : rectOf(voText)
+					});
+					use(voText);
+					return;
+				}
+				// 섞인 줄(문단 + 버튼 · 라벨 여러 개 …) : 한 줄 그대로
+				vaBlocks.push({
+					kind : "row",
+					refs : poRow.nodes.map(function(poNode) {
+						return poNode.id;
+					}),
+					_rect : bbox(poRow.nodes)
+				});
+				poRow.nodes.forEach(use);
+			});
+			flushBand(vaBand);
+
+			// ── 위→아래 순서. 세로로 절반 이상 겹치는 구획·폼은 좌우 나란히(split)
+			vaBlocks.sort(function(a, b) {
+				return a._rect.y - b._rect.y || a._rect.x - b._rect.x;
+			});
+			var vaOrdered = [];
+			vaBlocks.forEach(function(poBlock) {
+				var voLast = vaOrdered.length > 0 ? vaOrdered[vaOrdered.length - 1] : null;
+				var vbArea = poBlock.kind == "section" || poBlock.kind == "form";
+				var vbLastArea = voLast != null && (voLast.kind == "section" || voLast.kind == "form" || voLast.kind == "split");
+				if (vbArea && vbLastArea) {
+					var r = poBlock._rect;
+					var l = voLast._rect;
+					if (overlap(r.y, r.bottom, l.y, l.bottom) >= Math.min(r.h, l.h) * 0.5) {
+						if (voLast.kind != "split") {
+							voLast = {
+								kind : "split",
+								parts : [voLast],
+								_rect : l
+							};
+							vaOrdered[vaOrdered.length - 1] = voLast;
+						}
+						voLast.parts.push(poBlock);
+						voLast.parts.sort(function(a, b) {
+							return a._rect.x - b._rect.x;
+						});
+						voLast._rect = bbox([{
+							layoutData : {
+								x : l.x,
+								y : l.y,
+								width : l.w,
+								height : l.h
+							}
+						}, {
+							layoutData : {
+								x : r.x,
+								y : r.y,
+								width : r.w,
+								height : r.h
+							}
+						}]);
+						return;
+					}
+				}
+				vaOrdered.push(poBlock);
+			});
+
+			// 하단 버튼 블록은 footer 로 꺼낸다(가로 중앙 기준 좌/우)
+			var voFooter = {
+				left : [],
+				right : []
+			};
+			var vnCenter = (poAst.app.canvas.width || 800) / 2;
+			vaOrdered = vaOrdered.filter(function(poBlock) {
+				if (poBlock.kind != "footer") {
+					return true;
+				}
+				poBlock.buttons.forEach(function(psRef) {
+					var voNode = null;
+					vaNodes.forEach(function(poNode) {
+						if (poNode.id == psRef) {
+							voNode = poNode;
+						}
+					});
+					var vbLeft = rectOf(voNode).cx < vnCenter;
+					voFooter[vbLeft ? "left" : "right"].push({
+						ref : psRef,
+						cls : buttonClass(voNode.text, vbLeft ? "footer-left" : "footer-right")
+					});
+				});
+				return false;
+			});
+
+			// 폭·높이(캔버스 px)는 직렬화기가 화면 크기로 옮길 때 쓴다.
+			function strip(poBlock) {
+				poBlock.box = poBlock._rect ? {
+					x : poBlock._rect.x,
+					y : poBlock._rect.y,
+					width : poBlock._rect.w,
+					height : poBlock._rect.h
+				} : null;
+				delete poBlock._rect;
+				if (poBlock.section) {
+					delete poBlock.section._rect;
+				}
+				(poBlock.parts || []).forEach(strip);
+			}
+			vaOrdered.forEach(strip);
+
+			var voContent = bbox(vaNodes.filter(function(poNode) {
+				return poNode.role != "header";
+			})) || {
+				x : 0,
+				w : poAst.app.canvas.width || 800
+			};
+			return {
+				layout : "stack",
+				title : vsTitle || poAst.app.title || "",
+				titleRef : vsTitleRef,
+				blocks : vaOrdered,
+				footer : voFooter,
+				consumed : vaConsumed,
+				contentWidth : voContent.w,
+				warnings : vaWarnings
+			};
+		};
+
+		/**
+		 * 템플릿 계획이 캔버스를 온전히 담는가. 빠지는 요소(짝 없는 라벨 · 문단)나 제자리를 못 찾아 옮겨진 요소가 있으면 맞지 않는다.
+		 * @param {Object} poResolved resolve() 결과(템플릿 계획)
+		 * @return {{fits:Boolean, dropped:String[], moved:String[], reason:String}}
+		 */
+		exports.templateFit = function(poResolved) {
+			var vaDropped = poResolved.dropped || [];
+			var vaMoved = poResolved.moved || [];
+			var vaReason = [];
+			if (vaDropped.length > 0) {
+				vaReason.push("빠지는 요소 " + vaDropped.length + "개");
+			}
+			if (vaMoved.length > 0) {
+				vaReason.push("자리가 바뀌는 요소 " + vaMoved.length + "개");
+			}
+			return {
+				fits : vaDropped.length == 0 && vaMoved.length == 0,
+				dropped : vaDropped,
+				moved : vaMoved,
+				reason : vaReason.join(" · ")
+			};
+		};
+
 		/* ---------------------------------------------------------------- 계획 해석(검증·정규화) */
 
 		/**
@@ -8356,8 +9665,8 @@
 			var voTaken = {};
 			var voAlias = {}; // 새 id → 원래 id (AI 가 ref 에 새 id 를 쓴 경우를 받아 준다)
 			(poRaw.consumed || []).forEach(function(psRef) {
-				if (voNodeOf[psRef] != null && voNodeOf[psRef].role == "header") {
-					voUsed[psRef] = true; // 앱 헤더 UDC 는 직렬화기가 직접 넣는다.
+				if (voNodeOf[psRef] != null && (voNodeOf[psRef].role == "header" || voNodeOf[psRef].role == "label")) {
+					voUsed[psRef] = true; // 앱 헤더 UDC · 화면 제목 라벨은 직렬화기가 앱 헤더로 직접 넣는다.
 				}
 			});
 			(poRaw.rename || []).forEach(function(poEach) {
@@ -8390,6 +9699,8 @@
 					udcType : voNode.udcType,
 					tpl : voNode.tpl,
 					bind : voNode.bind || null, // 데이터 바인딩(ds: · dm: · sub: · clear:)은 자리와 무관하게 그대로 간다.
+					meta : voNode.meta || null, // 이미지 분석의 모양 정보(문단 종류 · 그리드 셀 컨트롤 · 열 폭)
+					x : voNode.layoutData.x,
 					width : voNode.layoutData.width,
 					height : voNode.layoutData.height
 				};
@@ -8461,6 +9772,206 @@
 					});
 				});
 				return vaResult;
+			}
+
+			if (poRaw.layout == "stack") {
+				return resolveStack();
+			}
+
+			/** 이미지 기준(stack) 계획 : 블록마다 ref 를 컨트롤로 풀고, 남은 컨트롤은 제 높이의 줄 블록으로 끼워 넣는다. */
+			function resolveStack() {
+				if (poRaw.titleRef != null && voNodeOf[R(poRaw.titleRef)] != null) {
+					voUsed[R(poRaw.titleRef)] = true;
+				}
+
+				function stackSection(poSection) {
+					var vsRef = R(poSection.ref);
+					var voNode = voNodeOf[vsRef];
+					var voCtrl = voNode == null ? null : take(vsRef, null);
+					if (voCtrl == null) {
+						return null;
+					}
+					var vsTitleRef = R(poSection.titleRef);
+					if (voNodeOf[vsTitleRef] != null) {
+						voUsed[vsTitleRef] = true;
+					}
+					var voResolved = {
+						kind : voNode.type == "tabfolder" ? "tab" : voNode.type,
+						title : poSection.title || "",
+						control : voCtrl,
+						buttons : takeButtons(poSection.buttons, "title"),
+						noTitleUdc : true // 이미지에 제목이 없으면 빈 타이틀 UDC 를 만들지 않는다.
+					};
+					var vsPagerRef = R(poSection.pagerRef);
+					if (voNodeOf[vsPagerRef] != null && voNodeOf[vsPagerRef].role == "pager") {
+						voResolved.pager = take(vsPagerRef, null);
+					}
+					if (voResolved.kind == "tab") {
+						voResolved.tabs = (voNode.items && voNode.items.length > 0 ? voNode.items : ["탭1"]).map(function(psText) {
+							return {
+								text : psText,
+								sections : [],
+								rows : []
+							};
+						});
+					}
+					return voResolved;
+				}
+
+				function resolveBlock(poBlock) {
+					if (poBlock == null) {
+						return null;
+					}
+					var voCtrl;
+					switch (poBlock.kind) {
+						case "text":
+						case "heading":
+							voCtrl = take(poBlock.ref, null);
+							return voCtrl == null ? null : {
+								kind : poBlock.kind,
+								variant : poBlock.variant || (voCtrl.meta && voCtrl.meta.variant) || null,
+								control : voCtrl,
+								box : poBlock.box
+							};
+						case "search":
+							var vaFields = takeFields(poBlock.fields);
+							var vaButtons = takeButtons(poBlock.buttons, vaFields.length > 0 ? "search" : "title");
+							if (vaFields.length == 0) {
+								return vaButtons.length == 0 ? null : {
+									kind : "buttons",
+									align : "right",
+									buttons : vaButtons,
+									box : poBlock.box
+								};
+							}
+							return {
+								kind : "search",
+								columns : poBlock.columns,
+								fields : vaFields,
+								buttons : vaButtons,
+								box : poBlock.box
+							};
+						case "form":
+							var vsTitleRef = R(poBlock.titleRef);
+							if (voNodeOf[vsTitleRef] != null) {
+								voUsed[vsTitleRef] = true;
+							}
+							var voForm = {
+								kind : "form",
+								title : poBlock.title || "",
+								columns : poBlock.columns,
+								fields : takeFields(poBlock.fields),
+								buttons : takeButtons(poBlock.buttons, "title"),
+								noTitleUdc : true
+							};
+							return voForm.fields.length == 0 ? null : {
+								kind : "section",
+								section : voForm,
+								box : poBlock.box
+							};
+						case "section":
+							var voSection = stackSection(poBlock.section);
+							return voSection == null ? null : {
+								kind : "section",
+								section : voSection,
+								box : poBlock.box
+							};
+						case "buttons":
+							var vaRowButtons = takeButtons(poBlock.buttons, "title");
+							return vaRowButtons.length == 0 ? null : {
+								kind : "buttons",
+								align : poBlock.align || null,
+								buttons : vaRowButtons,
+								box : poBlock.box
+							};
+						case "row":
+							var vaControls = [];
+							(poBlock.refs || []).forEach(function(psRef) {
+								var voNode = voNodeOf[R(psRef)];
+								var voEach = voNode == null ? null : take(R(psRef), voNode.role == "button" ? buttonClass(voNode.text, "title", voNode.style) : null);
+								if (voEach != null) {
+									vaControls.push(voEach);
+								}
+							});
+							return vaControls.length == 0 ? null : {
+								kind : "row",
+								controls : vaControls,
+								box : poBlock.box
+							};
+						case "split":
+							var vaParts = (poBlock.parts || []).map(resolveBlock).filter(function(poPart) {
+								return poPart != null && poPart.kind == "section";
+							});
+							if (vaParts.length == 0) {
+								return null;
+							}
+							return vaParts.length == 1 ? vaParts[0] : {
+								kind : "split",
+								parts : vaParts,
+								box : poBlock.box
+							};
+						default:
+							return null;
+					}
+				}
+
+				var vaBlocks = (poRaw.blocks || []).map(resolveBlock).filter(function(poBlock) {
+					return poBlock != null;
+				});
+				var voStackFooter = {
+					left : takeButtons((poRaw.footer || {}).left, "footer-left"),
+					right : takeButtons((poRaw.footer || {}).right, "footer-right")
+				};
+
+				// 계획에 없던 컨트롤은 버리지 않고 제 높이에 한 줄 블록으로 끼운다.
+				var vaLeft = [];
+				poAst.children.forEach(function(poNode) {
+					if (voUsed[poNode.id] || poNode.role == "header") {
+						return;
+					}
+					var voCtrl = take(poNode.id, poNode.role == "button" ? buttonClass(poNode.text, "title", poNode.style) : null);
+					if (voCtrl == null) {
+						return;
+					}
+					vaLeft.push(poNode.id);
+					var voBlock = {
+						kind : "row",
+						controls : [voCtrl],
+						box : {
+							x : poNode.layoutData.x,
+							y : poNode.layoutData.y,
+							width : poNode.layoutData.width,
+							height : poNode.layoutData.height
+						}
+					};
+					var vnAt = vaBlocks.length;
+					for (var i = 0; i < vaBlocks.length; i++) {
+						if (vaBlocks[i].box != null && vaBlocks[i].box.y > voBlock.box.y) {
+							vnAt = i;
+							break;
+						}
+					}
+					vaBlocks.splice(vnAt, 0, voBlock);
+				});
+				if (vaLeft.length > 0) {
+					vaWarnings.push("자리를 정하지 못한 컨트롤 " + vaLeft.length + "개를 제 높이에 한 줄로 넣었습니다.");
+				}
+
+				var vsStackPattern = poOpt.pattern != null && poOpt.pattern != "auto" ? poOpt.pattern : (poRaw.pattern || "P1-1");
+				return {
+					layout : "stack",
+					pattern : vsStackPattern + (poOpt.popup ? "_P" : ""),
+					planner : poOpt.planner || "rule",
+					popup : poOpt.popup === true,
+					title : poRaw.title || poAst.app.title || "",
+					blocks : vaBlocks,
+					footer : voStackFooter,
+					contentWidth : poRaw.contentWidth || poAst.app.canvas.width || 800,
+					model : poAst.app.model || null,
+					warnings : vaWarnings,
+					dropped : [],
+					moved : vaLeft
+				};
 			}
 
 			// ── 조회 조건
@@ -8564,9 +10075,13 @@
 
 			// ── 계획에서 빠진 컨트롤 보충
 			var vaLeftInputs = [];
+			var vaMoved = []; // 제자리를 못 찾아 다른 곳(하단 버튼 · 마지막 폼)으로 옮긴 컨트롤 id
 			poAst.children.forEach(function(poNode) {
 				if (voUsed[poNode.id]) {
 					return;
+				}
+				if (poNode.role != "header" && poNode.role != "label" && poNode.role != "title") {
+					vaMoved.push(poNode.id);
 				}
 				if (poNode.role == "data") {
 					var voCtrl = take(poNode.id, null);
@@ -8631,6 +10146,12 @@
 				}
 				vaWarnings.push("계획에 없던 입력 컨트롤 " + vaLeftInputs.length + "개를 보충했습니다.");
 			}
+			// 끝내 어디에도 들어가지 못한 컨트롤(짝 없는 라벨 · 문단 · 타이틀 UDC) — 템플릿에 맞지 않는다는 신호
+			var vaDropped = poAst.children.filter(function(poNode) {
+				return !voUsed[poNode.id] && poNode.role != "header";
+			}).map(function(poNode) {
+				return poNode.id;
+			});
 
 			// ── 패턴 · 배치
 			var vsPattern = poOpt.pattern != null && poOpt.pattern != "auto" ? poOpt.pattern : poRaw.pattern;
@@ -8684,7 +10205,9 @@
 				footer : voFooter,
 				// API 연동 데이터 모델(DataSet · DataMap · Submission). 직렬화기가 <cl:model> 에 넣는다.
 				model : poAst.app.model || null,
-				warnings : vaWarnings
+				warnings : vaWarnings,
+				dropped : vaDropped,
+				moved : vaMoved
 			};
 		};
 

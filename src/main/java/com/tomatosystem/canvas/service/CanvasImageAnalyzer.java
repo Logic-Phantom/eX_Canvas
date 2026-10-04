@@ -44,7 +44,7 @@ import org.json.JSONObject;
  */
 public final class CanvasImageAnalyzer {
 
-	static final String DEFAULT_MODEL = "gemini-2.5-flash";
+	static final String DEFAULT_MODEL = "gemini-3.5-flash";
 	static final String DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com";
 	static final String API_VERSION = "v1beta";
 	static final String PROMPT_RESOURCE = "canvas/prompts/image-items.txt";
@@ -360,10 +360,13 @@ public final class CanvasImageAnalyzer {
 		}
 		JSONObject itemProps = new JSONObject();
 		itemProps.put("type", typeEnum.length() > 0 ? new JSONObject().put("type", "STRING").put("enum", typeEnum) : new JSONObject().put("type", "STRING"));
+		itemProps.put("variant", new JSONObject().put("type", "STRING").put("enum", new JSONArray().put("title").put("heading").put("desc").put("notice").put("label")));
 		itemProps.put("text", new JSONObject().put("type", "STRING"));
 		itemProps.put("box", new JSONObject().put("type", "ARRAY").put("items", new JSONObject().put("type", "INTEGER")));
 		itemProps.put("style", new JSONObject().put("type", "STRING").put("enum", new JSONArray().put("primary").put("secondary").put("default")));
 		itemProps.put("required", new JSONObject().put("type", "BOOLEAN"));
+		itemProps.put("cells", new JSONObject().put("type", "STRING"));
+		itemProps.put("widths", new JSONObject().put("type", "STRING"));
 		JSONObject item = new JSONObject().put("type", "OBJECT").put("properties", itemProps).put("required", new JSONArray().put("type").put("box"));
 		JSONObject props = new JSONObject();
 		props.put("pattern", new JSONObject().put("type", "STRING"));
@@ -533,34 +536,49 @@ public final class CanvasImageAnalyzer {
 			"너는 토마토시스템 eXBuilder6 화면 설계 보조자다.",
 			"사용자가 준 화면 이미지(캡처 · 디자인 시안 · 손그림)를 보고, 화면 본문에 보이는 UI 요소를 eXBuilder6 컨트롤 목록(JSON)으로 옮긴다.",
 			"XML 이나 코드, 설명 문장은 쓰지 않는다. 아래 모양의 JSON 객체 하나만 돌려준다(마크다운 펜스 없이).",
-			"{\"pattern\":\"P1-1\",\"reason\":\"한 문장\",\"title\":\"화면 제목\",\"items\":[{\"type\":\"output\",\"text\":\"라벨\",\"box\":[ymin,xmin,ymax,xmax],\"style\":\"default\",\"required\":false}]}",
+			"{\"pattern\":\"P1-1\",\"reason\":\"한 문장\",\"title\":\"화면 제목\",\"items\":[{\"type\":\"output\",\"variant\":\"label\",\"text\":\"라벨\",\"box\":[ymin,xmin,ymax,xmax],\"style\":\"default\",\"required\":false}]}",
 			"",
-			"[요소] { type, text, box, style, required }",
+			// ↓ 브라우저 직접 호출(imagePlanner.SYSTEM_TEXT)과 같은 내용이어야 한다.
+			"[요소] { type, variant, text, box, style, required, cells, widths }",
 			"- box : 정수 4개 [ymin, xmin, ymax, xmax]. 이미지의 가로·세로를 각각 0~1000 으로 본 좌표이며 요소가 실제로 차지하는 사각형이다.",
-			"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액) ·",
+			"- type : output(라벨·제목·안내 글) · button · inputbox(글상자, 읽기 전용 값 표시 포함) · combobox(드롭다운) · dateinput(날짜) · numbereditor(숫자·금액·스핀) ·",
 			"  maskeditor(전화·사업자번호처럼 형식 있는 입력) · searchinput(돋보기 검색 상자) · checkbox(체크 1개) · checkboxgroup(체크 여러 개 묶음) · radiobutton(라디오 묶음) ·",
-			"  listbox · textarea(여러 줄 글상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
+			"  listbox · textarea(여러 줄 글상자 · 코드/로그/결과 표시 상자) · slider · fileinput(파일 선택 한 줄) · img(이미지·로고·사진) · htmlsnippet · progress ·",
 			"  grid(표·목록) · tree(트리) · tabfolder(탭) · accordion · group(빈 상자·카드 틀) · pageindexer(페이지 번호 줄) · calendar(달력) ·",
 			"  fileupload(파일 목록 업로드 영역) · embeddedpage(외부 페이지·iframe) · embeddedapp · uicontrolshell(차트·지도·에디터 같은 서드파티 영역).",
+			"- variant : output 에만. title(화면 맨 위 화면 제목) · heading(구획·영역의 제목, 표 위 제목 — 굵거나 큰 글자) ·",
+			"  desc(설명·안내 문단) · notice(테두리·배경색 상자 안에 든 안내 문단) · label(입력 옆 라벨 · 짧은 글자).",
 			"- text : 유형별 뜻 — output/button/inputbox/textarea: 보이는 글자 · checkbox: 문구 · combobox/radiobutton/checkboxgroup/listbox: 항목을 쉼표로 ·",
 			"  grid: 표 헤더를 왼쪽부터 쉼표로 · tabfolder: 탭 이름을 쉼표로 · accordion: 섹션 제목을 쉼표로 · maskeditor: 마스크 · 그 밖: 빈 문자열.",
 			"  글자는 보이는 그대로 적는다(번역·요약·추측하지 않는다). 안 보이면 비운다. 설명이나 이유를 값에 적지 않는다.",
 			"- style : button 에만. 채워진 강조색(파랑·진한색) 버튼 = primary, 흰·회색 바탕의 보통 버튼 = secondary, 모르면 default.",
 			"- required : output(라벨) 에만. 라벨에 * 나 빨간 필수 표시가 있으면 true 로 하고 text 에서 * 는 뺀다.",
+			"- cells : grid 에만. 첫 데이터 행에서 열마다 보이는 컨트롤을 왼쪽부터 쉼표로 — text(글자만) · checkbox · inputbox · combobox · numbereditor · dateinput · button.",
+			"  button 은 \"button:버튼글자\" 로 적는다(예: \"text,checkbox,button:실행\"). 데이터 행이 없으면 모두 text.",
+			"- widths : grid 에만. 열마다 화면에서 차지하는 폭의 비율을 왼쪽부터 정수로 쉼표로 적는다(합이 100 쯤, 예: \"10,30,60\").",
 			"",
 			"[규칙]",
-			"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서는 뺀다.",
-			"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 헤더 글자를 text 에 쉼표로 적는다. 데이터 행은 요소가 아니다.",
-			"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer. '총 0건' 같은 건수 표시와 아이콘은 뺀다.",
+			"1. 화면 본문의 요소만 옮긴다. 브라우저 틀 · 상단 메뉴 · 좌측 네비게이션 · 워터마크 · 툴팁 · 마우스 커서 · 즐겨찾기 같은 아이콘은 뺀다.",
+			"2. 표(그리드)는 표 전체를 grid 하나로 옮긴다(셀·행을 따로 만들지 않는다). 데이터 행은 요소가 아니다.",
+			"   헤더는 왼쪽부터 모든 열을 빠짐없이 적는다. 헤더 글자가 없는 열(번호 · 체크 열)도 빈 칸으로 자리를 남긴다(예: \",이벤트/함수명,설명,동작\").",
+			"   표의 맨 윗줄(헤더 줄 · 보통 회색 바탕이고 바로 아래부터 데이터 행)에 있는 글자는 맨 왼쪽 칸까지 모두 헤더다. 헤더 글자를 output 으로 다시 만들지 않는다.",
+			"   표의 box 는 헤더 줄부터 시작해 표 테두리의 맨 아래(데이터 행 아래의 빈 영역 · 가로 스크롤 줄까지)에서 끝난다. 헤더 줄과 같은 높이에 있는 글자를 표 위 제목으로 떼어 내지 않는다.",
+			"   cells · widths 는 헤더와 같은 개수로 적는다.",
+			"3. 표 위에 붙은 제목 글자와 버튼 묶음은 각각 output(variant heading) · button 으로 표 바로 위에 둔다. 표 아래의 페이지 번호 줄은 pageindexer. '총 0건' 같은 건수 표시와 아이콘은 뺀다.",
 			"4. 조회 조건은 라벨 output + 입력 컨트롤로 각각 옮기고, 라벨은 입력의 왼쪽(또는 바로 위)에 둔다.",
 			"   '시작 ~ 끝' 기간은 입력 2개 사이에 text 가 \"~\" 인 output 을 하나 둔다.",
 			"5. 탭폴더는 탭 머리와 내용 영역을 합친 사각형 하나로 두고, 탭 안의 표·입력은 그 사각형 안의 좌표로 따로 적는다.",
 			"6. 두 표 사이의 이동 버튼(▶ ◀ ▼ ▲ > <)은 button 으로 두고 text 에는 화살표만 적는다.",
 			"7. 요소끼리 겹치지 않게, 이미지의 위치·크기 비율을 그대로 지킨다. 같은 줄의 요소는 ymin 이 거의 같아야 한다.",
 			"8. 라벨과 입력이 한 상자로 붙어 있어도 라벨(output)과 입력을 따로 나눈다. 입력 안의 자리 표시 글자(placeholder)는 text 에 넣지 않는다.",
-			"9. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것의 id 를 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
-			"10. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로.",
-			"11. 같은 문장을 두 번 쓰고 있다면 즉시 멈추고 JSON 을 닫는다.");
+			"9. 여러 줄로 이어진 설명·안내 문단은 output 하나로 옮기고 text 에는 줄마다 줄바꿈(\\n)을 넣어 이미지의 줄 그대로 적는다. box 는 문단 전체다.",
+			"   문단을 둘러싼 테두리(실선·점선)나 배경색 상자가 있으면 그 문단의 variant 를 notice 로 하고 box 는 상자 전체로 한다. 빈 줄로 나뉜 문단도 같은 상자 안이면 한 output 이다.",
+			"10. 코드·로그·결과를 보여 주는 큰 상자(비어 있어도 · 이미지 아래 끝에서 잘려 있어도)는 textarea 로 옮기고, 그 상자 위·안쪽 모서리의 복사 같은 버튼은 button 으로 따로 둔다.",
+			"    복사 · 지우기 버튼이 붙은 테두리 상자(안이 비어 있어도)는 장식이 아니라 textarea 다. 이미지 가장자리에서 잘린 요소도 보이는 만큼 옮긴다.",
+			"11. 영역을 감싸기만 하는 장식 테두리·배경 상자는 요소로 만들지 않는다(안의 요소만 옮긴다).",
+			"12. pattern 은 [템플릿 카탈로그] 에서 화면 구성이 가장 비슷한 것의 id 를 고르고 reason 에 한 문장으로 이유를 적는다. title 은 화면 제목(보이면).",
+			"13. 화면 맨 아래 버튼 줄(저장 · 닫기 등)은 button 으로 맨 아래에 그대로 둔다. 좌·우 위치도 이미지대로.",
+			"14. 같은 문장을 두 번 쓰고 있다면 즉시 멈추고 JSON 을 닫는다.");
 
 	static final class EncodedImage {
 		final byte[] bytes;

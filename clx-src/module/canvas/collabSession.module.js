@@ -55,7 +55,7 @@ var mnRetry = 0;
 var mnRetryTimer = 0;
 var mnSyncTimer = 0;
 
-var FIELDS = ["uid", "type", "id", "text", "x", "y", "w", "h", "style", "bind"];
+var FIELDS = ["uid", "type", "id", "text", "x", "y", "w", "h", "style", "bind", "meta"];
 
 function handler(psName) {
 	return typeof moHandlers[psName] == "function" ? moHandlers[psName] : function() {
